@@ -174,8 +174,6 @@ classdef MyPolygon < handle
         
             obj.r_cm_world=PolygonMath.solid_body_position...
             (obj.position,obj.theta,obj.r_cm_body);
-        
-            obj.update_world_frame_normals();
         end
         
         %this function updates plist_current for a new position
