@@ -9,6 +9,7 @@ classdef MyPolygon < handle
     
     %n_points is the number of vertice in the polygon
     %plist is the set of vertices of the polygon in its base state
+    %plist should be a 2xN array
     %r_cm_body is the position of the center of mass (body frame)
     %frame_rotation is the rotation matrix mapping the base orientation
     %to the current orientation
@@ -28,9 +29,14 @@ classdef MyPolygon < handle
     %outward facing if the vertices are listed in counterclockwise order
     %normal_list_current is the list of unit normal for each edge in the
     %world frame
+    %tangent_list is the list of unit tangents for each of the edges of the
+    %polygon (in the body frame). Tangent i points from vertex i to i+1
+    %tangent_list_current is the list of unit tangents for each of the
+    %edges of the polygon (in the world frame). Tangent i points from
+    %vertex i to i+1
     properties
-        plist;
-        
+        plist; 
+   
         frame_rotation;
         position;
         velocity;
@@ -41,7 +47,13 @@ classdef MyPolygon < handle
         body_draw;
         n_points;
         
+        
+        %If two consecutive vertices in plist are the same
+        %then the corresponding normal and tangents are 0!
+        %I also assume that the polygon is closed, so that the first vertex
+        %is also the n+1'th vertex (n total vertices)
         normal_list;
+        tangent_list;
         
         r_cm_body;
         
@@ -53,7 +65,9 @@ classdef MyPolygon < handle
         vlist_current;
         alist_current;
         
+        
         normal_list_current;
+        tangent_list_current;
     end
         
     methods
@@ -76,19 +90,39 @@ classdef MyPolygon < handle
             obj.update_body_frame_normals();
         end
         
-        %this function updates the directions of the normals of the polygon
-        %in the body frame
+        %this function updates the directions of the tangents and normals 
+        %of the polygon in the body frame
         %given the list of vertices of the polygon.
-        function update_body_frame_normals(obj)
+        function update_body_frame_normals_and_tangents(obj)
             
+            temp_tangents=diff([obj.plist,obj.plist(:,1)],1,2);
+            tangent_lengths=sqrt(sum(temp_tangents.^2,2));
+            
+            for count=1:length(tangent_lengths)
+                if(tangent_lengths(count)==0)
+                    temp_tangents(:,count)=temp_tangents(:,count)*0;
+                else
+                    temp_tangents(:,count)=temp_tangents(:,count)/tangent_lengths(count);
+                end
+            end
+            
+            obj.tangent_list=temp_tangents;
+            
+            Q=[0,-1;1,0];
+            
+            obj.normal_list=Q*obj.tangent_list;
         end
         
-        %this function updates the directions of the normals of the polygon
-        %in the world frame
+        %this function updates the directions of the tangents and normals 
+        %of the polygon in the world frame
         %given the list of vertices of the polygon, and its orientation
         %in the world frame
-        function update_world_frame_normals(obj)
-            
+        function update_world_frame_normals_and_tangents(obj)
+            obj.tangent_list_current=PolygonMath.rigid_body_position...
+            ([0;0],obj.theta,obj.tangent_list);
+        
+            obj.normal_list_current=PolygonMath.rigid_body_position...
+            ([0;0],obj.theta,obj.normal_list);
         end
         
         %this function updates the location of the center of mass
@@ -169,32 +203,32 @@ classdef MyPolygon < handle
         %this function updates plist_current for a new position
         %as well as the center of mass location in the world frame
         function update_current_points(obj)
-            obj.plist_current=PolygonMath.solid_body_position...
+            obj.plist_current=PolygonMath.rigid_body_position...
             (obj.position,obj.theta,obj.plist);
         
-            obj.r_cm_world=PolygonMath.solid_body_position...
+            obj.r_cm_world=PolygonMath.rigid_body_position...
             (obj.position,obj.theta,obj.r_cm_body);
         
-            obj.update_world_frame_normals();
+            obj.update_world_frame_normals_and_tangents();
         end
         
         %this function updates plist_current for a new position
         %as well as the center of mass velocity in the world frame
         function update_current_velocities(obj)
-            obj.vlist_current=PolygonMath.solid_body_velocity...
+            obj.vlist_current=PolygonMath.rigid_body_velocity...
             (obj.velocity,obj.theta,obj.omega,obj.plist);
         
-            obj.v_cm_world=PolygonMath.solid_body_velocity...
+            obj.v_cm_world=PolygonMath.rigid_body_velocity...
             (obj.velocity,obj.theta,obj.omega,obj.r_cm_body);
         end
         
         %this function updates plist_current for a new position
         %as well as the center of mass velocity in the world frame
         function update_current_accelerations(obj)
-            obj.alist_current=PolygonMath.solid_body_acceleration...
+            obj.alist_current=PolygonMath.rigid_body_acceleration...
             (obj.acceleration,obj.theta,obj.omega,obj.alpha,obj.plist);
         
-            obj.a_cm_world=PolygonMath.solid_body_acceleration...
+            obj.a_cm_world=PolygonMath.rigid_body_acceleration...
             (obj.acceleration,obj.theta,obj.omega,obj.alpha,obj.r_cm_body);
         end
     end
