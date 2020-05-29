@@ -19,7 +19,6 @@ classdef MyPolygon < handle
     %theta is the angle of the rigid body
     %omega is the angular velocity of the rigid body
     %alpha is the angular acceleration of the rigid body
-    %body_draw is the plot of the rigid body
     %r_cm_world is the position of the center of mass (world frame)
     %v_cm_world is the velocity of the center of mass of (world frame)
     %a_cm_world is the acceleartion of the center of mass (world frame)
@@ -34,6 +33,8 @@ classdef MyPolygon < handle
     %tangent_list_current is the list of unit tangents for each of the
     %edges of the polygon (in the world frame). Tangent i points from
     %vertex i to i+1
+    %body_draw is the plot of the vertices and edges of the polygon
+    %body_draw_COM is the plot of the COM of the polygon
     properties
         plist; 
    
@@ -44,9 +45,11 @@ classdef MyPolygon < handle
         theta;
         omega;
         alpha;
-        body_draw;
         n_points;
         
+        
+        body_draw;
+        body_draw_COM;
         
         %If two consecutive vertices in plist are the same
         %then the corresponding normal and tangents are 0!
@@ -74,7 +77,7 @@ classdef MyPolygon < handle
         %this function initializes the object
         %body_curve is the parametric curve representing the body
         %n_points is the number of points used to draw the body
-        function obj= ButterflyRigidBody(plist, r_cm_body)
+        function obj= MyPolygon(plist, r_cm_body)
             s=size(plist);
             
             obj.plist=plist;
@@ -82,6 +85,33 @@ classdef MyPolygon < handle
             obj.n_points=s(2);
             
             obj.base_state();
+            obj.update_current_points();
+            
+        end
+        
+        %Creates the plots used to represent the polygon for the first time
+        function initialize_visualization(obj)
+            obj.body_draw=line(...
+                'XData',[obj.plist_current(1,:),obj.plist_current(1,1)],...
+                'YData',[obj.plist_current(2,:),obj.plist_current(2,1)],...
+                'color','b','linewidth',2,'Marker','o',...
+                'Markerfacecolor','k','Markeredgecolor','k','markersize',3);
+            
+            obj.body_draw_COM=line(...
+                'XData',obj.r_cm_world(1,1),...
+                'YData',obj.r_cm_world(2,1),...
+                'LineStyle ','none','Marker','o',...
+                'Markerfacecolor','r','Markeredgecolor','r','markersize',6);
+        end
+        
+        %Updates the plot given the current state of the polygon
+        function update_visualization(obj)
+            set(obj.body_draw,...
+                'XData',[obj.plist_current(1,:),obj.plist_current(1,1)],...
+                'YData',[obj.plist_current(2,:),obj.plist_current(2,1)]);
+            set(obj.body_draw_COM,...
+                'XData',obj.r_cm_world(1,1),...
+                'YData',obj.r_cm_world(2,1));
         end
         
         %this function updates the location of the polygon vertices

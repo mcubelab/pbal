@@ -10,6 +10,7 @@ classdef PolygonRigidBody < handle
         AngularMomentumCOM; %Angluar memomentum of the rigid body taken
                             %with respect to the center of mass
         
+        
     end
     
     methods
@@ -17,15 +18,6 @@ classdef PolygonRigidBody < handle
             
         end
         
-        %Creates the plots used to represent the polygon for the first time
-        function initialize_visualization(obj)
-            obj.LocalPolygon.initialize_visualization();
-        end
-        
-        %Updates the plot given the current state of the polygon
-        function update_visualization(obj)
-            obj.LocalPolygon.update_visualization();
-        end
         
         %this function updates the location of the polygon vertices
         function update_plist(obj,plist)
@@ -46,8 +38,6 @@ classdef PolygonRigidBody < handle
         %this function sets the state of the rigid body
         function set_state(obj,p,v,a,theta,omega,alpha)
             obj.LocalPolygon.set_state(p,v,a,theta,omega,alpha);
-            
-            obj.update_momentum();
         end
         
         %this function gets the state of the rigid body
@@ -68,11 +58,6 @@ classdef PolygonRigidBody < handle
             obj.AngularMomentumCOM=obj.LocalPolygon.omega*obj.MoI;
         end
         
-        function [LM,AM]=get_momentum(obj)
-            LM=obj.LinearMomentum;
-            AM=obj.AngularMomentumCOM;
-        end
-        
         %this function sets the value of postion and theta
         function set_p_and_theta(obj,p,theta)
             obj.LocalPolygon.set_p_and_theta(p,theta);
@@ -87,7 +72,6 @@ classdef PolygonRigidBody < handle
         %this function sets the value of velocity and omega
         function set_v_and_omega(obj,v,omega)
             obj.LocalPolygon.set_v_and_omega(v,omega);
-            obj.update_momentum();
         end
         
         %this function gets the value of velocity and omega

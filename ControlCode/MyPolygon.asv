@@ -19,7 +19,6 @@ classdef MyPolygon < handle
     %theta is the angle of the rigid body
     %omega is the angular velocity of the rigid body
     %alpha is the angular acceleration of the rigid body
-    %body_draw is the plot of the rigid body
     %r_cm_world is the position of the center of mass (world frame)
     %v_cm_world is the velocity of the center of mass of (world frame)
     %a_cm_world is the acceleartion of the center of mass (world frame)
@@ -34,6 +33,9 @@ classdef MyPolygon < handle
     %tangent_list_current is the list of unit tangents for each of the
     %edges of the polygon (in the world frame). Tangent i points from
     %vertex i to i+1
+    %body_draw_edges is the plot of the edges of the polygon
+    %body_draw_vertices is the plot of the vertices of the polygon
+    %body_draw_COM is the plot of the COM of the polygon
     properties
         plist; 
    
@@ -44,9 +46,12 @@ classdef MyPolygon < handle
         theta;
         omega;
         alpha;
-        body_draw;
         n_points;
         
+        
+        body_draw_edges;
+        body_draw_vertices;
+        body_draw_COM;
         
         %If two consecutive vertices in plist are the same
         %then the corresponding normal and tangents are 0!
@@ -74,7 +79,7 @@ classdef MyPolygon < handle
         %this function initializes the object
         %body_curve is the parametric curve representing the body
         %n_points is the number of points used to draw the body
-        function obj= ButterflyRigidBody(plist, r_cm_body)
+        function obj= MyPolygon(plist, r_cm_body)
             s=size(plist);
             
             obj.plist=plist;
@@ -82,6 +87,15 @@ classdef MyPolygon < handle
             obj.n_points=s(2);
             
             obj.base_state();
+            obj.update_current_points();
+            
+        end
+        
+        %Creates the plots used to represent the polygon for the first time
+        function initialize_visualization(obj)
+            obj.body_draw_edges=line('XData',[obj.plist_current(1,:),,obj.plist_current(1,1)]...
+                'YData',[obj.plist_current(2,:),obj.plist_current(2,1)],...
+                ,'color','b','linewidth',2);
         end
         
         %this function updates the location of the polygon vertices
@@ -90,8 +104,8 @@ classdef MyPolygon < handle
             obj.update_body_frame_normals();
         end
         
-        %this function updates the directions of the normals of the polygon
-        %in the body frame
+        %this function updates the directions of the tangents and normals 
+        %of the polygon in the body frame
         %given the list of vertices of the polygon.
         function update_body_frame_normals_and_tangents(obj)
             
@@ -106,15 +120,23 @@ classdef MyPolygon < handle
                 end
             end
             
+            obj.tangent_list=temp_tangents;
             
+            Q=[0,-1;1,0];
+            
+            obj.normal_list=Q*obj.tangent_list;
         end
         
-        %this function updates the directions of the normals of the polygon
-        %in the world frame
+        %this function updates the directions of the tangents and normals 
+        %of the polygon in the world frame
         %given the list of vertices of the polygon, and its orientation
         %in the world frame
         function update_world_frame_normals_and_tangents(obj)
-            
+            obj.tangent_list_current=PolygonMath.rigid_body_position...
+            ([0;0],obj.theta,obj.tangent_list);
+        
+            obj.normal_list_current=PolygonMath.rigid_body_position...
+            ([0;0],obj.theta,obj.normal_list);
         end
         
         %this function updates the location of the center of mass
@@ -195,10 +217,10 @@ classdef MyPolygon < handle
         %this function updates plist_current for a new position
         %as well as the center of mass location in the world frame
         function update_current_points(obj)
-            obj.plist_current=PolygonMath.solid_body_position...
+            obj.plist_current=PolygonMath.rigid_body_position...
             (obj.position,obj.theta,obj.plist);
         
-            obj.r_cm_world=PolygonMath.solid_body_position...
+            obj.r_cm_world=PolygonMath.rigid_body_position...
             (obj.position,obj.theta,obj.r_cm_body);
         
             obj.update_world_frame_normals_and_tangents();
@@ -207,20 +229,20 @@ classdef MyPolygon < handle
         %this function updates plist_current for a new position
         %as well as the center of mass velocity in the world frame
         function update_current_velocities(obj)
-            obj.vlist_current=PolygonMath.solid_body_velocity...
+            obj.vlist_current=PolygonMath.rigid_body_velocity...
             (obj.velocity,obj.theta,obj.omega,obj.plist);
         
-            obj.v_cm_world=PolygonMath.solid_body_velocity...
+            obj.v_cm_world=PolygonMath.rigid_body_velocity...
             (obj.velocity,obj.theta,obj.omega,obj.r_cm_body);
         end
         
         %this function updates plist_current for a new position
         %as well as the center of mass velocity in the world frame
         function update_current_accelerations(obj)
-            obj.alist_current=PolygonMath.solid_body_acceleration...
+            obj.alist_current=PolygonMath.rigid_body_acceleration...
             (obj.acceleration,obj.theta,obj.omega,obj.alpha,obj.plist);
         
-            obj.a_cm_world=PolygonMath.solid_body_acceleration...
+            obj.a_cm_world=PolygonMath.rigid_body_acceleration...
             (obj.acceleration,obj.theta,obj.omega,obj.alpha,obj.r_cm_body);
         end
     end
