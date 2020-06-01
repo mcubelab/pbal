@@ -1,3 +1,5 @@
+% TODO: Test this code!
+
 classdef PointContact < handle
     
     properties
