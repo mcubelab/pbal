@@ -13,8 +13,10 @@ classdef PolygonRigidBody < handle
     end
     
     methods
-        function obj=PolygonRigidBody()
-            
+        function obj=PolygonRigidBody(plist, r_cm_body, m, I)
+            obj.Mass=m;
+            obj.MoI=I;
+            obj.LocalPolygon=MyPolygon(plist, r_cm_body);
         end
         
         %Creates the plots used to represent the polygon for the first time

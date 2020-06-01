@@ -80,7 +80,7 @@ classdef MyPolygon < handle
         function obj= MyPolygon(plist, r_cm_body)
             s=size(plist);
             
-            obj.plist=plist;
+            obj.update_plist(plist);
             obj.r_cm_body=r_cm_body;
             obj.n_points=s(2);
             
@@ -100,7 +100,7 @@ classdef MyPolygon < handle
             obj.body_draw_COM=line(...
                 'XData',obj.r_cm_world(1,1),...
                 'YData',obj.r_cm_world(2,1),...
-                'LineStyle ','none','Marker','o',...
+                'Marker','o',...
                 'Markerfacecolor','r','Markeredgecolor','r','markersize',6);
         end
         
@@ -117,7 +117,7 @@ classdef MyPolygon < handle
         %this function updates the location of the polygon vertices
         function update_plist(obj,plist)
             obj.plist=plist;
-            obj.update_body_frame_normals();
+            obj.update_body_frame_normals_and_tangents();
         end
         
         %this function updates the directions of the tangents and normals 
@@ -181,6 +181,8 @@ classdef MyPolygon < handle
             obj.omega=omega;
             obj.alpha=alpha;
             obj.frame_rotation=PolygonMath.theta_to_rotmat(obj.theta);
+            
+            obj.update_current_points();
         end
         
         %this function gets the state of the rigid body
@@ -198,6 +200,8 @@ classdef MyPolygon < handle
             obj.position=p;
             obj.theta=theta;
             obj.frame_rotation=PolygonMath.theta_to_rotmat(obj.theta);
+            
+            obj.update_current_points();
         end
         
         %this function gets the value of postion and theta
