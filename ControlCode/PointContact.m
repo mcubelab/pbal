@@ -55,8 +55,7 @@ classdef PointContact < handle
             
         end
         
-        % This function generates the linear constraints on kinematically feasible
-        % velocities in the contact frame
+        % This function generates the constraints on velocities in the contact frame
         % Outputs:
         %    Aeq, beq: such that Aeq * vc = beq
         %    Aiq, biq: such that Aiq * vc >= biq
