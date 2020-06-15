@@ -35,7 +35,10 @@ classdef MyPolygon < handle
     %vertex i to i+1
     %body_draw is the plot of the vertices and edges of the polygon
     %body_draw_COM is the plot of the COM of the polygon
+    %rigid_body_index is the id of the rigid body within 
+    %the simulation environment
     properties
+        
         plist; 
    
         frame_rotation;
@@ -264,6 +267,15 @@ classdef MyPolygon < handle
         
             obj.a_cm_world=PolygonMath.rigid_body_acceleration...
             (obj.acceleration,obj.theta,obj.omega,obj.alpha,obj.r_cm_body);
+        end
+        
+        %This function does a simple forward-euler update of the 
+        %positions and velocities of the polygon, given some time step dt
+        function EulerUpdate(obj,dt)
+            obj.position=obj.position+dt*obj.velocity;
+            obj.velocity=obj.velocity+dt*obj.acceleration;
+            obj.theta=obj.theta+dt*obj.omega;
+            obj.omega=obj.omega+dt*obj.alpha;
         end
     end
 end

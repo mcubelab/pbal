@@ -1,5 +1,8 @@
 classdef PolygonRigidBody < handle
     properties
+        rigid_body_index;
+        coord_index;
+        
         Mass; %Mass of the rigid body
         MoI; %Moment of inertia of the rigid body w/respect to the center of mass
         RadiusGyration; %Radius of gyration of the rigid body
@@ -107,6 +110,43 @@ classdef PolygonRigidBody < handle
         function [a,alpha]=get_a_and_alpha(obj)
             a=obj.LocalPolygon.acceleration;
             alpha=obj.LocalPolygon.alpha;
+        end
+        
+        function [x,y,Dx,Dy,Hx,Hy]=rigid_body_position_derivatives(obj,pin)
+            [x,y,Dx,Dy,Hx,Hy]=PolygonMath.rigid_body_position_derivatives(obj.LocalPolygon.position,obj.LocalPolygon.theta,pin);
+        end
+        
+        function [x,y,Dx,Dy,Hx,Hy]=rigid_body_CM_derivatives(obj)
+            [x,y,Dx,Dy,Hx,Hy]=PolygonMath.rigid_body_position_derivatives(obj.LocalPolygon.position,obj.LocalPolygon.theta,obj.LocalPolygon.r_cm_body);
+        end
+        
+        %This function outputs the associated matrix and vector that show
+        %up in the lagrange equation for this rigid body. Specifically, the
+        %lagrange equations will have the form of:
+        %M*AccelVector = V + GeneralizedForces
+        %Where AccelVector = [d2x/dt2;d2y/dt2;alpha]
+        function [M,V] = LagrangeVM(obj)
+%             [~,~,Dx_cm,Dy_cm,Hx_cm,Hy_cm]=PolygonMath.rigid_body_position_derivatives(obj.LocalPolygon.position,obj.LocalPolygon.theta,obj.LocalPolygon.r_cm_body);
+%             [~,~,Dx_cm,Dy_cm,Hx_cm,Hy_cm]=obj.rigid_body_position_derivatives(obj.LocalPolygon.r_cm_body);
+            [~,~,Dx_cm,Dy_cm,Hx_cm,Hy_cm]=obj.rigid_body_CM_derivatives();
+            
+            v_cm=PolygonMath.rigid_body_velocity(obj.LocalPolygon.velocity,obj.LocalPolygon.theta,obj.LocalPolygon.omega,obj.LocalPolygon.r_cm_body);
+            M=obj.Mass*(Dx_cm')*Dx_cm+obj.Mass*(Dy_cm')*Dy_cm+obj.MoI*[0,0,0;0,0,0;0,0,1];
+            
+            Q=[0,-1;1,0];
+            rot_matf=PolygonMath.theta_to_rotmat(obj.LocalPolygon.theta);
+            
+            dGeneralized_dt=[obj.LocalPolygon.velocity;obj.LocalPolygon.omega];
+            M_temp=Hx_cm*dGeneralized_dt*Dx_cm+Hy_cm*dGeneralized_dt*Dy_cm;
+            V1=obj.Mass*(M_temp+M_temp')*dGeneralized_dt;
+            V2=obj.Mass*(v_cm')*(Q*Q*rot_matf*obj.LocalPolygon.r_cm_body*obj.LocalPolygon.omega);
+            V=V2-V1;
+        end
+        
+        %This function does a simple forward-euler update of the 
+        %positions and velocities of the polygon, given some time step dt
+        function EulerUpdate(obj,dt)
+            obj.LocalPolygon.EulerUpdate(dt);
         end
         
 
