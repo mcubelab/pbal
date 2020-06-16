@@ -1,7 +1,9 @@
 classdef PolygonRigidBody < handle
     properties
-        rigid_body_index;
-        coord_index;
+        rigid_body_index; %label of this rigid body within the simulation environments
+        coord_index; %labels of the generalized coords within the sim environemt
+        %coord_index is a list of 3 consecutive numbers 1,2,3 or 4,5,6 etc.
+        %corresponding x,y, theta
         
         Mass; %Mass of the rigid body
         MoI; %Moment of inertia of the rigid body w/respect to the center of mass
@@ -112,10 +114,15 @@ classdef PolygonRigidBody < handle
             alpha=obj.LocalPolygon.alpha;
         end
         
+        %Calls the rigid body derivative function, using the current state
+        %of this polygon rigid body
         function [x,y,Dx,Dy,Hx,Hy]=rigid_body_position_derivatives(obj,pin)
             [x,y,Dx,Dy,Hx,Hy]=PolygonMath.rigid_body_position_derivatives(obj.LocalPolygon.position,obj.LocalPolygon.theta,pin);
         end
         
+        %Calls the rigid body derivative function, using the current state
+        %of this polygon rigid body, assuming that you are looking for the
+        %center of mass information
         function [x,y,Dx,Dy,Hx,Hy]=rigid_body_CM_derivatives(obj)
             [x,y,Dx,Dy,Hx,Hy]=PolygonMath.rigid_body_position_derivatives(obj.LocalPolygon.position,obj.LocalPolygon.theta,obj.LocalPolygon.r_cm_body);
         end
@@ -146,6 +153,8 @@ classdef PolygonRigidBody < handle
         %This function does a simple forward-euler update of the 
         %positions and velocities of the polygon, given some time step dt
         function EulerUpdate(obj,dt)
+            %does an euler step on the associated polyon contained in the
+            %rigid body
             obj.LocalPolygon.EulerUpdate(dt);
         end
         
