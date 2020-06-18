@@ -114,6 +114,24 @@ classdef PolygonRigidBody < handle
             alpha=obj.LocalPolygon.alpha;
         end
         
+        %Calls the rigid_body_position function, using the current state
+        %of this polygon rigid body
+        function pout=rigid_body_position(obj,pin)
+            pout=PolygonMath.rigid_body_position(obj.LocalPolygon.position,obj.LocalPolygon.theta,pin);
+        end
+        
+        %Calls the rigid_body_velocity function, using the current state
+        %of this polygon rigid body
+        function vout=rigid_body_velocity(obj,pin)
+            vout=PolygonMath.rigid_body_velocity(obj.LocalPolygon.velocity,obj.LocalPolygon.theta,obj.LocalPolygon.omega,pin);
+        end
+        
+        %Calls the rigid_body_acceleration function, using the current state
+        %of this polygon rigid body
+        function aout=rigid_body_acceleration(obj,pin)
+            aout=PolygonMath.rigid_body_acceleration(obj.LocalPolygon.acceleration,obj.LocalPolygon.theta,obj.LocalPolygon.omega,obj.LocalPolygon.alpha,pin);
+        end
+        
         %Calls the rigid body derivative function, using the current state
         %of this polygon rigid body
         function [x,y,Dx,Dy,Hx,Hy]=rigid_body_position_derivatives(obj,pin)

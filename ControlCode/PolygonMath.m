@@ -4,7 +4,7 @@ classdef PolygonMath
         %this functions outputs the angle of vector v
         %with respect to the horizontal
         function theta=v_to_theta(v)
-            s=size(v);
+            %s=size(v);
             theta=imag(log(v(1,:)+1i*v(2,:)));
         end
         

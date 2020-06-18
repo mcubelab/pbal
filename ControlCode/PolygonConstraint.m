@@ -10,6 +10,8 @@ classdef PolygonConstraint < handle
         
         pout; %point used in the world frame
     
+        constraint_draw; %plot of the constraint
+        
         constraint_index; %label assigned to this constraint
         num_lagrange_multipliers; %number of lagrange multipliers associated with this constraint (usually 1 or 2)
         
@@ -29,6 +31,84 @@ classdef PolygonConstraint < handle
         function obj=PolygonConstraint()
             obj.ConstraintType=0;
             obj.num_lagrange_multipliers=0;
+        end
+        
+        %Creates the plot used to represent the kinematic constraint for the first time
+        function initialize_visualization(obj)
+            %call the associated initialize_visualization function for each type of
+            %constraint
+            if obj.ConstraintType==0
+                disp('Error: Polygon Constraint Never Initialized');
+            end
+            
+            if obj.ConstraintType==1
+                obj.initialize_visualizationStickingContactOneBody();
+            end
+            
+            if obj.ConstraintType==2
+                obj.initialize_visualizationStickingContactTwoBodies();
+            end
+        end
+        
+        %Creates the plot used to represent the kinematic constraint for the first time
+        %this is specifically for sticking contact with one rigid body, and 1 point in world frame
+        function initialize_visualizationStickingContactOneBody(obj)
+             pout1=obj.rigidBody1.rigid_body_position(obj.pin1);
+            
+             obj.constraint_draw=line(...
+                'XData',[obj.pout(1),pout1(1)],...
+                'YData',[obj.pout(2),pout1(2)],...
+                'color','k','linewidth',1,'Marker','o',...
+                'Markerfacecolor','r','Markeredgecolor','r','markersize',2);
+        end
+        
+        %Creates the plot used to represent the kinematic constraint for the first time
+        %this is specifically for sticking contact between two rigid bodies
+        function initialize_visualizationStickingContactTwoBodies(obj)
+            pout1=obj.rigidBody1.rigid_body_position(obj.pin1);
+            pout2=obj.rigidBody2.rigid_body_position(obj.pin2);
+            
+            obj.constraint_draw=line(...
+                'XData',[pout1(1),pout2(1)],...
+                'YData',[pout1(2),pout2(2)],...
+                'color','k','linewidth',1,'Marker','o',...
+                'Markerfacecolor','r','Markeredgecolor','r','markersize',2);
+        end
+        
+        %Updates the plot of the constraint given the current state of the system
+        function update_visualization(obj)
+            %call the associated update_visualization function for each type of
+            %constraint
+            if obj.ConstraintType==0
+                disp('Error: Polygon Constraint Never Initialized');
+            end
+            
+            if obj.ConstraintType==1
+                obj.update_visualizationStickingContactOneBody();
+            end
+            
+            if obj.ConstraintType==2
+                obj.update_visualizationStickingContactTwoBodies();
+            end
+        end
+        
+        %Updates the plot of the constraint given the current state of the system
+        %this is specifically for sticking contact with one rigid body, and 1 point in world frame
+        function update_visualizationStickingContactOneBody(obj)
+            pout1=obj.rigidBody1.rigid_body_position(obj.pin1);
+            
+            set(obj.constraint_draw,'XData',[obj.pout(1),pout1(1)],...
+                                    'YData',[obj.pout(2),pout1(2)]);
+        end
+        
+        %Updates the plot of the constraint given the current state of the system
+        %this is specifically for sticking contact between two rigid bodies
+        function update_visualizationStickingContactTwoBodies(obj)
+            pout1=obj.rigidBody1.rigid_body_position(obj.pin1);
+            pout2=obj.rigidBody2.rigid_body_position(obj.pin2);
+            
+            set(obj.constraint_draw,'XData',[pout1(1),pout2(1)],...
+                                    'YData',[pout1(2),pout2(2)]);
         end
         
         %stores information associated with a sticking contact between a
@@ -71,10 +151,10 @@ classdef PolygonConstraint < handle
         %where q is the vector of generalized coordinates, B is a vector
         %associated with the quadratic velocity terms that appear when the
         %constraint is differentiated twice with respect to time
-        %numLagrange is the total number of lagrange multipliers in the
+        %numCoords is the total number of generalized coords in the
         %simulation environment, which is needed to determine width of the
         %A matrix!
-        function [A,B] = generateBlock(obj,numLagrange)
+        function [A,B,ConstraintError] = generateBlock(obj,numCoords)
             
             %call the associated generateBlock function for each type of
             %constraint
@@ -83,30 +163,30 @@ classdef PolygonConstraint < handle
             end
             
             if obj.ConstraintType==1
-                [A,B] = obj.generateBlockStickingContactOneBody(numLagrange);
+                [A,B,ConstraintError] = obj.generateBlockStickingContactOneBody(numCoords);
             end
             
             if obj.ConstraintType==2
-                [A,B] = obj.generateBlockStickingContactTwoBodies(numLagrange);
+                [A,B,ConstraintError] = obj.generateBlockStickingContactTwoBodies(numCoords);
             end
         end
         
         
-         %this builds the linear equation associated with the acceleration
+        %this builds the linear equation associated with the acceleration
         %form of the kinematic constraints, i.e
         %A(q,dq/dt)*d^2q/dt^2=B(q,dq/dt)
         %where q is the vector of generalized coordinates, B is a vector
         %associated with the quadratic velocity terms that appear when the
         %constraint is differentiated twice with respect to time
-        %numLagrange is the total number of lagrange multipliers in the
+        %numCoords is the total number of generalized coords in the
         %simulation environment, which is needed to determine width of the
         %A matrix!
         
         %this is specifically for sticking contact with one rigid body, and 1 point in world frame
-        function [A,B] = generateBlockStickingContactOneBody(obj,numLagrange)
+        function [A,B,ConstraintError] = generateBlockStickingContactOneBody(obj,numCoords)
             [x1,y1,Dx1,Dy1,Hx1,Hy1]=obj.rigidBody1.rigid_body_position_derivatives(obj.pin1);
            
-            A=zeros(2,numLagrange);
+            A=zeros(2,numCoords);
             %the A matrix is built from the gradients of the x and y
             %coordinates of the material point that we care about, where we
             %place those gradients in their correct indices in the A matrix
@@ -122,6 +202,8 @@ classdef PolygonConstraint < handle
             
             B(1)=-V1'*Hx1*V1;
             B(2)=-V1'*Hy1*V1;
+            
+            ConstraintError=[x1-obj.pout(1);y1-obj.pout(2)];
         end
         
         %this builds the linear equation associated with the acceleration
@@ -130,17 +212,17 @@ classdef PolygonConstraint < handle
         %where q is the vector of generalized coordinates, B is a vector
         %associated with the quadratic velocity terms that appear when the
         %constraint is differentiated twice with respect to time
-        %numLagrange is the total number of lagrange multipliers in the
+        %numCoords is the total number of lagrange multipliers in the
         %simulation environment, which is needed to determine width of the
         %A matrix!
         
         %this is specifically for sticking contact between two rigid bodies
-        function [A,B] = generateBlockStickingContactTwoBodies(obj,numLagrange)
+        function [A,B,ConstraintError] = generateBlockStickingContactTwoBodies(obj,numCoords)
             [x1,y1,Dx1,Dy1,Hx1,Hy1]=obj.rigidBody1.rigid_body_position_derivatives(obj.pin1);
             [x2,y2,Dx2,Dy2,Hx2,Hy2]=obj.rigidBody2.rigid_body_position_derivatives(obj.pin2);
             
             
-            A=zeros(2,numLagrange);
+            A=zeros(2,numCoords);
              %the A matrix is built from the gradients of the x and y
             %coordinates of the material point that we care about, where we
             %place those gradients in their correct indices in the A matrix
@@ -162,7 +244,10 @@ classdef PolygonConstraint < handle
             
             B(1)=-V1'*Hx1*V1+V2'*Hx2*V2;
             B(2)=-V1'*Hy1*V1+V2'*Hy2*V2;
+            
+            ConstraintError=[x1-x2;y1-y2];
         end
+        
         
     end
     

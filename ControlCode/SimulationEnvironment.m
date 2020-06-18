@@ -168,7 +168,7 @@ classdef SimulationEnvironment < handle
             for n=1:obj.num_constraints
                 CurrentConstraint=obj.constraint_list{n};
                 for m=1:CurrentConstraint.num_lagrange_multipliers
-                    [A,B]=CurrentConstraint.generateBlock(obj.num_lagrange_multipliers);
+                    [A,B,~]=CurrentConstraint.generateBlock(obj.num_coordinates);
                     BigMatrixA(obj.num_coordinates+CurrentConstraint.lagrange_multiplier_index,:)=A;
                     BigVectorB(obj.num_coordinates+CurrentConstraint.lagrange_multiplier_index)=B;
                 end
@@ -188,10 +188,7 @@ classdef SimulationEnvironment < handle
             
             %assign the solved accelerations to the associated
             %accelerations of the rigid bodies
-            for n=1:obj.num_bodies
-                AccelVals=AccelVector(obj.rigid_body_list{n}.coord_index);
-                obj.rigid_body_list{n}.set_a_and_alpha(AccelVals(1:2),AccelVals(3));
-            end
+            obj.assign_acceleration_vector(AccelVector);
         end
         
         %This function does a simple forward-euler update of the 
@@ -204,8 +201,18 @@ classdef SimulationEnvironment < handle
             end
         end
         
+        %This function initializes the plots of each of the rigid bodies
+        %and kinematic constraints
         function initialize_visualization(obj)
+            %iterate through each rigid body, and initialize the visualization
+            for n=1:obj.num_bodies
+                obj.rigid_body_list{n}.initialize_visualization();
+            end
             
+            %iterate through each constraint, and initialize the visualization
+            for n=1:obj.num_constraints
+                obj.constraint_list{n}.initialize_visualization();
+            end
         end
         
         %This function updates the plot for each of the rigid bodies
@@ -222,11 +229,135 @@ classdef SimulationEnvironment < handle
             end
         end
         
+        %Builds the vector of generalized coordinates across all rigid
+        %bodies
+        function gen_coord_vector=build_coordinate_vector(obj)
+            gen_coord_vector=zeros(obj.num_coordinates,1);
+            for n=1:obj.num_bodies
+                [p,theta]=obj.rigid_body_list{n}.get_p_and_theta();
+                gen_coord_vector(obj.rigid_body_list{n}.coord_index)=[p;theta];
+            end
+        end
+        
+        %Builds the vector of velocities of the generalized coordinates 
+        %across all rigid bodies
+        function velocity_vector=build_velocity_vector(obj)
+            velocity_vector=zeros(obj.num_coordinates,1);
+            for n=1:obj.num_bodies
+                [v,omega]=obj.rigid_body_list{n}.get_v_and_omega();
+                velocity_vector(obj.rigid_body_list{n}.coord_index)=[v;omega];
+            end
+        end
+        
+        %Builds the vector of accelerations of the generalized coordinates 
+        %across all rigid bodies
+        function acceleration_vector=build_acceleration_vector(obj)
+            acceleration_vector=zeros(obj.num_coordinates,1);
+            for n=1:obj.num_bodies
+                [a,alpha]=obj.rigid_body_list{n}.set_a_and_alpha();
+                acceleration_vector(obj.rigid_body_list{n}.coord_index)=[a;alpha];
+            end
+        end
+        
+        %updates the values of generalized coordinates across all rigid
+        %bodies
+        function assign_coordinate_vector(obj,gen_coord_vector)
+            for n=1:obj.num_bodies
+                gen_coord_vector_body=gen_coord_vector(obj.rigid_body_list{n}.coord_index);
+                obj.rigid_body_list{n}.set_p_and_theta(gen_coord_vector_body(1:2),gen_coord_vector_body(3));
+            end
+        end
+        
+        %updates the values of generalized velocities across all rigid
+        %bodies
+        function assign_velocity_vector(obj,velocity_vector)
+            for n=1:obj.num_bodies
+                velocity_vector_body=velocity_vector(obj.rigid_body_list{n}.coord_index);
+                obj.rigid_body_list{n}.set_v_and_omega(velocity_vector_body(1:2),velocity_vector_body(3));
+            end
+        end
+        
+        %updates the values of generalized accelerations across all rigid
+        %bodies
+        function assign_acceleration_vector(obj,acceleration_vector)
+            for n=1:obj.num_bodies
+                acceleration_vector_body=acceleration_vector(obj.rigid_body_list{n}.coord_index);
+                obj.rigid_body_list{n}.set_a_and_alpha(acceleration_vector_body(1:2),acceleration_vector_body(3));
+            end
+        end
+                
         %This function projects the current positions and velocities of
         %the rigid bodies onto the constraint manifold defined by the
         %kinematic constraints of the system
         function ConstraintProjection(obj)
             
+            %Perform 5 newton steps
+            for count=1:5
+                %BigMatrixA is the constraint matrix on the velocities
+                %(jacobian of constraint function)
+                %associated with the kinematic constraints
+                BigMatrixA=zeros(obj.num_lagrange_multipliers,obj.num_coordinates);
+
+                size(BigMatrixA)
+                %BigVectorB is the vector of constraint errors
+                BigVectorB=zeros(obj.num_lagrange_multipliers,1);
+
+
+                %Iterate through each kinematic constraint, and build the
+                %matrix associated with the constraints on the accelerations,
+                %to build this, we generate each row (or block of rows) by
+                %calling the associated block function for the constraint
+                %we do the same exact thing for the vector of quadratic terms
+                %with respect to the velocities in the second derivative of the
+                %constraint equation
+                for n=1:obj.num_constraints
+                    CurrentConstraint=obj.constraint_list{n};
+                    for m=1:CurrentConstraint.num_lagrange_multipliers
+                        
+                        [A,~,ConstraintError]=CurrentConstraint.generateBlock(obj.num_coordinates);
+                        BigMatrixA(CurrentConstraint.lagrange_multiplier_index,:)=A;
+                        BigVectorB(CurrentConstraint.lagrange_multiplier_index)=ConstraintError;
+                    end
+                end
+
+                %Compute the newton step, then
+                %assign the solved gen coord changes to the associated
+                %generalized coordinates of the rigid bodies
+                obj.assign_coordinate_vector(obj.build_coordinate_vector()-BigMatrixA\BigVectorB);
+
+            end
+            
+            
+            %BigMatrixA is the constraint matrix on the velocities
+            %(jacobian of constraint function)
+            %associated with the kinematic constraints
+            BigMatrixA=zeros(obj.num_lagrange_multipliers,obj.num_coordinates);
+            
+            %Iterate through each kinematic constraint, and build the
+            %matrix associated with the constraints on the accelerations,
+            %to build this, we generate each row (or block of rows) by
+            %calling the associated block function for the constraint
+            %we do the same exact thing for the vector of quadratic terms
+            %with respect to the velocities in the second derivative of the
+            %constraint equation
+            for n=1:obj.num_constraints
+                CurrentConstraint=obj.constraint_list{n};
+                for m=1:CurrentConstraint.num_lagrange_multipliers
+                    [A,~,~]=CurrentConstraint.generateBlock(obj.num_coordinates);
+                    BigMatrixA(CurrentConstraint.lagrange_multiplier_index,:)=A;  
+                end
+            end
+            
+
+            GenVelocities=obj.build_velocity_vector();
+            
+            BigMatrix=[[eye(obj.num_coordinates,obj.num_coordinates),BigMatrixA'];[BigMatrixA,zeros(obj.num_lagrange_multipliers)]];
+            BigVector=[zeros(obj.num_coordinates,1);-BigMatrixA*GenVelocities];
+            
+            dGenVelocities=BigMatrix\BigVector;
+            dGenVelocities=dGenVelocities(1:obj.num_coordinates);
+            
+            obj.assign_velocity_vector(GenVelocities+dGenVelocities);
         end
     end
     
