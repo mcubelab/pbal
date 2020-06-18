@@ -81,7 +81,7 @@ classdef LinearMPC
             Aiq = [obj.bigG, obj.bigJ];
             biq = zeros(obj.n*obj.niq, 1);
             
-            Aeq = [eye(obj.n * obj.nx), obj.bigB;
+            Aeq = [eye(obj.n * obj.nx), -obj.bigB;
                 obj.bigE, obj.bigF];
             beq = [obj.bigA * xi; zeros(obj.n * obj.neq , 1)];
             
@@ -114,7 +114,7 @@ classdef LinearMPC
             for i = 1:obj.n
                 obj.bigQ((i-1)*obj.nx + 1: i*obj.nx, (i-1)*obj.nx +1: i*obj.nx) = ...
                     obj.Q;
-                obj.bigQ((i-1)*obj.nu+1: i*obj.nu, (i-1)*obj.nu+1: i*obj.nu) = ...
+                obj.bigR((i-1)*obj.nu+1: i*obj.nu, (i-1)*obj.nu+1: i*obj.nu) = ...
                     obj.R;
                 obj.bigq((i-1)*obj.nx+1: i*obj.nx) = obj.Q * obj.x0;
                 obj.bigr((i-1)*obj.nu+1: i*obj.nu) = obj.R * obj.u0;
@@ -128,7 +128,7 @@ classdef LinearMPC
                 % input matrix
                 for j = 1:i
                     obj.bigB((i-1)*obj.nx+1: i*obj.nx, (j-1)*obj.nu+1: j*obj.nu) = ...
-                        obj.A^(j-1) * obj.B;
+                        obj.A^(i-j) * obj.B;
                 end
                 
                 % state transition
