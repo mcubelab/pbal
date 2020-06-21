@@ -169,8 +169,8 @@ classdef SimulationEnvironment < handle
                 CurrentConstraint=obj.constraint_list{n};
                 for m=1:CurrentConstraint.num_lagrange_multipliers
                     [A,B,~]=CurrentConstraint.generateBlock(obj.num_coordinates);
-                    BigMatrixA(obj.num_coordinates+CurrentConstraint.lagrange_multiplier_index,:)=A;
-                    BigVectorB(obj.num_coordinates+CurrentConstraint.lagrange_multiplier_index)=B;
+                    BigMatrixA(CurrentConstraint.lagrange_multiplier_index,:)=A;
+                    BigVectorB(CurrentConstraint.lagrange_multiplier_index)=B;
                 end
             end
             
@@ -298,7 +298,6 @@ classdef SimulationEnvironment < handle
                 %associated with the kinematic constraints
                 BigMatrixA=zeros(obj.num_lagrange_multipliers,obj.num_coordinates);
 
-                size(BigMatrixA)
                 %BigVectorB is the vector of constraint errors
                 BigVectorB=zeros(obj.num_lagrange_multipliers,1);
 
@@ -358,6 +357,29 @@ classdef SimulationEnvironment < handle
             dGenVelocities=dGenVelocities(1:obj.num_coordinates);
             
             obj.assign_velocity_vector(GenVelocities+dGenVelocities);
+        end
+        
+        %Computes the accelerations of the system, does an Euler step
+        %then projects the system onto the constraint manifold
+        function update_project(obj)
+            obj.computeAccelerations();
+            obj.EulerUpdate();
+            obj.ConstraintProjection();
+        end
+        
+        %Computes the accelerations of the system, does an Euler step
+        %then projects the system onto the constraint manifold
+        %finally, updates the visualization of the system
+        function update_project_visualize(obj)
+            obj.update_project();
+            obj.update_visualization();
+        end
+        
+        %then projects the system onto the constraint manifold
+        %then updates the visualization of the system
+        function project_visualize(obj)
+            obj.ConstraintProjection();
+            obj.update_visualization();
         end
     end
     
