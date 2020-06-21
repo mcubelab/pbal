@@ -191,6 +191,14 @@ classdef SimulationEnvironment < handle
             obj.assign_acceleration_vector(AccelVector);
         end
         
+        % This function builds forward dynamics of the form x_dot = f(x, u)
+        % where x_dot = [vel, accel], x = [pos, vel], and u is ...
+        function forward_dynamics(obj)
+  
+            
+            
+        end
+        
         %This function does a simple forward-euler update of the 
         %positions and velocities of the rigid bodies in the simulation
         %using the time step parameter dt
