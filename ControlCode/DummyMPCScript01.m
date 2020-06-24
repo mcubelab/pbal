@@ -26,7 +26,6 @@ mpc = mpc.set_nominal_control(zeros(nu, 1));
 
 % set cost matrix
 mpc = mpc.set_cost_matrix(eye(nx), 0.1*eye(nu)); 
-mpc.R
 
 % generate cost matrices
 mpc = mpc.update_cost_mat();
