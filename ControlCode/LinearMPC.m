@@ -20,15 +20,21 @@ classdef LinearMPC
         B
         E
         F
+        k
         G
         J
+        l
         
         bigA
         bigB
+        
         bigE
         bigF
+        bigk
+        
         bigG
         bigJ
+        bigl
         
         bigQ
         bigq
@@ -41,15 +47,19 @@ classdef LinearMPC
         function obj = LinearMPC(LinearSystem, n)
             %MPC controller for a linear system of the form
             % x_{k+1} = A * x_k + B * u_k
-            % s.t. E * x_k + F * u_k = 0
-            % s.t. G * x_k + J * u_k <= 0
+            % s.t. E * x_k + F * u_k = k
+            % s.t. G * x_k + J * u_k <= l
             
             obj.A = LinearSystem.A;
             obj.B = LinearSystem.B;
+            
             obj.E = LinearSystem.E;
             obj.F = LinearSystem.F;
+            obj.k = LinearSystem.k;
+
             obj.G = LinearSystem.G;
             obj.J = LinearSystem.J;
+            obj.l = LinearSystem.l; 
             
             obj.n = n;
             
@@ -65,11 +75,14 @@ classdef LinearMPC
             
             obj.bigA = zeros(obj.n * obj.nx, obj.nx);
             obj.bigB = zeros(obj.n * obj.nx, obj.n * obj.nu);
+            
             obj.bigE = zeros(obj.n * obj.neq, obj.n * obj.nx);
             obj.bigF = zeros(obj.n * obj.neq, obj.n * obj.nu);
+            obj.bigk = zeros(obj.n * obj.neq, 1); 
+            
             obj.bigG = zeros(obj.n * obj.niq, obj.n * obj.nx);
             obj.bigJ = zeros(obj.n * obj.niq, obj.n * obj.nu);
-            
+            obj.bigl = zeros(obj.n * obj.niq, 1); 
         end
         
         function [bigX, bigU, dt] = solve_qp_subproblem(obj, xi)
@@ -79,17 +92,17 @@ classdef LinearMPC
             f = [obj.bigq; obj.bigr];
             
             Aiq = [obj.bigG, obj.bigJ];
-            biq = zeros(obj.n*obj.niq, 1);
+            biq = obj.bigl;
             
             Aeq = [eye(obj.n * obj.nx), -obj.bigB;
                 obj.bigE, obj.bigF];
-            beq = [obj.bigA * xi; zeros(obj.n * obj.neq , 1)];
+            beq = [obj.bigA * xi; obj.bigk];
             
             
             % z = [x_1, ..., x_n, u_0, ..., u_{n-1}]^T;
             tic;
             z = quadprog(H, f, Aiq, biq, Aeq, beq, [], [], [], ...
-                optimoptions('quadprog', 'display', 'none'));
+                optimoptions('quadprog','display', 'final'));
             dt = toc; 
             bigX = z(1:obj.n*obj.nx);
             bigU = z(obj.n * obj.nx + 1:end);
@@ -139,12 +152,15 @@ classdef LinearMPC
                     obj.E;
                 obj.bigF((i-1)*obj.neq+1: i*obj.neq, (i-1)*obj.nu+1: i*obj.nu) = ...
                     obj.F;
+                obj.bigk((i-1)*obj.neq+1: i*obj.neq) = obj.k; 
                 
                 % inequality constraint
                 obj.bigG((i-1)*obj.niq+1: i*obj.niq, (i-1)*obj.nx+1: i*obj.nx) = ...
                     obj.G;
                 obj.bigJ((i-1)*obj.niq+1: i*obj.niq, (i-1)*obj.nu+1: i*obj.nu) = ...
                     obj.J;
+                obj.bigl((i-1)*obj.niq+1: i*obj.niq) = obj.l; 
+
             end
         end
         
