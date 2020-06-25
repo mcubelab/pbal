@@ -2,6 +2,7 @@ clear; clc; close all;
 
 params.m = 1;
 params.l = 0.1;
+params.t_m = 0;
 p = Pendulum(params);
 
 xk = [0; 0; pi/3; 0; 0; 0]; %zeros(6, 1);
@@ -25,6 +26,12 @@ figure(1); clf;
 subplot(2, 2, 1); hold on; 
 plot(t, (180/pi) * xvec(3, :));
 title('theta')
+
+
+t = (0:100)*p.h; 
+
+figure(1); clf; 
+
 
 subplot(2, 2, 2); hold on;
 plot(t, xvec(6, :));

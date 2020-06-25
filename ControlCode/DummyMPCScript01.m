@@ -3,20 +3,22 @@ clear; clc; close all;
 nx = 3;
 nu = 2; 
 neq = 1;
-niq = 1; 
+niq = 4; 
 
 % build linear system
 LinearSystem.A = rand(nx);
 LinearSystem.B = rand(nx, nu);
 
-LinearSystem.E = 0 * rand(neq, nx);
-LinearSystem.F = 0 * rand(neq, nu);
+LinearSystem.E = 0*eye(neq, nx);
+LinearSystem.F = 0*eye(neq, nu);
+LinearSystem.k = 0*zeros(neq, 1); 
 
-LinearSystem.G = 0 * rand(niq, nx);
-LinearSystem.J = 0 * rand(niq, nu);
+LinearSystem.G = 0*eye(niq, nx);
+LinearSystem.J = 0 * [-eye(nu); eye(nu)];
+LinearSystem.l = 0.*[ones(nu, 1); ones(nu, 1)];  
 
 % build MPC
-mpc = LinearMPC(LinearSystem, 10);
+mpc = LinearMPC(LinearSystem, 30);
 
 % set x0
 mpc = mpc.set_nominal_state(zeros(nx, 1));
@@ -33,7 +35,7 @@ mpc = mpc.update_cost_mat();
 % generate constraint matrices
 mpc = mpc.update_constraint_mat();
 
-xi = rand(3,1);
+xi = 10 * (rand(3,1) - 0.5);
 xi_uc = rand(3,1); 
 
 xvec = [];

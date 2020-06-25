@@ -22,9 +22,9 @@ classdef Pendulum
             obj.l = params.l;
             obj.g = 9.81;
             
-            obj.t_m = 0.2;
+            obj.t_m = params.t_m;
             obj.h = 0.01;
-            obj.b = 0.05; 
+            obj.b = 0.01; 
         end
         
         
@@ -88,8 +88,8 @@ classdef Pendulum
             c = obj.build_coriolis_and_potential(qk, qkd);
             B  = obj.build_input_matrix();
             
-            A = [eye(6), [zeros(3); obj.h * (M\B)]];
-            b = xk + obj.h*[qkd; (-M\c)];
+            A = [blkdiag(eye(3), M), [zeros(3); obj.h * B]];
+            b = blkdiag(eye(3), M) * xk + obj.h*[qkd; -c];
             
         end
         
@@ -97,9 +97,9 @@ classdef Pendulum
             
             tht = qk(3);
             
-            M = [obj.m, 0, 0 *obj.m*obj.l*cos(tht);
-                0, obj.m, 0 * obj.m*obj.l*sin(tht);
-                0 * obj.m*obj.l*cos(tht), 0 *obj.m*obj.l*sin(tht), obj.m * obj.l^2];
+            M = [obj.m, 0, obj.m*obj.l*cos(tht);
+                0, obj.m, obj.m*obj.l*sin(tht);
+                obj.m*obj.l*cos(tht), obj.m*obj.l*sin(tht), (1/3)*obj.m * obj.l^2];
             
         end
         
