@@ -7,6 +7,9 @@ classdef PolygonConstraint < handle
         
         pin1; %material point referenced on the first rigid body (may not be used) (in body frame)
         pin2; %material point referenced on the second rigid body (may not be used) (in body frame)
+    
+        normal_vector; %normal vector referenced on either second body or world frame used for
+                       %sliding contact
         
         pout; %point used in the world frame
     
@@ -47,6 +50,14 @@ classdef PolygonConstraint < handle
             
             if obj.ConstraintType==2
                 obj.initialize_visualizationStickingContactTwoBodies();
+            end
+            
+            if obj.ConstraintType==3
+                
+            end
+            
+            if obj.ConstraintType==4
+                
             end
         end
         
@@ -89,6 +100,14 @@ classdef PolygonConstraint < handle
             
             if obj.ConstraintType==2
                 obj.update_visualizationStickingContactTwoBodies();
+            end
+            
+            if obj.ConstraintType==3
+                
+            end
+            
+            if obj.ConstraintType==4
+                
             end
         end
         
@@ -143,6 +162,17 @@ classdef PolygonConstraint < handle
             obj.ConstraintType=2; %assigns the sticking constraint label with 2 rigid bodies
             
             obj.num_lagrange_multipliers=2; %x and y constriants -> 2 multipliers
+        end
+        
+        function SlidingContactOneBody(obj,Body1,pin1,pout,normal_vector)
+            obj.rigidBody1=Body1;
+            obj.pin1=pin1;
+            obj.pout=pout;
+            obj.normal_vector=normal_vector;
+            
+            obj.ConstraintType=3; %assigns the sliding constraint label with 1 rigid body
+            
+            obj.num_lagrange_multipliers=1; %x and y constriants -> 2 multipliers
         end
         
         %this builds the linear equation associated with the acceleration
