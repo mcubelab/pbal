@@ -12,6 +12,7 @@ classdef LinearMPC
         % xkp1 = A * xk + B * u
         % E * xk + F * uk = k
         % G * uk + H * uk <= l
+        
         LS
         nx  % state dimension
         nu  % input dimension
