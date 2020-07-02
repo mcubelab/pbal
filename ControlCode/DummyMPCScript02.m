@@ -9,7 +9,6 @@ params.t_m = 0.1;
 params.b = 0.001;
 p = RigidBodyPendulum(params);
 
-
 % upright fixed point
 tht0 = pi;
 x0 = [0.5 * p.l*sin(tht0); -0.5 * p.l*cos(tht0); tht0; 0; 0; 0];
@@ -19,6 +18,7 @@ u0 = [0; p.m * p.g; 0];
 [~, LinearSystem.A, LinearSystem.B] = p.forward_dyn_euler(x0, u0);
 
 % equality constraints (TODO: why ONLY on velocity)
+% E * xk + F  * uk = k
 [~, dc_dx, dc_du] = p.pivot_const(x0);
 LinearSystem.E = dc_dx((p.neq/2+1):end, :);
 LinearSystem.F = dc_du((p.neq/2+1):end, :);
@@ -33,10 +33,10 @@ LinearSystem.l = bu;
 % build MPC
 mpc = LinearMPC(LinearSystem, 50);
 
-
 % set cost matrix
-mpc = mpc.set_cost_matrix(blkdiag(10 * eye(mpc.nx/2), 0.01*eye(mpc.nx/2)), ...
-    0.001*eye(mpc.nu));
+Q = blkdiag(10 * eye(mpc.nx/2), 0.01*eye(mpc.nx/2));
+R = 0.001*eye(mpc.nu);
+mpc = mpc.set_cost_matrix(Q, R);
 
 % generate constraint matrices
 mpc = mpc.update_constraint_mat();
@@ -52,12 +52,15 @@ tvec = [];
 
 
 for i = 1:mpc.n
+    
+    % solves the MPC
     tic
     [bigX, bigU] = mpc.solve_qp_subproblem(dxi);
     tvec = [tvec, toc];
     dui = bigU(1:mpc.nu);
+    
+    % one step forward using MPC solution (not sure this is right)
     dxi = p.forward_dyn_euler(x0 + dxi, u0 + dui) - x0;
-    z0 = [bigX; bigU];
     
     dxvec = [dxvec, dxi];
     duvec = [duvec, dui];
@@ -82,7 +85,6 @@ end
 
 t = (0:(mpc.n))*p.dt;
 
-
 % state
 figure(1); clf;
 
@@ -94,7 +96,6 @@ for i = 1:(p.nq + p.nv)
     plot(t, multiplier(i)*(dxvec(i, :) + x0(i)));
     plot(t, multiplier(i)*xtrue(i, :), '--');
     title(titles{i})
-
 end
 
 figure(2); clf;
