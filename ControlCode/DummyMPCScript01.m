@@ -1,3 +1,5 @@
+% Test MPC with constrained linear system
+
 clear; clc; close all;
 
 nx = 3;
@@ -20,17 +22,8 @@ LinearSystem.l = 0.*[ones(nu, 1); ones(nu, 1)];
 % build MPC
 mpc = LinearMPC(LinearSystem, 30);
 
-% set x0
-mpc = mpc.set_nominal_state(zeros(nx, 1));
-
-% set u0
-mpc = mpc.set_nominal_control(zeros(nu, 1));
-
 % set cost matrix
 mpc = mpc.set_cost_matrix(eye(nx), 0.1*eye(nu)); 
-
-% generate cost matrices
-mpc = mpc.update_cost_mat();
 
 % generate constraint matrices
 mpc = mpc.update_constraint_mat();
@@ -41,10 +34,9 @@ xi_uc = rand(3,1);
 xvec = [];
 xvec_uc = []; 
 uvec = [];
-dtvec = [];
 
 for i = 1:mpc.n
-    [bigX, bigU, dt] = mpc.solve_qp_subproblem(xi); 
+    [bigX, bigU] = mpc.solve_qp_subproblem(xi); 
     ui = bigU(1:nu); 
     xi = LinearSystem.A*xi + LinearSystem.B*ui;
     xi_uc = LinearSystem.A*xi_uc;
@@ -52,7 +44,6 @@ for i = 1:mpc.n
     xvec = [xvec, xi]; 
     xvec_uc = [xvec_uc, xi_uc]; 
     uvec = [uvec, ui];
-    dtvec = [dtvec; dt]; 
 end
 
 %%

@@ -54,6 +54,11 @@ classdef RigidBodyPendulum
             obj.niq = 2;
         end
         
+        % given xk, find xkp1 and uk (pivot forces; input torque) that
+        % that satisfy the following equations:
+        % (1) xkp1 = obj.forward_dyn_euler(xk, uk)
+        % (2) obj.pivot_const(xk) = 0
+        % (3) A * u <= b where [A, b] = obj.build_input_const()      
         
         function [xkp1, uk] =  dynamics_solve(obj, xk, uk)
             
@@ -67,16 +72,17 @@ classdef RigidBodyPendulum
             Adyn = [eye(6), [zeros(3); obj.dt * -(M\B)]];
             bdyn = xk + obj.dt * [qkd; -(M\c)];
             
-            [Au, bu] = obj.build_input_const();
+            [Au, bu] = obj.input_const_fmincon();
             
             z = fmincon(@(z) 0, [xk; uk], Au, bu, Adyn, bdyn , ...
-                [], [], @obj.pivot_const_wrapper, obj.fmincon_opt);
+                [], [], @obj.pivot_const_fmincon, obj.fmincon_opt);
             
             xkp1 = z(1:6);
             uk = z(7:9);
         end
         
-        function [c, ceq, dc, dceq] = pivot_const_wrapper(obj, zk)
+        % wrapper for pivot constraint so we can feed it into fmincon
+        function [c, ceq, dc, dceq] = pivot_const_fmincon(obj, zk)
             
             xk = zk(1:(obj.nq + obj.nv));
             [ceq, dc_dxk, dc_duk] = obj.pivot_const(xk);
@@ -84,40 +90,33 @@ classdef RigidBodyPendulum
             c = [];
             dc = [];
         end
-        
-        function [A, B] = linearize_forward_dyn(obj, x0, u0)
-           
-            delta = 1e-6;
-            
-            Ix = eye(6);
-            A = zeros(6, 6);
-            for i = 1:6
-               xkp1_p = obj.forward_dyn_euler(x0 + delta * Ix(:, i), u0);
-               xkp1_m = obj.forward_dyn_euler(x0 - delta * Ix(:, i), u0);
-               A(:, i) = (xkp1_p - xkp1_m)/(2 * delta); 
-            end
-            
-            Iu = eye(3);
-            B = zeros(6, 3);
-            for i = 1:3
-               xkp1_p = obj.forward_dyn_euler(x0, u0  + delta * Iu(:, i));
-               xkp1_m = obj.forward_dyn_euler(x0, u0  - delta * Iu(:, i));
-               B(:, i) = (xkp1_p - xkp1_m)/(2 * delta); 
-            end                
+    
+        % wrapper for input constraint so we can feed it into fmincon
+        function [A, b] = input_const_fmincon(obj)
+            [Au, b] = obj.build_input_const();
+            A = [zeros(obj.niq, obj.nq + obj.nv), Au];
             
         end
         
+        % forward dynamics using euler integration 
+        % [qkp1; qdkp1] = [qk; qkd] + dt*[qkd; qkdd]
+        % qkdd = M^{-1} * (B(q) * uk - c(qd))
+        % xk = [qk; qkd]
         function [xkp1, dxkp1_dx, dxkp1_du] = forward_dyn_euler(obj, xk, uk)
             
+            % separate state
             qk = xk(1:3);
             qkd = xk(4:6);
             
+            % build manipulator eqn
             M = obj.build_mass_matrix();
             c = obj.build_coriolis_and_potential(qkd);
             B = obj.build_input_matrix(qk);
             
+            % solve for qkdd and integrate
             xkp1 = xk + obj.dt * [qkd; M\(B * uk - c)];
             
+            % derivative w.r.t. xk
             dc_dqd = [0, 0, 0;
                 0, 0, 0;
                 0, 0, obj.b];
@@ -128,27 +127,31 @@ classdef RigidBodyPendulum
             
             dxkp1_dx = eye(obj.nq + obj.nv) + ...
                 obj.dt * [zeros(obj.nq), eye(obj.nv); M\dBu_dq ,-M\dc_dqd];
+            
+            % derivative w.r.t to uk
             dxkp1_du = obj.dt * [zeros(obj.nq, obj.nu); (M\B)];
             
         end
         
-        
+        % B(q) in M(q) qdd + c(qd) = B(q) * u
         function B = build_input_matrix(obj, qk)
             
             tht = qk(3);
             
             B = [1, 0, 0;
                 0, 1, 0;
-                -0.5 * obj.l * cos(tht), -0.5 * obj.l * sin(tht), 1];
-            
+                -0.5 * obj.l * cos(tht), -0.5 * obj.l * sin(tht), 1];            
         end
         
+        % M(q) in M(q) qdd + c(qd) = B(q) * u
         function M = build_mass_matrix(obj)
             M = [obj.m, 0, 0;
                 0, obj.m, 0;
                 0, 0, obj.I];
         end
         
+        % c(qd) in M*qdd + c(qd) = B(q) * u
+        % currently just gravity and damping in theta
         function c = build_coriolis_and_potential(obj, qkd)
             c = [0; obj.m * obj.g; 0] + [0; 0; obj.b*qkd(3)];
         end
@@ -185,11 +188,12 @@ classdef RigidBodyPendulum
             
         end
         
+        % this function puts constraints on the input currently just bound
+        % constraints on torque %-t_m <= tau <= t_m
         function [Au, bu] = build_input_const(obj)
-            Au = [zeros(1,6), 0, 0, -1; zeros(1,6), 0, 0, 1];
+            Au = [0, 0, -1; 0, 0, 1];
             bu = [obj.t_m; obj.t_m];
-        end
-        
+        end       
         
     end
 end
