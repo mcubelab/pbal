@@ -1,5 +1,8 @@
+% Simulate the pendulum
+
 clear; clc; close all;
 
+% inputs
 params.m = 0.1;
 params.l = 0.1;
 params.dt = 0.005; 
@@ -7,71 +10,70 @@ params.t_m = 0;
 params.b = 0.001;  
 p = RigidBodyPendulum(params);
 
+% initial condition (note this has to satisfy pivot constraints)
 thtk = pi/3;
-xk = [0.5 * p.l*sin(thtk); -0.5 * p.l*cos(thtk); thtk; 0; 0; 0]; %zeros(6, 1);
-uk = p.build_input_matrix(xk(1:3))\p.build_coriolis_and_potential(xk(4:6));
-uk = uk.*[1; 1; 0]; 
+xk = [0.5 * p.l*sin(thtk); -0.5 * p.l*cos(thtk); thtk; 0; 0; 0];
+uk = zeros(p.nu, 1);  
 
-xvec = [xk];
+% store state and inputs
+xvec = xk;
 uvec = [];
 
+% store evaluation of pivot const.
 c0 = p.pivot_const(xk); 
-qpvec = [c0(1:p.neq/2)];
-vpvec = [c0(p.neq/2:end)];
+cvec = c0;
 
+% simulate for 100 steps
 N = 100; 
 for i = 1:N
-    [xkp1, uk] = p.dynamics_solve(xk, uk);
-    [ck] = p.pivot_const(xkp1); 
-%     disp(xkp1)
+    [xkp1, uk] = p.dynamics_solve(xk, uk);  % sim-step
+
+    % store 
     xvec = [xvec, xkp1]; 
     uvec = [uvec, uk];
-    qpvec = [qpvec, ck(1:p.neq/2)];
-    vpvec = [vpvec, ck(p.neq/2:end)]; 
-    xk = xkp1;
+    cvec = [cvec, p.pivot_const(xkp1)];
+    
+    xk = xkp1; % update
 end
 
-%%
+%% Plotting 
+
 t = (0:N)*p.dt; 
 
-figure(1); clf; 
+% state
+figure(1); clf;
+titles = {'x', 'y', 'tht', 'vx', 'vy', 'omega'};
+multiplier = [1, 1, (180/pi), 1, 1, (180/pi)]; 
+for i = 1:(p.nq + p.nv)    
+    subplot(2, 3, i); hold on;
+    plot(t, multiplier(i)*xvec(i, :));
+    title(titles{i})
 
-subplot(2, 2, 1); hold on; 
-plot(t, (180/pi) * xvec(3, :));
-title('theta')
+end
 
+% input
+figure(2); clf;
+titles = {'fx', 'fy', 'tau'};
+for i = 1:p.nq    
+    subplot(1, 3, i); hold on;
+    plot(t(1:end-1), uvec(i, :));
+    title(titles{i})
+end
 
-subplot(2, 2, 2); hold on;
-plot(t, xvec(6, :));
-title('omega')
+% constraints
+figure(3); clf;
+titles = {'pivot-x', 'pivot-y', 'pivot-vx', 'pivot-vy'};
+for i = 1:p.neq
+    subplot(2, 2, i); hold on;
+    plot(t, cvec(i, :));  
+    title(titles{i});    
+end
 
-subplot(2, 2, 3); hold on; 
-plot(t, qpvec(1:2, :));
-title('pivot_x, pivot_y')
-legend('x', 'y')
-
-subplot(2, 2, 4); hold on; 
-plot(t, vpvec(1:2, :));
-title('pivot_vx, pivot_vy')
-legend('vx', 'vy')
-
-figure(2); clf; 
-
-subplot(1, 3, 1); hold on; 
-plot(t(1:end-1), uvec(1, :));
-title('Fx')
-
-subplot(1, 3, 2); hold on;
-plot(t(1:end-1), uvec(2, :));
-title('Fy')
-
-subplot(1, 3, 3); hold on; 
-plot(t(1:end-1), uvec(3, :));
-title('tau')
-
-figure(3); hold on;
-plot(xvec(1, :), xvec(2, :)); 
-plot(0.5 * p.l * sin(xvec(3, :)), -0.5 * p.l * cos(xvec(3, :)), '--') 
-
+% also constraints
+figure(4); clf; hold on;
+plot(xvec(1, :), xvec(2, :))
+plot(0.5 * p.l * sin(xvec(3, :)), -0.5 * p.l * cos(xvec(4, :)), '--')
+axis equal;
+title('COM X-Y')
 
 
