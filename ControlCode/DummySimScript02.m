@@ -193,7 +193,7 @@ drawnow;
 
 for n=1:1000000
     myEnvironment.update_project();
-    if mod(n,10)==0
+    if mod(n,100)==0
         myEnvironment.update_visualization();
         drawnow;
     end
