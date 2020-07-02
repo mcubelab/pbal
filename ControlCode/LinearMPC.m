@@ -102,7 +102,8 @@ classdef LinearMPC
             % z = [x_1, ..., x_n, u_0, ..., u_{n-1}]^T;
             tic;
             z = quadprog(H, f, Aiq, biq, Aeq, beq, [], [], [], ...
-                optimoptions('quadprog','display', 'final'));
+                optimoptions('quadprog', 'maxiterations', 1e3, ...
+                'display', 'final'));
             dt = toc; 
             bigX = z(1:obj.n*obj.nx);
             bigU = z(obj.n * obj.nx + 1:end);
