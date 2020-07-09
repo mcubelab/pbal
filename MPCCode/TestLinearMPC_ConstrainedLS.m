@@ -1,4 +1,4 @@
-% Test MPC with constrained linear system
+% Test Linear MPC with constrained linear system
 
 clear; clc; close all;
 
@@ -23,10 +23,10 @@ LinearSystem.l = 0.*[ones(nu, 1); ones(nu, 1)];
 mpc = LinearMPC(LinearSystem, 30);
 
 % set cost matrix
-mpc = mpc.set_cost_matrix(eye(nx), 0.1*eye(nu)); 
+mpc = mpc.set_cost_matrix(10*eye(nx), eye(nx), 0.1*eye(nu)); 
 
 % generate constraint matrices
-mpc = mpc.update_constraint_mat();
+mpc = mpc.update_qp_mat();
 
 xi = 10 * (rand(3,1) - 0.5);
 xi_uc = rand(3,1); 
