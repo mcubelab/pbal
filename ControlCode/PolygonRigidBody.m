@@ -150,7 +150,8 @@ classdef PolygonRigidBody < handle
         %lagrange equations will have the form of:
         %M*AccelVector = V + GeneralizedForces
         %Where AccelVector = [d2x/dt2;d2y/dt2;alpha]
-        function [M,V] = LagrangeVM(obj)
+        %V1 is partial  T/ partial q
+        function [M,V,V1,V2] = LagrangeVM(obj)
 %             [~,~,Dx_cm,Dy_cm,Hx_cm,Hy_cm]=PolygonMath.rigid_body_position_derivatives(obj.LocalPolygon.position,obj.LocalPolygon.theta,obj.LocalPolygon.r_cm_body);
 %             [~,~,Dx_cm,Dy_cm,Hx_cm,Hy_cm]=obj.rigid_body_position_derivatives(obj.LocalPolygon.r_cm_body);
             [~,~,Dx_cm,Dy_cm,Hx_cm,Hy_cm]=obj.rigid_body_CM_derivatives();
@@ -165,7 +166,7 @@ classdef PolygonRigidBody < handle
             M_temp=Hx_cm*dGeneralized_dt*Dx_cm+Hy_cm*dGeneralized_dt*Dy_cm;
             V1=obj.Mass*(M_temp+M_temp')*dGeneralized_dt;
             V2=obj.Mass*(v_cm')*(Q*Q*rot_matf*obj.LocalPolygon.r_cm_body*obj.LocalPolygon.omega);
-            V=V2-V1;
+            V=V1-V2;
         end
         
         %This function does a simple forward-euler update of the 

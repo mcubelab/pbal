@@ -25,7 +25,15 @@ classdef SimulationEnvironment < handle
         num_generalized_forces; %number of generalized forces in the system
         generalized_force_list; %list of generalized force objects
         
+        
+        q0;     %initial value of the generalized coordinates
+        q_dot0; %inital value of the derivative of the genearlized coords
+        U0;     %initial value of potential energy
+        T0;     %initial value of kinetic energy
+        
         dt; %global euler time step
+        
+        
     end
     
     methods
@@ -108,6 +116,121 @@ classdef SimulationEnvironment < handle
             obj.generalized_force_list{obj.num_generalized_forces}=inputGeneralizedForce;
         end
         
+        function acceleration_vector = computeAccelerations_withInput(obj,q,v)
+            obj.assign_coordinate_vector(q);
+            obj.assign_velocity_vector(v);
+            
+            obj.computeAccelerations();
+            
+            acceleration_vector=obj.build_acceleration_vector();
+        end
+        
+        function BraunUpdate(obj)
+            %BigMatrixM is the mass matrix
+            BigMatrixM=zeros(obj.num_coordinates,...
+                             obj.num_coordinates);
+            
+            %BigVectorV are the coriolis and centripetal terms in the Euler-Lagrange equation             
+            BigVectorV=zeros(obj.num_coordinates,1);
+            
+            %BigVectorV are the coriolis and centripetal terms in the Euler-Lagrange equation             
+            BigVectorV1=zeros(obj.num_coordinates,1);
+            
+            %BigVectorF is the vector of generalized forces
+            BigVectorF=zeros(obj.num_coordinates,1);
+            
+            %BigMatrixA is the constraint matrix on the accelerations
+            %associated with the kinematic constraints
+            BigMatrixA=zeros(obj.num_lagrange_multipliers,obj.num_coordinates);
+            
+            %BigVectorB is the vector of quadratic terms (with respect to
+            %the velocities) that shows up in the second derivative of the
+            %kinematic constraint equations
+            BigVectorB=zeros(obj.num_lagrange_multipliers,1);
+            
+            %BigMatrixBlank a matrix of zeros with the correct dimensions
+            %to make everything else work out
+            BigMatrixBlank=zeros(obj.num_lagrange_multipliers,obj.num_lagrange_multipliers);
+            
+            %Iterate through each rigid body and build the associated mass
+            %matrix which is just a block diagonal matrix where each block
+            %is the mass matrix for the individual rigid body
+            %Also build up the vector of centripetal/coriolis terms which
+            %is just all the individual centripetal/coriolis vectors
+            %appended to on another
+            for n=1:obj.num_bodies
+                [M,V,V1,~] = obj.rigid_body_list{n}.LagrangeVM();
+                BigMatrixM(obj.rigid_body_list{n}.coord_index,obj.rigid_body_list{n}.coord_index)=M;
+                BigVectorV(obj.rigid_body_list{n}.coord_index)=V;
+                BigVectorV1(obj.rigid_body_list{n}.coord_index)=V1;
+            end
+            
+            %Summs together each generalized force vector to fine the total
+            %generalized force acting on the system (not taking into
+            %account constraint forces)
+            for n=1:obj.num_generalized_forces
+                BigVectorF=BigVectorF+obj.generalized_force_list{n}.generateForce(obj.num_coordinates);
+            end
+            
+            %Iterate through each kinematic constraint, and build the
+            %matrix associated with the constraints on the accelerations,
+            %to build this, we generate each row (or block of rows) by
+            %calling the associated block function for the constraint
+            %we do the same exact thing for the vector of quadratic terms
+            %with respect to the velocities in the second derivative of the
+            %constraint equation
+            for n=1:obj.num_constraints
+                CurrentConstraint=obj.constraint_list{n};
+                for m=1:CurrentConstraint.num_lagrange_multipliers
+                    [A,B,~]=CurrentConstraint.generateBlock(obj.num_coordinates);
+                    BigMatrixA(CurrentConstraint.lagrange_multiplier_index,:)=A;
+                    BigVectorB(CurrentConstraint.lagrange_multiplier_index)=B;
+                end
+            end
+            
+            q=obj.build_coordinate_vector();
+            q_dot=obj.build_velocity_vector();
+            v=q_dot;
+            
+            M=BigMatrixM;
+            Q=BigVectorF+BigVectorV;
+            R=chol(M);
+            Aq=BigMatrixA;
+            bq=0*BigVectorB;
+            Av=Aq;
+            bv=BigVectorB;
+            Phiq=obj.EvalConstraintError();
+            dPhiqdt=Aq*q_dot;
+            dt=obj.dt;
+            Ae=q_dot'*M;
+            be=-q_dot'*(BigVectorF+BigVectorV1);
+            Phi_e=obj.EnergyChange();
+            
+            
+            Cq=Aq/R;
+            Cv=Av/R;
+            
+            Cq_plus=pinv(Cq);
+            Cv_plus=pinv(Cv);
+            
+            an=M\Q;
+            
+            Ce=Ae/R;
+            Nv=eye(max(size(Cv_plus*Cv)))-Cv_plus*Cv;
+            
+            bev=be-Ce*Cv_plus*bv;
+            Aev=Ae-Ce*Cv_plus*Av;
+            Phi_ev=Phi_e;
+            
+            q_update=q+v*dt+R\Cq_plus*((bq-Aq*v)*dt-Phiq);
+            v_update=v+an*dt+R\Cv_plus*((bv-Av*an)*dt-dPhiqdt)...
+                +R\Nv*pinv(Ce*Nv)*((bev-Aev*an)*dt-Phi_ev);
+            
+            obj.assign_coordinate_vector(q_update);
+            obj.assign_velocity_vector(v_update);
+        end
+        
+        
         %This computes the accelerations of the generalized coordinates
         %given the state of the system (positions and velocities of all the
         %generalized coordinates), the kinematic constraints, and the
@@ -146,7 +269,7 @@ classdef SimulationEnvironment < handle
             %is just all the individual centripetal/coriolis vectors
             %appended to on another
             for n=1:obj.num_bodies
-                [M,V] = obj.rigid_body_list{n}.LagrangeVM();
+                [M,V,~,~] = obj.rigid_body_list{n}.LagrangeVM();
                 BigMatrixM(obj.rigid_body_list{n}.coord_index,obj.rigid_body_list{n}.coord_index)=M;
                 BigVectorV(obj.rigid_body_list{n}.coord_index)=V;
             end
@@ -194,9 +317,55 @@ classdef SimulationEnvironment < handle
         % This function builds forward dynamics of the form x_dot = f(x, u)
         % where x_dot = [vel, accel], x = [pos, vel], and u is ...
         function forward_dynamics(obj)
-  
+
             
+        end
+        
+        %Takes a snapshot of initial position/velocity
+        %as well as initial kinetic and potential energy
+        function saveInitialState(obj)
+            obj.q0    =obj.build_coordinate_vector();
+            obj.q_dot0=obj.build_velocity_vector();
+                  
+            [T,U]=obj.computeEnergies();
+            obj.T0=T;
+            obj.U0=U;
+        end
+        
+        %Computes the current kinetic and potential energy of the system.
+        function [T,U]=computeEnergies(obj)
+            %BigMatrixM is the mass matrix
+            BigMatrixM=zeros(obj.num_coordinates,...
+                             obj.num_coordinates);
+                         
+            %Iterate through each rigid body and build the associated mass
+            %matrix which is just a block diagonal matrix where each block
+            %is the mass matrix for the individual rigid body
+            %Also build up the vector of centripetal/coriolis terms which
+            %is just all the individual centripetal/coriolis vectors
+            %appended to on another
+            for n=1:obj.num_bodies
+                [M,~] = obj.rigid_body_list{n}.LagrangeVM();
+                BigMatrixM(obj.rigid_body_list{n}.coord_index,obj.rigid_body_list{n}.coord_index)=M;
+            end
+                
+            T=.5*(obj.q_dot0)'*(BigMatrixM*obj.q_dot0);
             
+            U=0;
+            
+            %Summs together the potential energy for each of the
+            %generalized forces
+            for n=1:obj.num_generalized_forces
+                if obj.generalized_force_list{n}.is_conservative==1
+                    U=U+obj.generalized_force_list{n}.computePotential();
+                end
+            end  
+        end
+        
+        %Computes the change in mechanical energy from the initial state
+        function DeltaE=EnergyChange(obj)
+            [T,U]=obj.computeEnergies()
+            DeltaE=T+U-obj.T0-obj.U0;
         end
         
         %This function does a simple forward-euler update of the 
@@ -293,7 +462,23 @@ classdef SimulationEnvironment < handle
                 obj.rigid_body_list{n}.set_a_and_alpha(acceleration_vector_body(1:2),acceleration_vector_body(3));
             end
         end
+             
+        function ConstraintErrorOut=EvalConstraintError(obj)
+            
+            %BigVectorB is the vector of constraint errors
+            BigVectorB=zeros(obj.num_lagrange_multipliers,1);
                 
+            for n=1:obj.num_constraints
+                CurrentConstraint=obj.constraint_list{n};
+                for m=1:CurrentConstraint.num_lagrange_multipliers
+                    [A,~,ConstraintError]=CurrentConstraint.generateBlock(obj.num_coordinates);
+                    BigVectorB(CurrentConstraint.lagrange_multiplier_index)=ConstraintError;
+                end
+            end
+            
+            ConstraintErrorOut=BigVectorB;
+        end
+        
         %This function projects the current positions and velocities of
         %the rigid bodies onto the constraint manifold defined by the
         %kinematic constraints of the system

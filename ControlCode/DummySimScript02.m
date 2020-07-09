@@ -190,9 +190,9 @@ myEnvironment.update_visualization();
 drawnow;
 
 
-
+myEnvironment.saveInitialState()
 for n=1:1000000
-    myEnvironment.update_project();
+    myEnvironment.BraunUpdate();
     if mod(n,100)==0
         myEnvironment.update_visualization();
         drawnow;
