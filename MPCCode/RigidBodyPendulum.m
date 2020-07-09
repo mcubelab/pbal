@@ -98,15 +98,14 @@ classdef RigidBodyPendulum
             
         end
         
-        % forward dynamics using euler integration 
-        % [qkp1; qdkp1] = [qk; qkd] + dt*[qkd; qkdd]
-        % qkdd = M^{-1} * (B(q) * uk - c(qd))
+        % continuous forward dynamics
+        % [qkd, qkdd] = [qkd; M^{-1} * (B(q) * uk - c(qd))]
         % xk = [qk; qkd]
-        function [xkp1, dxkp1_dx, dxkp1_du] = forward_dyn_euler(obj, xk, uk)
+        function [f, df_dx, df_du] = dynamics(obj, xk, uk)
             
             % separate state
-            qk = xk(1:3);
-            qkd = xk(4:6);
+            qk = xk(1:obj.nq);
+            qkd = xk(obj.nq + (1:obj.nv));
             
             % build manipulator eqn
             M = obj.build_mass_matrix();
@@ -114,7 +113,7 @@ classdef RigidBodyPendulum
             B = obj.build_input_matrix(qk);
             
             % solve for qkdd and integrate
-            xkp1 = xk + obj.dt * [qkd; M\(B * uk - c)];
+            f = [qkd; M\(B * uk - c)];
             
             % derivative w.r.t. xk
             dc_dqd = [0, 0, 0;
@@ -125,11 +124,10 @@ classdef RigidBodyPendulum
                 0, 0, 0
                 0, 0, 0.5*obj.l*(sin(qk(3)) * uk(1) - cos(qk(3)) * uk(2))] ;
             
-            dxkp1_dx = eye(obj.nq + obj.nv) + ...
-                obj.dt * [zeros(obj.nq), eye(obj.nv); M\dBu_dq ,-M\dc_dqd];
+            df_dx =  [zeros(obj.nq), eye(obj.nv); M\dBu_dq ,-M\dc_dqd];
             
             % derivative w.r.t to uk
-            dxkp1_du = obj.dt * [zeros(obj.nq, obj.nu); (M\B)];
+            df_du = [zeros(obj.nq, obj.nu); (M\B)];
             
         end
         

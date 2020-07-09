@@ -72,7 +72,7 @@ end
 % also constraints
 figure(4); clf; hold on;
 plot(xvec(1, :), xvec(2, :))
-plot(0.5 * p.l * sin(xvec(3, :)), -0.5 * p.l * cos(xvec(4, :)), '--')
+plot(0.5 * p.l * sin(xvec(3, :)), -0.5 * p.l * cos(xvec(3, :)), '--')
 axis equal;
 title('COM X-Y')
 

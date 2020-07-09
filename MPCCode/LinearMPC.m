@@ -6,7 +6,11 @@ classdef LinearMPC
         
         R   % one-step input cost 0.5 * du^T * R * du
         Q   % one-step state cost 0.5 * dx^T * Q * dx
+        QN  % cost on final state 0.5 * dxN^T * QN * dxN
         n   % control horizon in steps
+        
+        xg  % goal state 
+        ug  % goal input
         
         % Stores A, B, E, F, k, G, H, l for LTI model of the following form
         % xkp1 = A * xk + B * u
@@ -48,6 +52,9 @@ classdef LinearMPC
             obj.n = n;   % control horizon
             
             obj.LS = LinearSystem; % struct for linear system to control
+%             
+%             obj.xg = xg;
+%             obj.ug = ug;
             
             % dimension of LS
             obj.nx = size(obj.LS.A, 1);
@@ -56,70 +63,67 @@ classdef LinearMPC
             obj.niq = size(obj.LS.G, 1);
             
             % pre-allocate matrices for solving direct transcription
-            obj.bigQ = zeros(obj.n * obj.nx);
-            obj.bigR = zeros(obj.n * obj.nu);
-            
-            obj.bigA = zeros(obj.n * obj.nx, obj.nx);
-            obj.bigB = zeros(obj.n * obj.nx, obj.n * obj.nu);
-            
-            obj.bigE = zeros(obj.n * obj.neq, obj.n * obj.nx);
-            obj.bigF = zeros(obj.n * obj.neq, obj.n * obj.nu);
-            obj.bigk = zeros(obj.n * obj.neq, 1);
-            
-            obj.bigG = zeros(obj.n * obj.niq, obj.n * obj.nx);
-            obj.bigJ = zeros(obj.n * obj.niq, obj.n * obj.nu);
-            obj.bigl = zeros(obj.n * obj.niq, 1);
+%             obj.bigA = zeros(obj.n * obj.nx, (obj.n + 1) * obj.nx);
+
         end
         
         
         % solve QP
         function [bigX, bigU] = solve_qp_subproblem(obj, xi)
-            
-            % build matrices for quadprog
-            
+
             % cost
-            H = blkdiag(obj.bigQ, obj.bigR);
+            H = blkdiag(obj.bigQ, obj.QN, obj.bigR);
 
             % inequalty constraints
-            Aiq = [obj.bigG, obj.bigJ];
+            Aiq = [zeros(obj.niq * obj.n, obj.nx), obj.bigG, obj.bigJ];
             biq = obj.bigl;
             
             % equality constraints
-            Aeq = [eye(obj.n * obj.nx), -obj.bigB;
-                obj.bigE, obj.bigF];
-            beq = [obj.bigA * xi; obj.bigk];
+            Aeq = [eye(obj.nx), zeros(obj.nx, obj.n * (obj.nx + obj.nu));  
+                obj.bigA, obj.bigB;
+                zeros(obj.neq * obj.n, obj.nx), obj.bigE, obj.bigF];
+            beq = [xi; zeros(obj.nx * obj.n, 1); obj.bigk];
             
             % solve for z = [x_1, ..., x_n, u_0, ..., u_{n-1}]^T;
             z = quadprog(H, [], Aiq, biq, Aeq, beq, [], [], [], ...
                 optimoptions('quadprog', 'maxiterations', 1e3, ...
                 'display', 'final'));
             
-            bigX = z(1:obj.n*obj.nx); % state sequence
-            bigU = z(obj.n * obj.nx + 1:end); % input sequence
+            bigX = z(1:(obj.n+1)*obj.nx); % state sequence
+            bigU = z((obj.n +1) * obj.nx + 1:end); % input sequence
             
         end
         
         % set and update cost matrices
-        function obj = set_cost_matrix(obj, Q, R)
+        function obj = set_cost_matrix(obj, QN, Q, R)            
+            obj.QN = QN;
             obj.Q = Q;
             obj.R = R;
-            obj.bigQ = kron(eye(obj.n), obj.Q);
-            obj.bigR = kron(eye(obj.n), obj.R);
         end
         
         % set and update constraint matrices
-        function obj = update_constraint_mat(obj)
+        function obj = update_qp_mat(obj)
             
-            for i = 1:obj.n                
-                % input matrix
-                for j = 1:i
-                    obj.bigB((i-1)*obj.nx+1: i*obj.nx, (j-1)*obj.nu+1: j*obj.nu) = ...
-                        obj.LS.A^(i-j) * obj.LS.B;
-                end
-                
-                % state transition
-                obj.bigA((i-1)*obj.nx+1: i*obj.nx, :) = obj.LS.A^i;              
+            obj.bigA = 0*obj.bigA;
+            obj.bigB = 0*obj.bigB;
+            
+            obj.bigE = 0*obj.bigE;
+            obj.bigF = 0*obj.bigF;
+            obj.bigk = 0*obj.bigk;
+            
+            obj.bigG = 0*obj.bigG;
+            obj.bigJ = 0*obj.bigJ;
+            obj.bigl = 0*obj.bigl;
+            
+            obj.bigQ = 0*obj.bigQ;
+            obj.bigR = 0*obj.bigR;
+           
+            % linearized dynamics
+            for k = 1:obj.n
+                obj.bigA((k-1)*obj.nx+1: k*obj.nx, (k-1)*obj.nx+1: (k+1)*obj.nx) = ...
+                    [-obj.LS.A, eye(obj.nx)];
             end
+            obj.bigB = kron(eye(obj.n), -obj.LS.B);
             
             % equality constraint
             obj.bigE = kron(eye(obj.n), obj.LS.E);
@@ -130,9 +134,11 @@ classdef LinearMPC
             obj.bigG = kron(eye(obj.n), obj.LS.G);
             obj.bigJ = kron(eye(obj.n), obj.LS.J);
             obj.bigl = repmat(obj.LS.l, obj.n, 1);
+            
+            obj.bigQ = kron(eye(obj.n), obj.Q);
+            obj.bigR = kron(eye(obj.n), obj.R);
 
         end
-        
     end
 end
 
