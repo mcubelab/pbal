@@ -1,9 +1,11 @@
 % Test MPC on pendulum stbalizaton about upright
 clear; clc; close all; 
 
+traj_scale=1;
+
 pendulum_params.m = 0.1;
 pendulum_params.l = 0.1;
-pendulum_params.dt = 0.001;
+pendulum_params.dt = 0.005/traj_scale;
 pendulum_params.t_m = 0.05;
 pendulum_params.b = 0.001;
 p = RigidBodyPendulum(pendulum_params);
@@ -19,8 +21,8 @@ xk = [0.5 * p.l*sin(thtk); -0.5 * p.l*cos(thtk); thtk; 0; 0; 0];
 % uk = [0; p.m * p.g; 0.5 * p.m * p.g * p.l*sin(thtk)];
 
 % build MPC
-mpc_params.Ntraj = 50;  % trajectory length 
-mpc_params.Nmpc = 5;   % mpc horizon
+mpc_params.Ntraj = 50*traj_scale;  % trajectory length 
+mpc_params.Nmpc = 5*traj_scale;   % mpc horizon
 
 % cost matrices
 mpc_params.QN = blkdiag(eye(p.nq), 0.01*eye(p.nv)); 
