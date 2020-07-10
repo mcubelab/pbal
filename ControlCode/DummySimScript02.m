@@ -106,11 +106,15 @@ myEnvironment.ConstraintProjection();
 myEnvironment.initialize_visualization();
 
 
+myEnvironment.saveInitialState()
 for n=1:10000
-    myEnvironment.update_project_visualize();
-    drawnow;
-end
+    myEnvironment.BraunUpdate();
+    if mod(n,1)==0
+        myEnvironment.update_visualization();
+        drawnow;
+    end
 
+end
 
 end
 
@@ -170,7 +174,7 @@ myGravity2=PolygonGeneralizedForce();
 myGravity2.gravity(test_rigid_body2,g);
 
 myEnvironment=SimulationEnvironment();
-myEnvironment.setdt(.0001);
+myEnvironment.setdt(.001);
 
 
 myEnvironment.addRigidBody(test_rigid_body1);
@@ -193,7 +197,7 @@ drawnow;
 myEnvironment.saveInitialState()
 for n=1:1000000
     myEnvironment.BraunUpdate();
-    if mod(n,100)==0
+    if mod(n,1)==0
         myEnvironment.update_visualization();
         drawnow;
     end

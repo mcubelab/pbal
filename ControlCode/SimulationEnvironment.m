@@ -148,10 +148,6 @@ classdef SimulationEnvironment < handle
             %kinematic constraint equations
             BigVectorB=zeros(obj.num_lagrange_multipliers,1);
             
-            %BigMatrixBlank a matrix of zeros with the correct dimensions
-            %to make everything else work out
-            BigMatrixBlank=zeros(obj.num_lagrange_multipliers,obj.num_lagrange_multipliers);
-            
             %Iterate through each rigid body and build the associated mass
             %matrix which is just a block diagonal matrix where each block
             %is the mass matrix for the individual rigid body
@@ -201,7 +197,7 @@ classdef SimulationEnvironment < handle
             bv=BigVectorB;
             Phiq=obj.EvalConstraintError();
             dPhiqdt=Aq*q_dot;
-            dt=obj.dt;
+            
             Ae=q_dot'*M;
             be=-q_dot'*(BigVectorF+BigVectorV1);
             Phi_e=obj.EnergyChange();
@@ -216,15 +212,19 @@ classdef SimulationEnvironment < handle
             an=M\Q;
             
             Ce=Ae/R;
-            Nv=eye(max(size(Cv_plus*Cv)))-Cv_plus*Cv;
+            Nv=eye(size(Cv_plus*Cv))-Cv_plus*Cv;
             
             bev=be-Ce*Cv_plus*bv;
             Aev=Ae-Ce*Cv_plus*Av;
-            Phi_ev=Phi_e;
+            Phi_ev=Phi_e-Ce*Cv_plus*dPhiqdt;
+         
             
-            q_update=q+v*dt+R\Cq_plus*((bq-Aq*v)*dt-Phiq);
-            v_update=v+an*dt+R\Cv_plus*((bv-Av*an)*dt-dPhiqdt)...
-                +R\Nv*pinv(Ce*Nv)*((bev-Aev*an)*dt-Phi_ev);
+            q_update=q+v*obj.dt+R\Cq_plus*((bq-Aq*v)*obj.dt-Phiq);
+            v_update=v+an*obj.dt+R\Cv_plus*((bv-Av*an)*obj.dt-dPhiqdt)...
+                +R\Nv*pinv(Ce*Nv)*((bev-Aev*an)*obj.dt-Phi_ev);
+                        
+            
+            
             
             obj.assign_coordinate_vector(q_update);
             obj.assign_velocity_vector(v_update);
@@ -348,8 +348,9 @@ classdef SimulationEnvironment < handle
                 [M,~] = obj.rigid_body_list{n}.LagrangeVM();
                 BigMatrixM(obj.rigid_body_list{n}.coord_index,obj.rigid_body_list{n}.coord_index)=M;
             end
-                
-            T=.5*(obj.q_dot0)'*(BigMatrixM*obj.q_dot0);
+               
+            q_dot=obj.build_velocity_vector();
+            T=.5*(q_dot)'*(BigMatrixM*q_dot);
             
             U=0;
             
@@ -364,7 +365,7 @@ classdef SimulationEnvironment < handle
         
         %Computes the change in mechanical energy from the initial state
         function DeltaE=EnergyChange(obj)
-            [T,U]=obj.computeEnergies()
+            [T,U]=obj.computeEnergies();
             DeltaE=T+U-obj.T0-obj.U0;
         end
         

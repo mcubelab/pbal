@@ -202,12 +202,12 @@ classdef TimeVaryingMPC
 
                 % linearize equality const
                 [kk, Ek, Fk] = obj.NLS.pivot_const(xk);
-%                 obj.A_eq_traj(:, :, k) = Ek(obj.neq+(1:obj.neq),:);
-%                 obj.B_eq_traj(:, :, k) = Fk(obj.neq+(1:obj.neq),:);
-%                 obj.c_eq_traj(:, k) = -kk(obj.neq + (1:obj.neq));
-                obj.A_eq_traj(:, :, k) = Ek(1:obj.neq,:);
-                obj.B_eq_traj(:, :, k) = Fk(1:obj.neq,:);
-                obj.c_eq_traj(:, k) = -kk(1:obj.neq);
+                obj.A_eq_traj(:, :, k) = Ek(obj.neq+(1:obj.neq),:);
+                obj.B_eq_traj(:, :, k) = Fk(obj.neq+(1:obj.neq),:);
+                obj.c_eq_traj(:, k) = -kk(obj.neq + (1:obj.neq));
+%                 obj.A_eq_traj(:, :, k) = Ek(1:obj.neq,:);
+%                 obj.B_eq_traj(:, :, k) = Fk(1:obj.neq,:);
+%                 obj.c_eq_traj(:, k) = -kk(1:obj.neq);
                 
                 % linerize inequality const
                 [Jk, lk] = obj.NLS.build_input_const();
