@@ -35,7 +35,6 @@ classdef ConstrainedRigidBodyPendulum
             obj.l = params.l;       % length (m)
             obj.t_m = params.t_m;   % control torque limit (N*m)
             obj.b = params.b;       % damping coefficient
-            
             obj.g = params.g;                   % gravity (m/s^2)
             obj.I = obj.l^2 * obj.m^2/12;   % inertia (kg^2 * m^2)
             
@@ -56,21 +55,21 @@ classdef ConstrainedRigidBodyPendulum
         
         % given xk, find xkp1 and uk (pivot forces; input torque) that
         % that satisfy the following equations:
-        % (1) xkp1 = obj.forward_dyn_euler(xk, uk)
+        % (1) x_{k+1} = xk + dt * obj.dynamics(xk, uk)
         % (2) obj.pivot_const(xk) = 0
-        % (3) A * u <= b where [A, b] = obj.build_input_const()
-        
+        % (3) fix torque (uk(end)) to the value given     
         function [xkp1, uk] =  dynamics_solve(obj, xk, uk, dt)
             
             qk = xk(1:obj.nq);
-            qkd = xk(obj.nq + (1:obj.nv));
+            qkd = xk(obj.nq + (1:obj.nv));            
             
+            % dynamics: x_{k+1} = xk + dt * obj.dynamics(xk, uk)
             M = obj.build_mass_matrix();
             c = obj.build_coriolis_and_potential(qkd);
             B  = obj.build_input_matrix(qk);
             
             Adyn = [eye(6), [zeros(3); dt * -(M\B)]];
-            bdyn = xk + dt * [qkd; -(M\c)];            
+            bdyn = xk + dt * [qkd; -(M\c)];
             
             % fix torque to uk(end)
             [Au, bu] = obj.input_const_fmincon([xk; uk]);
@@ -79,14 +78,14 @@ classdef ConstrainedRigidBodyPendulum
                 [], [], @obj.equality_const_fmincon, obj.fmincon_opt);
             
             if exitflag < 0
-                error('Pendulum sim solver failed') 
+                error('Pendulum sim solver failed')
             end
             
             xkp1 = z(1:6);
             uk = z(7:9);
         end
         
-        % wrapper for pivot constraint so we can feed it into fmincon
+        % wrapper for equality constraint for fmincon, used in dynamics_solve
         function [c, ceq, dc, dceq] = equality_const_fmincon(obj, zk)
             
             xk = zk(1:(obj.nq + obj.nv));
@@ -97,7 +96,8 @@ classdef ConstrainedRigidBodyPendulum
             dc = [];
         end
         
-        % wrapper for input constraint so we can feed it into fmincon
+        % contraint that matches uk(end) i.e., the applied torque to what's
+        % specified by zk = [xk; uk]
         function [A, b] = input_const_fmincon(obj, zk)
             
             xk = zk(1:(obj.nq + obj.nv));
@@ -141,11 +141,45 @@ classdef ConstrainedRigidBodyPendulum
             
         end
         
+        % equality constraints, c(x, u) = 0, and first derivatives
+        % current we this is the constraint the pin-joint has on the
+        % velocity
+        function [c, dc_dx, dc_du] = equality_const(obj, xk, uk)            
+
+            tht = xk(3);        % rotation of obj
+            qd = xk(obj.nq + (1:obj.nv));               % velocity of COM            
+
+            % pivot const on velocity
+            dphi_dq = [1, 0, -0.5 * obj.l * cos(tht);
+                0, 1, - 0.5 * obj.l * sin(tht)];            
+            c = dphi_dq * qd;
+            
+            dc_dx = [ [0, 0, 0.5 * obj.l * sin(tht) * qd(3);
+                0, 0, -0.5 * obj.l * cos(tht) * qd(3)], dphi_dq];
+
+            dc_du = zeros(obj.neq, obj.nu);
+            
+        end
+        
+        % inequality constraints, c(x, u) <= 0, and first derivatives
+        % currently constraints uk(end) i.e., the torque to be -t_m <= tau <= t_m
+        function [c, dc_dx, dc_du] = inequality_const(obj, xk, uk)
+            c = [uk(end); -uk(end)] - [obj.t_m; obj.t_m];
+            dc_dx = zeros(obj.niq, obj.nx);
+            dc_du = [0, 0, 1; 0, 0, -1];
+        end
+                
+        % measure the difference between two state vectors
+        function dx = state_diff(obj, x1, x2)
+            d = mod(x1(1) - x2(1) + pi, 2*pi) - pi;
+            dx = [d; x1(2:end) - x2(2:end)];
+        end
+        
+        %%%%%%%% Helper Functions %%%%%%%%%%%
+        
         % B(q) in M(q) qdd + c(qd) = B(q) * u
-        function B = build_input_matrix(obj, qk)
-            
-            tht = qk(3);
-            
+        function B = build_input_matrix(obj, qk)            
+            tht = qk(3);            
             B = [1, 0, 0;
                 0, 1, 0;
                 -0.5 * obj.l * cos(tht), -0.5 * obj.l * sin(tht), 1];
@@ -156,63 +190,13 @@ classdef ConstrainedRigidBodyPendulum
             M = [obj.m, 0, 0;
                 0, obj.m, 0;
                 0, 0, obj.I];
-        end
-        
+        end        
+                
         % c(qd) in M*qdd + c(qd) = B(q) * u
-        % currently just gravity and damping in theta
         function c = build_coriolis_and_potential(obj, qkd)
             c = [0; obj.m * obj.g; 0] + [0; 0; obj.b*qkd(3)];
         end
-        
-        % this function evaluates the pivot constraint -- the top end of the
-        % rod is fixed to (0,0) -- on positions and velocities
-        function [c, dc_dx, dc_du] = equality_const(obj, xk, uk)
-            
-            x = xk(1);          % x-pos of COM
-            y = xk(2);          % y-pos of COM
-            tht = xk(3);        % rotation of obj
-            
-            % velocity of COM
-            qd = xk(obj.nq + (1:obj.nv));
-            
-            % position constraints: phi(q) = 0
-%             phi = [x - 0.5 * obj.l * sin(tht);
-%                 y + 0.5 * obj.l * cos(tht)];
-            
-            % derivative of phi w.r.t to q
-            dphi_dq = [1, 0, -0.5 * obj.l * cos(tht);
-                0, 1, - 0.5 * obj.l * sin(tht)] ;
-            
-            %             c = [phi(q); dphi_dq(q) * qd ] = 0
-            c = dphi_dq * qd;
-            %             c = [phi; dphi_dq * qd];
-            
-            dc_dx = [ [0, 0, 0.5 * obj.l * sin(tht) * qd(3);
-                            0, 0, -0.5 * obj.l * cos(tht) * qd(3)], dphi_dq];
-            
-            %             dc_dx = [dphi_dq, 0_{2x3}; d2phi_dq2*qd, dphi_dq]
-            %             dc_dx = [dphi_dq, zeros(obj.neq/2, obj.nv);
-            %                 [0, 0, 0.5 * obj.l * sin(tht) * qd(3);
-            %                 0, 0, -0.5 * obj.l * cos(tht) * qd(3)], dphi_dq];
-            %
-            %dc_du = 0
-            dc_du = zeros(obj.neq, obj.nu);
-            
-        end
-        
-        % this function puts constraints on the input currently just bound
-        % constraints on torque %-t_m <= tau <= t_m
-        function [c, dc_dx, dc_du] = inequality_const(obj, xk, uk)
-            c = [uk(end); -uk(end)] - [obj.t_m; obj.t_m];
-            dc_dx = zeros(obj.niq, obj.nx);
-            dc_du = [0, 0, 1; 0, 0, -1];
-        end
-        
-        function dx = state_diff(obj, x1, x2)
-            d = mod(x1(1) - x2(1) + pi, 2*pi) - pi;
-            dx = [d; x1(2:end) - x2(2:end)];
-        end
-        
+
     end
 end
 
