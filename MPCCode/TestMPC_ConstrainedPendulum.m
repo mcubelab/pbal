@@ -10,16 +10,16 @@ pparams.b = 0.001;  % damping
 p = ConstrainedRigidBodyPendulum(pparams);
 
 % goal state
-thtg = pi;
-xg = [0.5 * p.l*sin(thtg); -0.5 * p.l*cos(thtg); thtg; 0; 0; 0];
+thtg = pi/3;
+xg = [0.5 * p.l * sin(thtg); -0.5 * p.l * cos(thtg); thtg; 0; 0; 0];
 ug = [0; p.m * p.g; 0.5 * p.m * p.g * p.l*sin(thtg)];
 
 % inital state
-thtk = pi/2; %2*pi*(rand(1) - 0.5);
+thtk = 0; %2*pi*(rand(1) - 0.5);
 xk = [0.5 * p.l*sin(thtk); -0.5 * p.l*cos(thtk); thtk; 0; 0; 0];
 
 % build MPC
-mpc_params.Ntraj = 500;  % trajectory length
+mpc_params.Ntraj = 100;  % trajectory length
 mpc_params.Nmpc = 30;    % mpc horizon
 mpc_params.dt = 0.01; % time-step
 
