@@ -11,11 +11,11 @@ params.t_m = 0;         % torque limit
 params.b = 0.1;         % damping
 
 % plant
-p = ConstrainedRigidBodyPendulum(params);
+p = ConstrainedRigidBodyPendulumPivot(params);
 
 % initial condition (note this has to satisfy pivot constraints)
 thtk = pi/3;
-xk = [0.5 * p.l*sin(thtk); -0.5 * p.l*cos(thtk); thtk; 0; 0; 0];
+xk = [0; 0; thtk; 0; 0; 0];
 uk = zeros(p.nu, 1);  
 
 % store state and inputs
@@ -40,7 +40,8 @@ for i = 1:N
     xk = xkp1; % update
 end
 
-save('constrained_pend', 'xvec', 'uvec', 'cvec')
+save('constrained_pend_pivot', 'xvec', 'uvec', 'cvec')
+
 
 %% Plotting 
 
@@ -67,19 +68,19 @@ end
 
 % constraints
 figure(3); clf;
-titles = {'pivot-x', 'pivot-y', 'pivot-vx', 'pivot-vy'};
+titles = {'pivot-vx', 'pivot-vy'};
 for i = 1:p.neq
-    subplot(2, 2, i); hold on;
+    subplot(1, 2, i); hold on;
     plot(t(1:end-1), cvec(i, :));  
     title(titles{i});    
 end
 
-% plot trajectory based on COM-XY and theta + pivot constraint
-figure(4); clf; hold on;
-plot(xvec(1, :), xvec(2, :))
-plot(0.5 * p.l * sin(xvec(3, :)), -0.5 * p.l * cos(xvec(3, :)), '--')
-axis equal;
-title('COM X-Y')
-legend('xy trajectory', 'theta trajectory')
+% % plot trajectory based on COM-XY and theta + pivot constraint
+% figure(4); clf; hold on;
+% plot(xvec(1, :), xvec(2, :))
+% plot(0.5 * p.l * sin(xvec(3, :)), -0.5 * p.l * cos(xvec(3, :)), '--')
+% axis equal;
+% title('COM X-Y')
+% legend('xy trajectory', 'theta trajectory')
 
 

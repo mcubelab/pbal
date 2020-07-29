@@ -7,16 +7,16 @@ pparams.l = 1; % length
 pparams.g = 9.81; % acceleration due to gravity
 pparams.t_m = pparams.m * pparams.g * pparams.l; % torque limit on input
 pparams.b = 0.001;  % damping
-p = ConstrainedRigidBodyPendulum(pparams);
+p = ConstrainedRigidBodyPendulumPivot(pparams);
 
 % goal state
 thtg = pi;
-xg = [0.5 * p.l*sin(thtg); -0.5 * p.l*cos(thtg); thtg; 0; 0; 0];
-ug = [0; p.m * p.g; 0.5 * p.m * p.g * p.l*sin(thtg)];
+xg = [0; 0; thtg; 0; 0; 0];
+ug = [0; p.m * p.g; 0];
 
 % inital state
 thtk = pi/2; %2*pi*(rand(1) - 0.5);
-xk = [0.5 * p.l*sin(thtk); -0.5 * p.l*cos(thtk); thtk; 0; 0; 0];
+xk = [0; 0; thtk; 0; 0; 0];
 
 % build MPC
 mpc_params.Ntraj = 500;  % trajectory length
@@ -41,6 +41,7 @@ uvec = [];
 utruevec = [];
 cvec = [];
 
+
 cmap = jet(mpc_tv.Ntraj);
 for k = 1:mpc_tv.Ntraj
     
@@ -60,7 +61,7 @@ for k = 1:mpc_tv.Ntraj
     xk = xkp1;
 end
 
-save('constrained_pend', 'xvec', 'uvec', 'utruevec', 'cvec'); 
+save('constrained_pend_pivot', 'xvec', 'uvec', 'utruevec', 'cvec'); 
 
 
 %% Plotting
@@ -72,12 +73,12 @@ figure(1); clf;
 hold on;
 xlim([-1, 1])
 ylim([-1, 1])
-ph = plot( [0; xvec(1, 1)], ...
-    [0; 2 * xvec(2, 1)]);
+ph = plot( [0; xvec(1, 1) + p.l * sin(xvec(3,1))], ...
+    [0; xvec(2, 1) - p.l * cos(xvec(3,1))]);
 th = title(sprintf('time: %f', 0.0));
 for i = 1:mpc_tv.Ntraj
-    set(ph, 'Xdata',  [0; 2 * xvec(1, i)], ...
-        'Ydata', [0; 2 * xvec(2, i)])
+    set(ph, 'Xdata',  [0; xvec(1, i) + p.l * sin(xvec(3,i))], ...
+        'Ydata', [0; 2 * xvec(2, i) -  p.l * cos(xvec(3,i))])
     set(th, 'string', sprintf('time: %f', t(i)*mpc_tv.dt))
     pause(mpc_tv.dt)
 end
