@@ -1,6 +1,8 @@
 % Test MPC on pendulum stbalizaton about upright
 clear; clc; close all;
 
+addpath('./Plants', './Solvers')
+
 % pendulum parameters
 pparams.m = 1; % mass
 pparams.l = 1; % length
