@@ -9,6 +9,7 @@ classdef ConstrainedRigidBodyPendulumPivot
         l;   % pendulum length (m)
         t_m  % control torque limit (N * m)
         b    % damping coeff
+        mu   % coefficient of friction
         
         % fixed/derived
         g;              % acceleration due to gravity (kg/m^2)
@@ -36,6 +37,7 @@ classdef ConstrainedRigidBodyPendulumPivot
             obj.t_m = params.t_m;   % control torque limit (N*m)
             obj.b = params.b;       % damping coefficient
             obj.g = params.g;                   % gravity (m/s^2)
+            obj.mu = params.mu;     % coefficient of friction
             obj.I = obj.l^2 * obj.m^2/3;   % inertia (kg^2 * m^2)
             
             % options for fmincon
@@ -50,7 +52,7 @@ classdef ConstrainedRigidBodyPendulumPivot
             obj.nx = obj.nq + obj.nv;
             obj.nu = 3;
             obj.neq = 2;
-            obj.niq = 2;
+            obj.niq = 4;
         end
         
         % given xk, find xkp1 and uk (pivot forces; input torque) that
@@ -104,7 +106,7 @@ classdef ConstrainedRigidBodyPendulumPivot
             uk = zk(obj.nq + obj.nv + (1:obj.nu));
             [c, dc_dx, dc_du] = obj.inequality_const(xk, uk);
             A = [dc_dx, dc_du];
-            b = [uk(end); -uk(end)];
+            b = [uk(end); -uk(end); 0; 0];
             
         end
         
@@ -140,8 +142,6 @@ classdef ConstrainedRigidBodyPendulumPivot
             
         end
         
-        
-        
         % equality constraints, c(x, u) = 0, and first derivatives
         % current we this is the constraint the pin-joint has on the
         % velocity
@@ -162,9 +162,15 @@ classdef ConstrainedRigidBodyPendulumPivot
         % inequality constraints, c(x, u) <= 0, and first derivatives
         % currently constraints uk(end) i.e., the torque to be -t_m <= tau <= t_m
         function [c, dc_dx, dc_du] = inequality_const(obj, xk, uk)
-            c = [uk(end); -uk(end)] - [obj.t_m; obj.t_m];
+            
+            fx = uk(1);
+            fy = uk(2); 
+            tau = uk(3); 
+            
+            c = [tau; -tau; fx - obj.mu*fy; -fx - obj.mu*fy] ...
+                - [obj.t_m; obj.t_m; 0; 0];
             dc_dx = zeros(obj.niq, obj.nx);
-            dc_du = [0, 0, 1; 0, 0, -1];
+            dc_du = [0, 0, 1; 0, 0, -1; 1 -obj.mu, 0; -1 -obj.mu, 0];
         end
         
         % measure the difference between two state vectors
