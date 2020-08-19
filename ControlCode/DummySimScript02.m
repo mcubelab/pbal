@@ -69,8 +69,14 @@ end
 
 function res=SimulationTest01()
 
+
 fig1=figure(1);
 hold on
+
+fig2=figure(2);
+hold on
+
+set(0,'currentfigure',fig1);
 
 g=[0;-10];
 
@@ -96,7 +102,8 @@ test_constraint1=PolygonConstraint();
 test_constraint1.StickingContactOneBody(test_rigid_body1,[00;0],[0;0]);
 
 myEnvironment=SimulationEnvironment();
-myEnvironment.setdt(.01);
+dt=.01;
+myEnvironment.setdt(dt);
 
 myEnvironment.addRigidBody(test_rigid_body1);
 myEnvironment.addConstraint(test_constraint1);
@@ -109,8 +116,21 @@ myEnvironment.initialize_visualization();
 myEnvironment.saveInitialState()
 for n=1:10000
     myEnvironment.BraunUpdate();
+    E(n)=myEnvironment.EnergyChange();
+    [T,U]=myEnvironment.computeEnergies();
+    Tlist(n)=T;
+    Tlist(1)=0;
+    tlist(n)=n*dt;
     if mod(n,1)==0
+        set(0,'currentfigure',fig1);
         myEnvironment.update_visualization();
+        drawnow;
+        
+        set(0,'currentfigure',fig2);
+        clf;
+        hold on
+        plot(tlist,E,'k');
+        plot(tlist,Tlist,'r');
         drawnow;
     end
 
@@ -125,6 +145,11 @@ function res=SimulationTest02()
 
 fig1=figure(1);
 hold on
+
+% fig2=figure(2);
+% hold on
+
+set(0,'currentfigure',fig1);
 
 g=[0;-10];
 
@@ -174,7 +199,9 @@ myGravity2=PolygonGeneralizedForce();
 myGravity2.gravity(test_rigid_body2,g);
 
 myEnvironment=SimulationEnvironment();
-myEnvironment.setdt(.001);
+
+dt=.001;
+myEnvironment.setdt(dt);
 
 
 myEnvironment.addRigidBody(test_rigid_body1);
@@ -197,8 +224,26 @@ drawnow;
 myEnvironment.saveInitialState()
 for n=1:1000000
     myEnvironment.BraunUpdate();
-    if mod(n,1)==0
+%     
+%     myEnvironment.computeAccelerations();
+%     myEnvironment.EulerUpdate();
+%     myEnvironment.ConstraintProjection();
+    
+    E(n)=myEnvironment.EnergyChange();
+    [T,U]=myEnvironment.computeEnergies();
+    Tlist(n)=T;
+    Tlist(1)=0;
+    tlist(n)=n*dt;
+    if mod(n,100)==0
+        set(0,'currentfigure',fig1);
         myEnvironment.update_visualization();
+        drawnow;
+        
+%         set(0,'currentfigure',fig2);
+%         clf;
+%         hold on
+%         plot(tlist,E,'k');
+%         plot(tlist,Tlist,'r');
         drawnow;
     end
 

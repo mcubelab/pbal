@@ -224,7 +224,7 @@ classdef SimulationEnvironment < handle
                 +R\Nv*pinv(Ce*Nv)*((bev-Aev*an)*obj.dt-Phi_ev);
                         
             
-            
+%             v_update=v+an*obj.dt+R\Cv_plus*((bv-Av*an)*obj.dt-dPhiqdt);
             
             obj.assign_coordinate_vector(q_update);
             obj.assign_velocity_vector(v_update);
