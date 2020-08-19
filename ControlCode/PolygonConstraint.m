@@ -8,8 +8,9 @@ classdef PolygonConstraint < handle
         pin1; %material point referenced on the first rigid body (may not be used) (in body frame)
         pin2; %material point referenced on the second rigid body (may not be used) (in body frame)
     
-        normal_vector; %normal vector referenced on either second body or world frame used for
-                       %sliding contact
+        normal_vector_Body1; %normal vector referenced on body 1 used for sliding contact
+        normal_vector_Body2; %normal vector referenced on body 2 used for sliding contact
+        normal_vector_World; %normal vector referenced in world frame used for sliding contact
         
         pout; %point used in the world frame
     
@@ -25,8 +26,11 @@ classdef PolygonConstraint < handle
         ConstraintType; %color/type of constraint, just an integer where 0 corresponds to nothing
         %1 sticking contact with one rigid body, and 1 point in world frame
         %2 sticking contact between two rigid bodies
-        %3
-        %4
+        %3 sliding contact with one rigid body, and 1 point in WF
+        %4 sliding contact with one rigid body, and 1 plane in WF
+        %5 sliding contact between two rigid bodies 
+        %(first one is point, second is plane)
+        
     end
     
     methods
@@ -57,6 +61,10 @@ classdef PolygonConstraint < handle
             end
             
             if obj.ConstraintType==4
+                
+            end
+            
+            if obj.ConstraintType==5
                 
             end
         end
@@ -107,6 +115,10 @@ classdef PolygonConstraint < handle
             end
             
             if obj.ConstraintType==4
+                
+            end
+            
+            if obj.ConstraintType==5
                 
             end
         end
@@ -164,13 +176,44 @@ classdef PolygonConstraint < handle
             obj.num_lagrange_multipliers=2; %x and y constriants -> 2 multipliers
         end
         
-        function SlidingContactOneBody(obj,Body1,pin1,pout,normal_vector)
+        %stores information associated with a sliding contact between a
+        %rigid body and a point in the world frame
+        function SlidingContactOneBodyWorldPoint(obj,Body1,pin1,pout,normal_vector)
             obj.rigidBody1=Body1;
             obj.pin1=pin1;
             obj.pout=pout;
-            obj.normal_vector=normal_vector;
+            obj.normal_vector_Body1=normal_vector;
             
-            obj.ConstraintType=3; %assigns the sliding constraint label with 1 rigid body
+            %assigns the sliding constraint label with 1 rigid body
+            %sliding against 1 point in the world frame
+            obj.ConstraintType=3; 
+            
+            obj.num_lagrange_multipliers=1; %x and y constriants -> 2 multipliers
+        end
+        
+        function SlidingContactOneBodyWorldLine(obj,Body1,pin1,pout,normal_vector)
+            obj.rigidBody1=Body1;
+            obj.pin1=pin1;
+            obj.pout=pout;
+            obj.normal_vector_World=normal_vector;
+            
+            %assigns the sliding constraint label with 1 rigid body
+            %sliding against 1 point in the world frame
+            obj.ConstraintType=4; %assigns the sliding constraint label with 1 rigid body
+            
+            obj.num_lagrange_multipliers=1; %x and y constriants -> 2 multipliers
+        end
+        
+        %5 sliding contact between two rigid bodies 
+        %(first one is point, second is plane)
+        function SlidingContactTwoBodies(obj,Body1,pin1,Body2,pin2,normal_vector)
+            obj.rigidBody1=Body1;
+            obj.pin1=pin1;
+            obj.rigidBody2=Body2;
+            obj.pin2=pin2;
+            obj.normal_vector_Body2=normal_vector;
+            
+            obj.ConstraintType=5; %assigns the sliding constraint label with 1 rigid body
             
             obj.num_lagrange_multipliers=1; %x and y constriants -> 2 multipliers
         end
