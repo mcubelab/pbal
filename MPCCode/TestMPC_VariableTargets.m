@@ -1,6 +1,7 @@
 % Test MPC on pendulum stbalizaton about upright
 clear; clc; close all;
-addpath('./Plants', './Solvers')
+addpath('./Plants', './Solvers', '../ControlCode/')
+
 
 % velocity desired
 VD = pi/6; % radians per second
@@ -12,7 +13,7 @@ pparams.g = 9.81; % acceleration due to gravity
 pparams.t_m = pparams.m * pparams.g * pparams.l; % torque limit on input
 pparams.b = 0.0;  % damping
 pparams.mu = 0.3; % coefficient of friction
-p = ConstrainedRigidBodyPendulumPivot(pparams);
+p = PendulumPlant01(pparams);
 
 % mpc parameters
 mpc_params.Nmpc = 20;    % mpc horizon
