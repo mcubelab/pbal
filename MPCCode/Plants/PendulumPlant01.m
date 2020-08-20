@@ -280,14 +280,22 @@ classdef PendulumPlant01
             
             obj.MyEnvironment.computeAccelerations();
             
+            xk
+            (uk(3)-.5*obj.m*obj.g*sin(xk(3)))/obj.I
+            q_ddot= obj.MyEnvironment_constrained.build_acceleration_vector()
+            
+            
             obj.MyEnvironment_constrained.EulerUpdate();
             obj.MyEnvironment_constrained.ConstraintProjection();
             
             
             q=obj.MyEnvironment_constrained.build_coordinate_vector();
             q_dot=obj.MyEnvironment_constrained.build_velocity_vector();
+            
             xkp1=[q;q_dot];
             uk_out=[obj.sticking_constraint_ground.getMultipliers();uk(3)];
+            
+            
 %             qk = xk(1:obj.nq);
 %             qkd = xk(obj.nq + (1:obj.nv));
 %             
