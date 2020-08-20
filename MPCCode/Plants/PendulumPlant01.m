@@ -108,8 +108,11 @@ classdef PendulumPlant01
             
             obj.MyEnvironment.computeAccelerations();
             
-            f= obj.MyEnvironment.build_acceleration_vector();
+            a= obj.MyEnvironment.build_acceleration_vector();
+            v= obj.MyEnvironment.build_velocity_vector();
 
+            f=[v;a];
+            
             delta_val=.0001;
             for count=1:6
                 delta_xk=zeros(6,1);
@@ -124,7 +127,8 @@ classdef PendulumPlant01
 
                 obj.MyEnvironment.computeAccelerations();
 
-                f_plus= obj.MyEnvironment.build_acceleration_vector();
+                a_plus= obj.MyEnvironment.build_acceleration_vector();
+                v_plus= obj.MyEnvironment.build_velocity_vector();
                 
                 obj.MyEnvironment.assign_coordinate_vector(xk_minus_temp(1:3));
                 obj.MyEnvironment.assign_velocity_vector(xk_minus_temp(4:6));
@@ -132,9 +136,10 @@ classdef PendulumPlant01
 
                 obj.MyEnvironment.computeAccelerations();
 
-                f_minus= obj.MyEnvironment.build_acceleration_vector();
+                a_minus= obj.MyEnvironment.build_acceleration_vector();
+                v_minus= obj.MyEnvironment.build_velocity_vector();
                 
-                df_dx(:,count)=(f_plus-f_minus)/(2*delta_val);
+                df_dx(:,count)=([v_plus;a_plus]-[v_minus;a_minus])/(2*delta_val);
             end
 
             
@@ -151,7 +156,8 @@ classdef PendulumPlant01
 
                 obj.MyEnvironment.computeAccelerations();
 
-                f_plus= obj.MyEnvironment.build_acceleration_vector();
+                a_plus= obj.MyEnvironment.build_acceleration_vector();
+                v_plus= obj.MyEnvironment.build_velocity_vector();
                 
                 obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
                 obj.MyEnvironment.assign_velocity_vector(xk(4:6));
@@ -159,9 +165,10 @@ classdef PendulumPlant01
 
                 obj.MyEnvironment.computeAccelerations();
 
-                f_minus= obj.MyEnvironment.build_acceleration_vector();
+                a_minus= obj.MyEnvironment.build_acceleration_vector();
+                v_minus= obj.MyEnvironment.build_velocity_vector();
                 
-                df_du(:,count)=(f_plus-f_minus)/(2*delta_val);
+                df_du(:,count)=([v_plus;a_plus]-[v_minus;a_minus])/(2*delta_val);
             end
             
                      
