@@ -230,7 +230,7 @@ classdef PendulumPlant01
 %             dphi_dq = [1, 0, 0; 0, 1, 0];
 %             c = dphi_dq * qd;
             
-%             dx_dx=[Dx;Dy];
+            dc_dx = [zeros(obj.neq, obj.nq), [Dx;Dy]];
 %             dc_dx = [zeros(obj.neq, obj.nq), dphi_dq];
             
             dc_du = zeros(2, length(uk));
