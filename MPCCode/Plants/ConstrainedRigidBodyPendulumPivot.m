@@ -85,6 +85,9 @@ classdef ConstrainedRigidBodyPendulumPivot
             
             xkp1 = z(1:6);
             uk = z(7:9);
+            
+            accelerations = inv(M)*(B*uk - c); 
+            disp(accelerations)
         end
         
         % wrapper for equality constraint for fmincon, used in dynamics_solve

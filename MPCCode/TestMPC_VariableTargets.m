@@ -15,6 +15,8 @@ pparams.b = 0.0;  % damping
 pparams.mu = 0.3; % coefficient of friction
 p = PendulumPlant01(pparams);
 
+p2 = ConstrainedRigidBodyPendulumPivot(pparams);
+
 % mpc parameters
 mpc_params.Nmpc = 20;    % mpc horizon
 mpc_params.dt = 0.01;    % time-step
@@ -64,7 +66,10 @@ for i = 1:numel(thtg_vec)
 
         [dx_mpc, dU_mpc] = mpc_tv.run_mpc(k, xk);
         uk = mpc_tv.Unom(:, k) + dU_mpc(1:mpc_tv.nu);
+%         disp('Orion')
         [xkp1, uk_true] = p.dynamics_solve(xk, uk, mpc_tv.dt);
+%         disp('Neel')
+%         [xkp1_2, uk_true_2] = p2.dynamics_solve(xk, uk, mpc_tv.dt);
 
         % store solution
         xvec = [xvec, xkp1];
@@ -86,20 +91,20 @@ t = 0:(size(xvec, 2)-1);
 disp(t(end) * mpc_tv.dt); 
 % t = (0:(mpc_tv.Ntraj));
 
-% % animation
-% figure(1); clf;
-% hold on; axis equal;
-% xlim([-1.5, 1.5])
-% ylim([-1.5, 1.5])
-% ph = plot( [0; xvec(1, 1) + p.l * sin(xvec(3,1))], ...
-%     [0; xvec(2, 1) - p.l * cos(xvec(3,1))]);
-% th = title(sprintf('time: %f', 0.0));
-% for i = 1:numel(t)
-%     set(ph, 'Xdata',  [0; xvec(1, i) + p.l * sin(xvec(3,i))], ...
-%         'Ydata', [0; 2 * xvec(2, i) -  p.l * cos(xvec(3,i))])
-%     set(th, 'string', sprintf('time: %f', t(i)*mpc_tv.dt))
-%     pause(mpc_tv.dt)
-% end
+% animation
+figure(1); clf;
+hold on; axis equal;
+xlim([-1.5, 1.5])
+ylim([-1.5, 1.5])
+ph = plot( [0; xvec(1, 1) + p.l * sin(xvec(3,1))], ...
+    [0; xvec(2, 1) - p.l * cos(xvec(3,1))]);
+th = title(sprintf('time: %f', 0.0));
+for i = 1:numel(t)
+    set(ph, 'Xdata',  [0; xvec(1, i) + p.l * sin(xvec(3,i))], ...
+        'Ydata', [0; 2 * xvec(2, i) -  p.l * cos(xvec(3,i))])
+    set(th, 'string', sprintf('time: %f', t(i)*mpc_tv.dt))
+    pause(mpc_tv.dt)
+end
 
 % state
 figure(2); clf;
