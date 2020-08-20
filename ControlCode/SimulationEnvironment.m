@@ -432,7 +432,7 @@ classdef SimulationEnvironment < handle
         function acceleration_vector=build_acceleration_vector(obj)
             acceleration_vector=zeros(obj.num_coordinates,1);
             for n=1:obj.num_bodies
-                [a,alpha]=obj.rigid_body_list{n}.set_a_and_alpha();
+                [a,alpha]=obj.rigid_body_list{n}.get_a_and_alpha();
                 acceleration_vector(obj.rigid_body_list{n}.coord_index)=[a;alpha];
             end
         end

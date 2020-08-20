@@ -39,7 +39,7 @@ classdef PendulumPlant01
     methods
         
         % initialize
-        function obj = ConstrainedRigidBodyPendulumPivot(params)
+        function obj = PendulumPlant01(params)
             
             obj.m = params.m;       % mass  (kg)
             obj.l = params.l;       % length (m)
@@ -67,19 +67,19 @@ classdef PendulumPlant01
             
             obj.MyEnvironment=SimulationEnvironment();
             
-            obj.myEnvironment.addRigidBody(obj.pendulum_rigid_body_object);
-%             obj.myEnvironment.addConstraint(sticking_constraint_ground);
-            obj.myEnvironment.addGeneralizedForce(myGravity);
-            obj.myEnvironment.addGeneralizedForce(obj.ControlInput);
+            obj.MyEnvironment.addRigidBody(obj.pendulum_rigid_body_object);
+%             obj.MyEnvironment.addConstraint(sticking_constraint_ground);
+            obj.MyEnvironment.addGeneralizedForce(myGravity);
+            obj.MyEnvironment.addGeneralizedForce(obj.ControlInput);
 
             
-%             % dimensions
-%             obj.nq = 3;
-%             obj.nv = 3;
-%             obj.nx = obj.nq + obj.nv;
-%             obj.nu = 3;
-%             obj.neq = 2;
-%             obj.niq = 4;
+            % dimensions
+            obj.nq = 3;
+            obj.nv = 3;
+            obj.nx = obj.nq + obj.nv;
+            obj.nu = 3;
+            obj.neq = 2;
+            obj.niq = 4;
             
             
         end
@@ -102,13 +102,13 @@ classdef PendulumPlant01
         % df_dx partial f / partial xk
         % df_du partial f / partial uk
         function [f, df_dx, df_du] = dynamics(obj, xk, uk)
-            obj.myEnvironment.assign_coordinate_vector(xk(1:3));
-            obj.myEnvironment.assign_velocity_vector(xk(4:6));
+            obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
+            obj.MyEnvironment.assign_velocity_vector(xk(4:6));
             obj.ControlInput.set_wrench_value(uk);
             
-            obj.myEnvironment.computeAccelerations();
+            obj.MyEnvironment.computeAccelerations();
             
-            f= obj.myEnvironment.build_acceleration_vector();
+            f= obj.MyEnvironment.build_acceleration_vector();
 
             delta_val=.0001;
             for count=1:6
@@ -118,21 +118,21 @@ classdef PendulumPlant01
                 xk_plus_temp=xk+delta_xk;
                 xk_minus_temp=xk-delta_xk;
                 
-                obj.myEnvironment.assign_coordinate_vector(xk_plus_temp(1:3));
-                obj.myEnvironment.assign_velocity_vector(xk_plus_temp(4:6));
+                obj.MyEnvironment.assign_coordinate_vector(xk_plus_temp(1:3));
+                obj.MyEnvironment.assign_velocity_vector(xk_plus_temp(4:6));
                 obj.ControlInput.set_wrench_value(uk);
 
-                obj.myEnvironment.computeAccelerations();
+                obj.MyEnvironment.computeAccelerations();
 
-                f_plus= obj.myEnvironment.build_acceleration_vector();
+                f_plus= obj.MyEnvironment.build_acceleration_vector();
                 
-                obj.myEnvironment.assign_coordinate_vector(xk_minus_temp(1:3));
-                obj.myEnvironment.assign_velocity_vector(xk_minus_temp(4:6));
+                obj.MyEnvironment.assign_coordinate_vector(xk_minus_temp(1:3));
+                obj.MyEnvironment.assign_velocity_vector(xk_minus_temp(4:6));
                 obj.ControlInput.set_wrench_value(uk);
 
-                obj.myEnvironment.computeAccelerations();
+                obj.MyEnvironment.computeAccelerations();
 
-                f_minus= obj.myEnvironment.build_acceleration_vector();
+                f_minus= obj.MyEnvironment.build_acceleration_vector();
                 
                 df_dx(:,count)=(f_plus-f_minus)/(2*delta_val);
             end
@@ -145,21 +145,21 @@ classdef PendulumPlant01
                 uk_plus_temp=uk+delta_uk;
                 uk_minus_temp=uk-delta_uk;
                 
-                obj.myEnvironment.assign_coordinate_vector(xk(1:3));
-                obj.myEnvironment.assign_velocity_vector(xk(4:6));
+                obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
+                obj.MyEnvironment.assign_velocity_vector(xk(4:6));
                 obj.ControlInput.set_wrench_value(uk_plus_temp);
 
-                obj.myEnvironment.computeAccelerations();
+                obj.MyEnvironment.computeAccelerations();
 
-                f_plus= obj.myEnvironment.build_acceleration_vector();
+                f_plus= obj.MyEnvironment.build_acceleration_vector();
                 
-                obj.myEnvironment.assign_coordinate_vector(xk(1:3));
-                obj.myEnvironment.assign_velocity_vector(xk(4:6));
+                obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
+                obj.MyEnvironment.assign_velocity_vector(xk(4:6));
                 obj.ControlInput.set_wrench_value(uk_minus_temp);
 
-                obj.myEnvironment.computeAccelerations();
+                obj.MyEnvironment.computeAccelerations();
 
-                f_minus= obj.myEnvironment.build_acceleration_vector();
+                f_minus= obj.MyEnvironment.build_acceleration_vector();
                 
                 df_du(:,count)=(f_plus-f_minus)/(2*delta_val);
             end
@@ -206,8 +206,8 @@ classdef PendulumPlant01
         % dc_du is partial c / partial uk
         function [c, dc_dx, dc_du] = equality_const(obj, xk, uk)
             
-            obj.myEnvironment.assign_coordinate_vector(xk(1:3));
-            obj.myEnvironment.assign_velocity_vector(xk(4:6));
+            obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
+            obj.MyEnvironment.assign_velocity_vector(xk(4:6));
             obj.ControlInput.set_wrench_value(uk);
             
             c=obj.pendulum_rigid_body_object. rigid_body_velocity([0;0]);
