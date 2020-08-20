@@ -48,6 +48,8 @@ test_rigid_body1.set_v_and_omega(dgeneralized(1:2),dgeneralized(3));
 
 g=[0;-10];
 
+% g=g*0;
+
 myGravity1=PolygonGeneralizedForce();
 myGravity1.gravity(test_rigid_body1,g);
 
@@ -63,17 +65,29 @@ myEnvironment.setdt(dt);
 
 myEnvironment.addRigidBody(test_rigid_body1);
 myEnvironment.addConstraint(test_constraint1);
-% myEnvironment.addGeneralizedForce(myGravity1);
+myEnvironment.addGeneralizedForce(myGravity1);
 myEnvironment.addGeneralizedForce(myWrench1);
 
 myEnvironment.ConstraintProjection();
 myEnvironment.initialize_visualization();
 
+tau=10;
+
+
+
 for count=1:10000
 
-    myWrench1.set_wrench_value([0;0;1]);
+    myWrench1.set_wrench_value([0;0;tau]);
+    
+    
+    v= myEnvironment.build_velocity_vector();
+    q = myEnvironment.build_coordinate_vector();
     
     myEnvironment.computeAccelerations();
+    a= myEnvironment.build_acceleration_vector()
+    
+    (tau-.5*m*g(2)*l*sin(q(3)))/(I)
+    
     myEnvironment.EulerUpdate();
     myEnvironment.ConstraintProjection();
   
