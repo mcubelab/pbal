@@ -3,7 +3,7 @@
 
 function res=DummySimScript02()
 
-SimulationTest02()
+SimulationTest01()
 
 end
 
