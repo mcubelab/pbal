@@ -306,12 +306,21 @@ classdef SimulationEnvironment < handle
             BigVector=[BigVectorV+BigVectorF;BigVectorB];
             
             %Solve for the accelerations
-            AccelVector=BigMatrix\BigVector;
-            AccelVector=AccelVector(1:obj.num_coordinates);
+            AccelVectorFull=BigMatrix\BigVector;
+            AccelVector=AccelVectorFull(1:obj.num_coordinates);
+            LagrangeVector=[];
+            
+            if obj.num_lagrange_multipliers>0
+                LagrangeVector=AccelVectorFull(obj.num_coordinates+1:end);
+            end
             
             %assign the solved accelerations to the associated
             %accelerations of the rigid bodies
             obj.assign_acceleration_vector(AccelVector);
+            
+            
+            
+            obj.assign_lagrange_multipliers(LagrangeVector);
         end
         
         % This function builds forward dynamics of the form x_dot = f(x, u)
@@ -463,7 +472,16 @@ classdef SimulationEnvironment < handle
                 obj.rigid_body_list{n}.set_a_and_alpha(acceleration_vector_body(1:2),acceleration_vector_body(3));
             end
         end
-             
+        
+        %updates the values of the lagrange multipliers across all 
+        %constraints
+        function assign_lagrange_multipliers(obj,LagrangeVector)
+            for n=1:obj.num_constraints
+                CurrentConstraint=obj.constraint_list{n};
+                CurrentConstraint.setMultipliers(LagrangeVector(CurrentConstraint.lagrange_multiplier_index));
+            end
+        end
+        
         function ConstraintErrorOut=EvalConstraintError(obj)
             
             %BigVectorB is the vector of constraint errors
