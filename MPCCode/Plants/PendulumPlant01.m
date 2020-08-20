@@ -26,13 +26,21 @@ classdef PendulumPlant01
         niq;                % # of inequality const
         
         %Simulation Environment instance representing this system
+        %In this case, there is no pivot constraint
         MyEnvironment;
+        
+        %Simulation Environment instance representing this system
+        %In this case, the system is constrained
+        MyEnvironment_constrained;
         
         %Rigid body representing the pendulum in the simulation
         pendulum_rigid_body_object;
         
         %Generalized force representing the control input in the simulation
         ControlInput;
+        
+        %Constraint associated with ground contact
+        sticking_constraint_ground;
         
     end
     
@@ -56,8 +64,8 @@ classdef PendulumPlant01
             
             obj.pendulum_rigid_body_object=PolygonRigidBody(plist, r_cm, obj.m, I_com);
             
-%             sticking_constraint_ground=PolygonConstraint();
-%             sticking_constraint_ground.StickingContactOneBody(obj.pendulum_rigid_body_object,[0;0],[0;0]);
+            obj.sticking_constraint_ground=PolygonConstraint();
+            obj.sticking_constraint_ground.StickingContactOneBody(obj.pendulum_rigid_body_object,[0;0],[0;0]);
             
             myGravity=PolygonGeneralizedForce();
             myGravity.gravity(obj.pendulum_rigid_body_object,[0;-obj.g]);
@@ -71,7 +79,13 @@ classdef PendulumPlant01
 %             obj.MyEnvironment.addConstraint(sticking_constraint_ground);
             obj.MyEnvironment.addGeneralizedForce(myGravity);
             obj.MyEnvironment.addGeneralizedForce(obj.ControlInput);
+            
+            obj.MyEnvironment_constrained=SimulationEnvironment();
 
+            obj.MyEnvironment_constrained.addRigidBody(obj.pendulum_rigid_body_object);
+            obj.MyEnvironment_constrained.addConstraint(obj.sticking_constraint_ground);
+            obj.MyEnvironment_constrained.addGeneralizedForce(myGravity);
+            obj.MyEnvironment_constrained.addGeneralizedForce(obj.ControlInput);
             
             % dimensions
             obj.nq = 3;
@@ -249,6 +263,52 @@ classdef PendulumPlant01
                 - [obj.t_m; obj.t_m; 0; 0];
             dc_dx = zeros(obj.niq, obj.nx);
             dc_du = [0, 0, 1; 0, 0, -1; 1 -obj.mu, 0; -1 -obj.mu, 0];
+        end
+        
+        % given xk, find xkp1 and uk (pivot forces; input torque) that
+        % that satisfy the following equations:
+        % (1) x_{k+1} = xk + dt * obj.dynamics(xk, uk)
+        % (2) obj.pivot_const(xk) = 0
+        % (3) fix torque (uk(end)) to the value given
+        function [xkp1, uk_out] =  dynamics_solve(obj, xk, uk, dt)
+            
+            obj.MyEnvironment_constrained.assign_coordinate_vector(xk(1:3));
+            obj.MyEnvironment_constrained.assign_velocity_vector(xk(4:6));
+            obj.ControlInput.set_wrench_value([0;0;uk(3)]);
+            
+            obj.MyEnvironment_constrained.setdt(dt);
+            
+            obj.MyEnvironment_constrained.EulerUpdate();
+            obj.MyEnvironment_constrained.ConstraintProjection();
+            
+            
+            q=obj.MyEnvironment_constrained.build_coordinate_vector();
+            q_dot=obj.MyEnvironment_constrained.build_velocity_vector();
+            xkp1=[q;q_dot];
+            uk_out=[obj.sticking_constraint_ground.getMultipliers();uk(3)];
+%             qk = xk(1:obj.nq);
+%             qkd = xk(obj.nq + (1:obj.nv));
+%             
+%             % dynamics: x_{k+1} = xk + dt * obj.dynamics(xk, uk)
+%             M = obj.build_mass_matrix(qk);
+%             c = obj.build_coriolis_and_potential(qk, qkd);
+%             B  = obj.build_input_matrix();
+%             
+%             Adyn = [eye(6), [zeros(3); dt * -(M\B)]];
+%             bdyn = xk + dt * [qkd; -(M\c)];
+%             
+%             % fix torque to uk(end)
+%             [Au, bu] = obj.input_const_fmincon([xk; uk]);
+%             
+%             [z, ~, exitflag] = fmincon(@(z) 0, [xk; uk], Au, bu, Adyn, bdyn , ...
+%                 [], [], @obj.equality_const_fmincon, obj.fmincon_opt);
+%             
+%             if exitflag < 0
+%                 error('Pendulum sim solver failed')
+%             end
+%             
+%             xkp1 = z(1:6);
+%             uk = z(7:9);
         end
         
         % measure the difference between two state vectors

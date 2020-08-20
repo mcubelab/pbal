@@ -23,6 +23,8 @@ classdef PolygonConstraint < handle
         %takes the form of just one integer, or a sequence of consecutive
         %integers
         
+        lagrange_multiplierValues;
+        
         ConstraintType; %color/type of constraint, just an integer where 0 corresponds to nothing
         %1 sticking contact with one rigid body, and 1 point in world frame
         %2 sticking contact between two rigid bodies
@@ -121,6 +123,14 @@ classdef PolygonConstraint < handle
             if obj.ConstraintType==5
                 
             end
+        end
+        
+        function setMultipliers(obj,lagrange_multiplierValues)
+            obj.lagrange_multiplierValues=lagrange_multiplierValues;
+        end
+        
+        function LagrangeOut = getMultipliers(obj)
+            LagrangeOut=obj.lagrange_multiplierValues;
         end
         
         %Updates the plot of the constraint given the current state of the system
