@@ -168,6 +168,12 @@ classdef PolygonConstraint < handle
             obj.num_lagrange_multipliers=2; %x and y constraints ->2 multipliers
         end
         
+        %Updates the sticking contact location points
+        function UpdateParamsStickingContactOneBody(obj,pin1,pout)
+            obj.pin1=pin1;
+            obj.pout=pout;
+        end
+        
         %stores information associated with a sticking contact between two
         %rigid bodies at 1 material point on each respective rigid body
         %Body1 is the first rigid body object

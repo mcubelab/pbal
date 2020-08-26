@@ -97,6 +97,11 @@ classdef PolygonGeneralizedForce < handle
             obj.is_conservative=1;
         end
         
+        %Updates the gravitational acceleration parameter
+        function UpdateParamsGravity(obj,g)
+            obj.g=g;
+        end
+        
         %Sets the generalized force to correspond to some external wrench
         %exerted by the object at some material point on the rigid body
         function external_wrench(obj,rigidBody1,pin1)
