@@ -24,6 +24,13 @@ classdef PolygonRigidBody < handle
             obj.LocalPolygon=MyPolygon(plist, r_cm_body);
         end
         
+        %Updates the system parameter values
+        function UpdateParams(obj,plist, r_cm_body, m, I)
+            obj.Mass=m;
+            obj.MoI=I;
+            obj.LocalPolygon=MyPolygon(plist, r_cm_body);
+        end
+        
         %Creates the plots used to represent the polygon for the first time
         function initialize_visualization(obj)
             obj.LocalPolygon.initialize_visualization();
