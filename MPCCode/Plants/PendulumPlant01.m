@@ -224,6 +224,12 @@ classdef PendulumPlant01
             Z=[pout;vout];
         end
         
+        function setPivot(obj,x_c,y_c)
+            obj.sticking_constraint_ground.UpdateParamsStickingContactOneBody([0;0],[x_c;y_c]);            
+            [~,theta]=obj.pendulum_rigid_body_object.get_p_and_theta();
+            obj.pendulum_rigid_body_object.set_p_and_theta([x_c;y_c],theta);
+        end
+        
         function [Z,pZpX] = my_KalmannOutputWithPartials(obj,X_in)
             Z=obj.my_KalmannOutputNoPartials(X_in);
             
