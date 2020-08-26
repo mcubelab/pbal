@@ -244,7 +244,7 @@ classdef PendulumPlant01
             end
         end
         
-        function [dXdt_guess,dPdt]= extended_kalmann_update(Z,X_guess,u,P,Q,R)
+        function [dXdt_guess,dPdt]= extended_kalmann_update(obj,Z,X_guess,u,P,Q,R)
 
             [dXdt_guess_star,F] = obj.my_KalmannPlantWithPartials(X_guess,u);
             [Z_guess,H] = obj.my_KalmannOutputWithPartials(X_guess);
