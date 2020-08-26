@@ -170,7 +170,7 @@ classdef PendulumPlant01
             end
         end
         
-        function [Z,pZpX] = my_KalmannOutputNoPartials(obj,X_in)
+        function Z = my_KalmannOutputNoPartials(obj,X_in)
             %Unpack the system state/system parameters
             theta=X_in(1);  %angle of rigid body with resepect to -y axis
             %Specifically, angle that line segment connecting pivot to
@@ -244,10 +244,7 @@ classdef PendulumPlant01
             end
         end
         
-        function [dXdt,dXdt_guess,dPdt]= extended_kalmann_update(X,X_guess,u,P,Q,R)
-
-            dXdt = obj.my_KalmannPlantNoPartials(X,u);
-            Z = obj.my_KalmannOutputNoPartials(X);
+        function [dXdt_guess,dPdt]= extended_kalmann_update(Z,X_guess,u,P,Q,R)
 
             [dXdt_guess_star,F] = obj.my_KalmannPlantWithPartials(X_guess,u);
             [Z_guess,H] = obj.my_KalmannOutputWithPartials(X_guess);
