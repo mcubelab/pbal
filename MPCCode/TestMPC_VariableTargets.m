@@ -2,7 +2,6 @@
 clear; clc; close all;
 addpath('./Plants', './Solvers', '../ControlCode/')
 
-
 % velocity desired
 VD = pi/6; % radians per second
 
@@ -66,10 +65,7 @@ for i = 1:numel(thtg_vec)
 
         [dx_mpc, dU_mpc] = mpc_tv.run_mpc(k, xk);
         uk = mpc_tv.Unom(:, k) + dU_mpc(1:mpc_tv.nu);
-%         disp('Orion')
         [xkp1, uk_true] = p.dynamics_solve(xk, uk, mpc_tv.dt);
-%         disp('Neel')
-%         [xkp1_2, uk_true_2] = p2.dynamics_solve(xk, uk, mpc_tv.dt);
 
         % store solution
         xvec = [xvec, xkp1];
