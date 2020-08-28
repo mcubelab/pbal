@@ -308,82 +308,9 @@ classdef PendulumPlant01
         end
         
         
-        % continuous forward dynamics
-        % [qkd, qkdd] = [qkd; M^{-1} * (B(q) * uk - c(qd))]
-        % xk = [qk; qkd]
-        % qk = [x_pivot; y_pivot; theta=angle w/respect negative y axis]
-        % qkd = d/dt (qk)
-        % uk = [lambda_x; lambda_y; tau]
-        % fn and ft are forces exerted at the robot contact
-        % fn and ft are defined in the contact frame
-        % tau is a moment exerted on the object by the robot
-        % lambda_x is force exerted in the x direction of the world frame
-        % lambda_y is force exerted in the y direction of the world frame
-        % lambda_x/lambda_y are exerted at the pivot of the object
-        % f = d/dt xk
-        % df_dx partial f / partial xk
-        % df_du partial f / partial uk
-        function [f, df_dx, df_du] = dynamics(obj, xk, uk)
-            f = obj.dynamics_no_partials(xk, uk);
-            
-            delta_val=10^-6;
-            df_dx=zeros(length(f),length(xk));
-            df_du=zeros(length(f),length(uk));
-            for count=1:6
-                delta_xk=zeros(6,1);
-                delta_xk(count)=delta_val;
-                
-                xk_plus_temp=xk+delta_xk;
-                xk_minus_temp=xk-delta_xk;
-                
-                f_plus=obj.dynamics_no_partials(xk_plus_temp,uk);
-                f_minus=obj.dynamics_no_partials(xk_minus_temp,uk);
-                
-                df_dx(:,count)=(f_plus-f_minus)/(2*delta_val);
-            end
 
-            for count=1:3
-                delta_uk=zeros(3,1);
-                delta_uk(count)=delta_val;
-                
-                uk_plus_temp=uk+delta_uk;
-                uk_minus_temp=uk-delta_uk;
-                
-                f_plus=obj.dynamics_no_partials(xk,uk_plus_temp);
-                f_minus=obj.dynamics_no_partials(xk,uk_minus_temp);
+        
 
-                df_du(:,count)=(f_plus-f_minus)/(2*delta_val);
-            end
-            
-        end
-        
-        % continuous forward dynamics (no partials) 
-        %(for constrained system)
-        % [qkd, qkdd] = [qkd; M^{-1} * (B(q) * uk - c(qd))]
-        % xk = [qk; qkd]
-        % qk = [x_pivot; y_pivot; theta=angle w/respect negative y axis]
-        % qkd = d/dt (qk)
-        % uk = [lambda_x; lambda_y; tau]
-        % fn and ft are forces exerted at the robot contact
-        % fn and ft are defined in the contact frame
-        % tau is a moment exerted on the object by the robot
-        % lambda_x is force exerted in the x direction of the world frame
-        % lambda_y is force exerted in the y direction of the world frame
-        % lambda_x/lambda_y are exerted at the pivot of the object
-        % f = d/dt xk
-        function f = constrained_dynamics_no_partials(obj, xk, uk)
-            obj.MyEnvironment_constrained.assign_coordinate_vector(xk(1:3));
-            obj.MyEnvironment_constrained.assign_velocity_vector(xk(4:6));
-            obj.ControlInput.set_wrench_value(uk);
-            
-            obj.MyEnvironment_constrained.computeAccelerations();
-            
-            a= obj.MyEnvironment_constrained.build_acceleration_vector();
-            v= obj.MyEnvironment_constrained.build_velocity_vector();
-            
-            f=[v;a];
-        end
-        
         % JUST A VELOCITY CONSTRAINT
         % equality constraints, c(x, u) = 0, and first derivatives
         % current this is the constraint the pin-joint has on the
@@ -447,11 +374,9 @@ classdef PendulumPlant01
             obj.MyEnvironment_constrained.assign_velocity_vector(xk(4:6));
             obj.ControlInput.set_wrench_value([0;0;uk(3)]);
             
-            obj.MyEnvironment_constrained.setdt(dt);
-            
             obj.MyEnvironment_constrained.computeAccelerations();
                        
-
+            obj.MyEnvironment_constrained.setdt(dt);
             obj.MyEnvironment_constrained.EulerUpdate();
             obj.MyEnvironment_constrained.ConstraintProjection();
             
@@ -463,7 +388,81 @@ classdef PendulumPlant01
             uk_out=[obj.sticking_constraint_ground.getMultipliers();uk(3)];
         end
         
+        % continuous forward dynamics (no partials) 
+        %(for constrained system)
+        % [qkd, qkdd] = [qkd; M^{-1} * (B(q) * uk - c(qd))]
+        % xk = [qk; qkd]
+        % qk = [x_pivot; y_pivot; theta=angle w/respect negative y axis]
+        % qkd = d/dt (qk)
+        % uk = [lambda_x; lambda_y; tau]
+        % fn and ft are forces exerted at the robot contact
+        % fn and ft are defined in the contact frame
+        % tau is a moment exerted on the object by the robot
+        % lambda_x is force exerted in the x direction of the world frame
+        % lambda_y is force exerted in the y direction of the world frame
+        % lambda_x/lambda_y are exerted at the pivot of the object
+        % f = d/dt xk
+        function f = constrained_dynamics_no_partials(obj, xk, uk)
+            obj.MyEnvironment_constrained.assign_coordinate_vector(xk(1:3));
+            obj.MyEnvironment_constrained.assign_velocity_vector(xk(4:6));
+            obj.ControlInput.set_wrench_value(uk);
+            
+            obj.MyEnvironment_constrained.computeAccelerations();
+            
+            a= obj.MyEnvironment_constrained.build_acceleration_vector();
+            v= obj.MyEnvironment_constrained.build_velocity_vector();
+            
+            f=[v;a];
+        end
         
+        % continuous forward dynamics
+        % [qkd, qkdd] = [qkd; M^{-1} * (B(q) * uk - c(qd))]
+        % xk = [qk; qkd]
+        % qk = [x_pivot; y_pivot; theta=angle w/respect negative y axis]
+        % qkd = d/dt (qk)
+        % uk = [lambda_x; lambda_y; tau]
+        % fn and ft are forces exerted at the robot contact
+        % fn and ft are defined in the contact frame
+        % tau is a moment exerted on the object by the robot
+        % lambda_x is force exerted in the x direction of the world frame
+        % lambda_y is force exerted in the y direction of the world frame
+        % lambda_x/lambda_y are exerted at the pivot of the object
+        % f = d/dt xk
+        % df_dx partial f / partial xk
+        % df_du partial f / partial uk
+        function [f, df_dx, df_du] = dynamics(obj, xk, uk)
+            f = obj.dynamics_no_partials(xk, uk);
+            
+            delta_val=10^-6;
+            df_dx=zeros(length(f),length(xk));
+            df_du=zeros(length(f),length(uk));
+            for count=1:6
+                delta_xk=zeros(6,1);
+                delta_xk(count)=delta_val;
+                
+                xk_plus_temp=xk+delta_xk;
+                xk_minus_temp=xk-delta_xk;
+                
+                f_plus=obj.dynamics_no_partials(xk_plus_temp,uk);
+                f_minus=obj.dynamics_no_partials(xk_minus_temp,uk);
+                
+                df_dx(:,count)=(f_plus-f_minus)/(2*delta_val);
+            end
+
+            for count=1:3
+                delta_uk=zeros(3,1);
+                delta_uk(count)=delta_val;
+                
+                uk_plus_temp=uk+delta_uk;
+                uk_minus_temp=uk-delta_uk;
+                
+                f_plus=obj.dynamics_no_partials(xk,uk_plus_temp);
+                f_minus=obj.dynamics_no_partials(xk,uk_minus_temp);
+
+                df_du(:,count)=(f_plus-f_minus)/(2*delta_val);
+            end
+            
+        end
         
         % measure the difference between two state vectors
         function dx = state_diff(obj, x1, x2)

@@ -4,7 +4,7 @@ addpath('./Plants', './Solvers', '../ControlCode/')
 
 
 % true parmeters
-x=pi-pi/2;
+x=-pi/2;
 dxdt=0;
 a=7;
 b=5;
@@ -15,7 +15,7 @@ R=8;
 X=[x;dxdt;a;b;theta_0;x_c;y_c;R];
 
 % inital guess
-x_guess= pi-pi/3;
+x_guess= x+pi/2;
 dxdt_guess=0.2;
 a_guess=7-1;
 b_guess=5+1;
@@ -24,6 +24,7 @@ x_c_guess=1-0.2;
 y_c_guess=-2+0.2;
 R_guess=8-1;
 X_guess=[x_guess;dxdt_guess;a_guess;b_guess;theta_0_guess;x_c_guess;y_c_guess;R_guess];
+% X_guess=X;
 
 % kalman pendulum plant
 params_guess.l = 1; % length
@@ -59,7 +60,7 @@ Q=.1*eye(8);
 P=.1*eye(8);
 
 xk = [x_c; y_c; x; 0; 0; dxdt]; % true initial state
-xk_guess = [x_c_guess; y_c_guess; x_guess; 0; 0; dxdt_guess]; % guess initial state
+% xk_guess = [x_c_guess; y_c_guess; x_guess; 0; 0; dxdt_guess]; % guess initial state
 
 xg = [x_c; y_c; pi; 0; 0; 0]; % goal state
 ug = [0; p_guess.m * p_guess.g;
@@ -86,23 +87,24 @@ Pvec = P;
 
 % X and X_guess is in the format [tht_c; omega; a; b; tht_0; xp; yp; R];  
 
-for k = 1:2000 %1:mpc_tv.Ntraj
+for k=1:mpc_tv.Ntraj
     disp(k)
 %     disp(X_guess');
     
     % compute control input
-%     [dx_mpc, dU_mpc] = mpc_tv.run_mpc(k, xk);
-%     uk = mpc_tv.Unom(:, k) + dU_mpc(1:mpc_tv.nu);
+    [dx_mpc, dU_mpc] = mpc_tv.run_mpc(k, xk);
+    uk = mpc_tv.Unom(:, k) + dU_mpc(1:mpc_tv.nu);
 
-    uk = [0; 0; -0.3*(xk(6) - 3 * sin(mpc_tv.dt * k))]; 
+%     u=.1*sin(2*k*mpc_params.dt)-.0001*X_guess(2);
+%     uk = [0; 0; u]; 
     
     % advance true state
-    [xkp1, uk_true] = p.dynamics_solve(xk, uk, mpc_tv.dt);
+    [xkp1, uk_true] = p.dynamics_solve(xk, [0;0;uk(3)], mpc_tv.dt);
     
     % KF
     Z = p.my_KalmannOutputNoPartials(X);
-    [dXdt_guess,dPdt]= p_guess.extended_kalmann_update(Z,X_guess, ...
-        uk_true,P,Q,R);
+    [dXdt_guess,dPdt]= p_guess.extended_kalmann_update(Z,X_guess,...
+        uk(3),P,Q,R);
     
     % advance guess x
     P=P+mpc_tv.dt*dPdt;
@@ -111,7 +113,8 @@ for k = 1:2000 %1:mpc_tv.Ntraj
 %         0; 0; X_guess(2)];
     
     % re-build mpc w/ new parameters
-%     mpc_tv = TimeVaryingMPC(p_guess, mpc_params);
+    mpc_tv = TimeVaryingMPC(p_guess, mpc_params);
+    
     
     % store solution
     xvec = [xvec, xkp1];
@@ -149,7 +152,7 @@ for i = 1:numel(t)
     set(ph, 'Xdata',  [ xvec(1, i); xvec(1, i) + p.l * sin(xvec(3,i))], ...
         'Ydata', [ xvec(2, i); xvec(2, i) -  p.l * cos(xvec(3,i))])
     set(th, 'string', sprintf('time: %f', t(i)*mpc_tv.dt))
-    pause(mpc_tv.dt)
+%     pause(mpc_tv.dt)
 end
 
 % state

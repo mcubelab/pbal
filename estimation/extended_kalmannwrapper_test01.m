@@ -1,64 +1,70 @@
 function res= extended_kalmannwrapper_test01()
 
 figure1=figure(1);
-
 figure2=figure(2);
 
+%true parameters
 x=-pi/2;
 dxdt=0;
-
 a=7;
 b=5;
-theta_0=pi/4;
+theta_0=0;
 x_c=1;
 y_c=-2;
 R=8;
-
-x_guess=0;
-dxdt_guess=.5;
-a_guess=6;
-b_guess=2;
-theta_0_guess=0;
-x_c_guess=0;
-y_c_guess=0;
-R_guess=6;
-
-dt=.01;
-omega=5;
-
-count=1;
-
 X=[x;dxdt;a;b;theta_0;x_c;y_c;R];
+
+% inital guess
+x_guess= x+pi/2;
+dxdt_guess=0.2;
+a_guess=7-1;
+b_guess=5+1;
+theta_0_guess=pi/6;
+x_c_guess=1-0.2;
+y_c_guess=-2+0.2;
+R_guess=8-1;
 X_guess=[x_guess;dxdt_guess;a_guess;b_guess;theta_0_guess;x_c_guess;y_c_guess;R_guess];
+% X_guess=X;
+
+% kalman pendulum plant
+params_guess.l = 1; % length
+params_guess.g= (2/3)*a_guess;
+params_guess.m= 3/b_guess;
+params_guess.t_m = params_guess.m * params_guess.g * params_guess.l; % torque limit on input
+params_guess.b = 0.0;  % damping
+params_guess.mu = 0.3; % coefficient of friction
+p_guess = PendulumPlant01(params_guess);
+p_guess.setPivot(x_c_guess,y_c_guess);
+
+% true plant
+params.l = 1; % length
+params.g= (2/3)*a;
+params.m= 3/b;
+params.t_m = params.m * params.g * params.l; % torque limit on input
+params.b = 0.0;  % damping
+params.mu = 0.3; % coefficient of friction
+p = PendulumPlant01(params);
+p.setPivot(x_c,y_c);
 
 
 R=.1*eye(4);
-Q=.1*eye(8);
+Q=.01*eye(8);
 P=.1*eye(8);
 
+xk = [x_c; y_c; x; 0; 0; dxdt]; % true initial state
+xk_guess = [x_c_guess; y_c_guess; x_guess; 0; 0; dxdt_guess]; % guess initial state
+
+dt=.01;
 
 theta_range=0:.01:2*pi;
-
-
-params.m=1;
-params.l=1;
-params.t_m=1;
-params.g=1;
-params.mu=1;
-params.I=1;
-myPlant=PendulumPlant01(params);
-
-
-for t=0:dt:10000*dt
-    Z = myPlant.my_KalmannOutputNoPartials(X);
-    Z_guess = myPlant.my_KalmannOutputNoPartials(X_guess);
-    
+count=1;
+for t=0:dt:10000*dt    
     tlist(count)=t;
     Xlist(:,count)=X;
     X_guess_list(:,count)=X_guess;
-   
-   
-    if(mod(count,20)==0)
+
+    
+    if(mod(count,200)==0)
         
         set(0,'currentfigure',figure1);
         clf;
@@ -92,18 +98,39 @@ for t=0:dt:10000*dt
         plot(X_guess(6)+X_guess(8)*cos(theta_range),X_guess(7)+X_guess(8)*sin(theta_range),'r')
         
         drawnow;
+        
+
     end
 
-    u=-3*X(1)-.3*X(2)+(X_guess(3)/X_guess(4))*sin(X_guess(5));
+%     u=-3*X(1)-.3*X(2)-(X_guess(3)/X_guess(4))*sin(X_guess(5));
 %      u=-2*X(1)-.3*X_guess(2);
-%     u=.3*sin(2*t)-.0001*X_guess(2);
+    u=.1*sin(2*t)-.01*X_guess(2);
 %     u=0;
-    [dXdt,dXdt_guess,dPdt]= extended_kalmann_update(X,X_guess,u,P,Q,R,myPlant);
+    
+    uk = [0; 0; u]; 
+    [xkp1, ~] =  p.dynamics_solve(xk, uk, dt);
+    
+    
+    Z = p.my_KalmannOutputNoPartials(X);
+%     [dXdt,~,~]= extended_kalmann_update(X,X_guess,u,P,Q,R,p);
+    
+    [dXdt_guess,dPdt]= p_guess.extended_kalmann_update(Z,X_guess,u,P,Q,R);
     
     P=P+dt*dPdt;
-    X=X+dt*dXdt;
     X_guess=X_guess+dt*dXdt_guess;
-     
+    
+
+    xk=xkp1;
+    X(1) = xkp1(3) + X(5);
+    X(2) = xkp1(6);
+    
+%     X=X+dt*dXdt;
+    
+    
+    
+
+    
+    
     
     count=count+1;
 end
