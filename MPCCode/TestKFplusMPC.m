@@ -2,9 +2,8 @@
 clear; clc; close all;
 addpath('./Plants', './Solvers', '../ControlCode/')
 
-
 % true parmeters
-x=-pi/2;
+x= pi - pi/6;
 dxdt=0;
 a=7;
 b=5;
@@ -15,7 +14,7 @@ R=8;
 X=[x;dxdt;a;b;theta_0;x_c;y_c;R];
 
 % inital guess
-x_guess= x+pi/2;
+x_guess= x+pi/4;
 dxdt_guess=0.2;
 a_guess=7-1;
 b_guess=5+1;
@@ -49,7 +48,7 @@ p.setPivot(x_c,y_c);
 % mpc parameters
 mpc_params.Nmpc = 20;    % mpc horizon
 mpc_params.Ntraj = 100;  % trajectory length
-mpc_params.dt = 0.01;    % time-step
+mpc_params.dt = 0.02;    % time-step
 mpc_params.QN = blkdiag(eye(p.nq), 0.1*eye(p.nv));
 mpc_params.Q = blkdiag(eye(p.nq), 0.1*eye(p.nv));
 mpc_params.R = 0.001*eye(p.nu);
@@ -60,7 +59,7 @@ Q=.1*eye(8);
 P=.1*eye(8);
 
 xk = [x_c; y_c; x; 0; 0; dxdt]; % true initial state
-% xk_guess = [x_c_guess; y_c_guess; x_guess; 0; 0; dxdt_guess]; % guess initial state
+xk_guess = [x_c_guess; y_c_guess; x_guess; 0; 0; dxdt_guess]; % guess initial state
 
 xg = [x_c; y_c; pi; 0; 0; 0]; % goal state
 ug = [0; p_guess.m * p_guess.g;
@@ -92,7 +91,7 @@ for k=1:mpc_tv.Ntraj
 %     disp(X_guess');
     
     % compute control input
-    [dx_mpc, dU_mpc] = mpc_tv.run_mpc(k, xk);
+    [dx_mpc, dU_mpc] = mpc_tv.run_mpc(k, xk_guess);
     uk = mpc_tv.Unom(:, k) + dU_mpc(1:mpc_tv.nu);
 
 %     u=.1*sin(2*k*mpc_params.dt)-.0001*X_guess(2);
@@ -109,8 +108,8 @@ for k=1:mpc_tv.Ntraj
     % advance guess x
     P=P+mpc_tv.dt*dPdt;
     X_guess=X_guess+mpc_tv.dt*dXdt_guess;
-%     xk_guess = [X_guess(6); X_guess(7); X_guess(1) - X_guess(5);
-%         0; 0; X_guess(2)];
+    xk_guess = [X_guess(6); X_guess(7); X_guess(1) - X_guess(5);
+        0; 0; X_guess(2)];
     
     % re-build mpc w/ new parameters
     mpc_tv = TimeVaryingMPC(p_guess, mpc_params);
@@ -152,7 +151,7 @@ for i = 1:numel(t)
     set(ph, 'Xdata',  [ xvec(1, i); xvec(1, i) + p.l * sin(xvec(3,i))], ...
         'Ydata', [ xvec(2, i); xvec(2, i) -  p.l * cos(xvec(3,i))])
     set(th, 'string', sprintf('time: %f', t(i)*mpc_tv.dt))
-%     pause(mpc_tv.dt)
+    pause(mpc_tv.dt)
 end
 
 % state
