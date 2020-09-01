@@ -3,7 +3,7 @@ clear; clc; close all;
 addpath('./Plants', './Solvers', '../ControlCode/')
 
 % true parmeters
-x= pi - pi/6;
+x= pi - pi/3;
 dxdt=0;
 a=7;
 b=5;
@@ -23,7 +23,6 @@ x_c_guess=1-0.2;
 y_c_guess=-2+0.2;
 R_guess=8-1;
 X_guess=[x_guess;dxdt_guess;a_guess;b_guess;theta_0_guess;x_c_guess;y_c_guess;R_guess];
-% X_guess=X;
 
 % kalman pendulum plant
 params_guess.l = 1; % length
@@ -46,8 +45,8 @@ p = PendulumPlant01(params);
 p.setPivot(x_c,y_c);
 
 % mpc parameters
-mpc_params.Nmpc = 20;    % mpc horizon
-mpc_params.Ntraj = 100;  % trajectory length
+mpc_params.Nmpc = 10;    % mpc horizon
+mpc_params.Ntraj = 200;  % trajectory length
 mpc_params.dt = 0.02;    % time-step
 mpc_params.QN = blkdiag(eye(p.nq), 0.1*eye(p.nv));
 mpc_params.Q = blkdiag(eye(p.nq), 0.1*eye(p.nv));
@@ -65,17 +64,13 @@ xg = [x_c; y_c; pi; 0; 0; 0]; % goal state
 ug = [0; p_guess.m * p_guess.g;
     0.5 * p_guess.m * p_guess.g * p_guess.l*sin(pi)];
 
-% nominal trajectory
-mpc_params.x0 = xg; %repmat(xg, 1, mpc_params.Ntraj);
-mpc_params.u0 = ug; %repmat(ug, 1, mpc_params.Ntraj);
+% goal state
+mpc_params.x0 = xg;
+mpc_params.u0 = ug;
 
-% mpc_params2 = mpc_params;
-% mpc_params2.Xnom = repmat(xg, 1, mpc_params.Ntraj);
-% mpc_params2.Unom = repmat(ug, 1, mpc_params.Ntraj);
 
 % build mpc
 mpc_tv = TimeVaryingMPC2(p, mpc_params);
-% mpc_tv2 = TimeVaryingMPC(p, mpc_params2);
 
 % plotting
 xvec = xk;
@@ -97,12 +92,8 @@ for k=1:mpc_tv.Ntraj
     
     % compute control input
     [dx_mpc, dU_mpc] = mpc_tv.run_mpc(xk_guess, true);
-%     [dx_mpc2, dU_mpc2] = mpc_tv2.run_mpc(k, xk_guess);
     uk = mpc_tv.u0 + dU_mpc(1:mpc_tv.nu);
-%     uk2 = mpc_tv2.Unom(:,k) + dU_mpc2(1:mpc_tv.nu);
 
-%     u=.1*sin(2*k*mpc_params.dt)-.0001*X_guess(2);
-%     uk = [0; 0; u]; 
     
     % advance true state
     [xkp1, uk_true] = p.dynamics_solve(xk, [0;0;uk(3)], mpc_tv.dt);
@@ -117,10 +108,6 @@ for k=1:mpc_tv.Ntraj
     X_guess=X_guess+mpc_tv.dt*dXdt_guess;
     xk_guess = [X_guess(6); X_guess(7); X_guess(1) - X_guess(5);
         0; 0; X_guess(2)];
-    
-    % re-build mpc w/ new parameters
-%     mpc_tv = TimeVaryingMPC(p_guess, mpc_params);
-    
     
     % store solution
     xvec = [xvec, xkp1];
