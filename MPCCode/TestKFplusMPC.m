@@ -66,11 +66,16 @@ ug = [0; p_guess.m * p_guess.g;
     0.5 * p_guess.m * p_guess.g * p_guess.l*sin(pi)];
 
 % nominal trajectory
-mpc_params.Xnom = repmat(xg, 1, mpc_params.Ntraj);
-mpc_params.Unom = repmat(ug, 1, mpc_params.Ntraj);
+mpc_params.x0 = xg; %repmat(xg, 1, mpc_params.Ntraj);
+mpc_params.u0 = ug; %repmat(ug, 1, mpc_params.Ntraj);
+
+% mpc_params2 = mpc_params;
+% mpc_params2.Xnom = repmat(xg, 1, mpc_params.Ntraj);
+% mpc_params2.Unom = repmat(ug, 1, mpc_params.Ntraj);
 
 % build mpc
-mpc_tv = TimeVaryingMPC(p, mpc_params);
+mpc_tv = TimeVaryingMPC2(p, mpc_params);
+% mpc_tv2 = TimeVaryingMPC(p, mpc_params2);
 
 % plotting
 xvec = xk;
@@ -91,8 +96,10 @@ for k=1:mpc_tv.Ntraj
 %     disp(X_guess');
     
     % compute control input
-    [dx_mpc, dU_mpc] = mpc_tv.run_mpc(k, xk_guess);
-    uk = mpc_tv.Unom(:, k) + dU_mpc(1:mpc_tv.nu);
+    [dx_mpc, dU_mpc] = mpc_tv.run_mpc(xk_guess, true);
+%     [dx_mpc2, dU_mpc2] = mpc_tv2.run_mpc(k, xk_guess);
+    uk = mpc_tv.u0 + dU_mpc(1:mpc_tv.nu);
+%     uk2 = mpc_tv2.Unom(:,k) + dU_mpc2(1:mpc_tv.nu);
 
 %     u=.1*sin(2*k*mpc_params.dt)-.0001*X_guess(2);
 %     uk = [0; 0; u]; 
@@ -112,7 +119,7 @@ for k=1:mpc_tv.Ntraj
         0; 0; X_guess(2)];
     
     % re-build mpc w/ new parameters
-    mpc_tv = TimeVaryingMPC(p_guess, mpc_params);
+%     mpc_tv = TimeVaryingMPC(p_guess, mpc_params);
     
     
     % store solution
