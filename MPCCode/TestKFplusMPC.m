@@ -87,18 +87,17 @@ Pvec = P;
 % X and X_guess is in the format [tht_c; omega; a; b; tht_0; xp; yp; R];  
 
 for k=1:mpc_tv.Ntraj
-    disp(k)
-%     disp(X_guess');
     
     % compute control input
+    tic; 
     [dx_mpc, dU_mpc] = mpc_tv.run_mpc(xk_guess, true);
     uk = mpc_tv.u0 + dU_mpc(1:mpc_tv.nu);
-
-    
+    dt1 = toc; 
     % advance true state
     [xkp1, uk_true] = p.dynamics_solve(xk, [0;0;uk(3)], mpc_tv.dt);
     
     % KF
+    tic; 
     Z = p.my_KalmannOutputNoPartials(X);
     [dXdt_guess,dPdt]= p_guess.extended_kalmann_update(Z,X_guess,...
         uk(3),P,Q,R);
@@ -108,6 +107,10 @@ for k=1:mpc_tv.Ntraj
     X_guess=X_guess+mpc_tv.dt*dXdt_guess;
     xk_guess = [X_guess(6); X_guess(7); X_guess(1) - X_guess(5);
         0; 0; X_guess(2)];
+    dt2 = toc; 
+    
+    fprintf('\r MPC Rate: %f,  KF Rate: %f, Total Rate: %f', ...
+        1/dt1, 1/dt2, 1/(dt1 + dt2))    
     
     % store solution
     xvec = [xvec, xkp1];
@@ -130,8 +133,6 @@ end
 %% Plotting
 
 t = 0:(size(xvec, 2)-1);
-disp(t(end) * mpc_tv.dt);
-% t = (0:(mpc_tv.Ntraj));
 
 % animation
 figure(1); clf;
