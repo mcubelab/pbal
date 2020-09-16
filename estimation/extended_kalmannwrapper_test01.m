@@ -33,6 +33,7 @@ params_guess.m= 3/b_guess;
 params_guess.t_m = params_guess.m * params_guess.g * params_guess.l; % torque limit on input
 params_guess.b = 0.0;  % damping
 params_guess.mu = 0.3; % coefficient of friction
+params.contact_point = [0;-5];
 p_guess = PendulumPlant01(params_guess);
 p_guess.setPivot(x_c_guess,y_c_guess);
 
@@ -43,6 +44,7 @@ params.m= 3/b;
 params.t_m = params.m * params.g * params.l; % torque limit on input
 params.b = 0.0;  % damping
 params.mu = 0.3; % coefficient of friction
+params.contact_point = [0;-6];
 p = PendulumPlant01(params);
 p.setPivot(x_c,y_c);
 
@@ -107,7 +109,7 @@ for t=0:dt:10000*dt
     u=.1*sin(2*t)-.01*X_guess(2);
 %     u=0;
     
-    uk = [0; 0; u]; 
+    uk = [2; 1; 0]; 
     [xkp1, ~] =  p.dynamics_solve(xk, uk, dt);
     
     
