@@ -116,6 +116,12 @@ classdef PolygonGeneralizedForce < handle
             obj.external_wrench_val=wrench_in;
         end
         
+        %Set the current location of the external wrench to pin1 (in the
+        %object frame)
+        function set_wrench_location(obj,pin1)
+            obj.pin1=pin1;
+        end
+        
         %Generate the generalized force vector associated with each
         %generalized coordinate
         %num_coordinates is the number of generalized coordinates in the
