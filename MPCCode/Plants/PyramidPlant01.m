@@ -1,4 +1,4 @@
-classdef PendulumPlant01
+classdef PyramidPlant01
     % A rod of mass (m) and length(l) pivoting about its top end in the
     % gravity plane
     
@@ -51,7 +51,7 @@ classdef PendulumPlant01
     methods
         
         % initialize
-        function obj = PendulumPlant01(params)
+        function obj = PyramidPlant01(params)
             
             obj.m = params.m;       % mass  (kg)
             obj.l = params.l;       % length (m)
@@ -80,7 +80,7 @@ classdef PendulumPlant01
             obj.MyEnvironment=SimulationEnvironment();
             
             obj.MyEnvironment.addRigidBody(obj.pendulum_rigid_body_object);
-            obj.MyEnvironment.addConstraint(sticking_constraint_ground);
+            obj.MyEnvironment.addConstraint(obj.sticking_constraint_ground);
             obj.MyEnvironment.addGeneralizedForce(obj.myGravity);
 
             obj.MyEnvironment.addGeneralizedForce(obj.EffectorWrench);
@@ -133,17 +133,17 @@ classdef PendulumPlant01
             params.mu=obj.mu;
             params.t_m=obj.t_m;
             
+
             
-            r_c=[x_c;y_c];
-            
-            params.contact_point=R*[0;-1];
-            
+%             params.contact_point=R*[0;-1];
+            params.contact_point=R*[sin(theta_0);-cos(theta_0)];
+
             obj.UpdateParams(params);
             
-%             theta_in=theta-theta_0;
+            theta_in=theta-theta_0;
             
             
-%             xk=[x_c;y_c;theta_in;0;0;dtheta_dt];
+            xk=[x_c;y_c;theta_in;0;0;dtheta_dt];
 
             f = obj.dynamics_no_partials(xk, u);
             
@@ -211,14 +211,18 @@ classdef PendulumPlant01
             
             theta_in=theta-theta_0;
             
+%             params.contact_point=R*[0;-1];
+            params.contact_point=R*[sin(theta_0);-cos(theta_0)];
+
             obj.UpdateParams(params);
             
             obj.sticking_constraint_ground.UpdateParamsStickingContactOneBody([0;0],[x_c;y_c]);
-            obj.MyEnvironment_constrained.assign_coordinate_vector([x_c;y_c;theta_in]);
-            obj.MyEnvironment_constrained.assign_velocity_vector([0;0;dtheta_dt]);
+            obj.MyEnvironment.assign_coordinate_vector([x_c;y_c;theta_in]);
+            obj.MyEnvironment.assign_velocity_vector([0;0;dtheta_dt]);
             
             
-            pin=R*[0;-1];
+%             pin=R*[0;-1];
+            pin=R*[sin(theta_0);-cos(theta_0)];
             
             pout=obj.pendulum_rigid_body_object.rigid_body_position(pin);
             vout=obj.pendulum_rigid_body_object.rigid_body_velocity(pin);
