@@ -72,7 +72,6 @@ classdef PyramidPlant01
             
             obj.myGravity=PolygonGeneralizedForce();
             obj.myGravity.gravity(obj.pendulum_rigid_body_object,[0;-obj.g]);
-
             
             obj.EffectorWrench=PolygonGeneralizedForce();
             obj.EffectorWrench.external_wrench(obj.pendulum_rigid_body_object,obj.contact_point);
@@ -336,9 +335,9 @@ classdef PyramidPlant01
             
             obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
             obj.MyEnvironment.assign_velocity_vector(xk(4:6));
-            obj.ControlInput.set_wrench_value(uk);
+            obj.EffectorWrench.set_wrench_value(uk);
             
-            c=obj.pendulum_rigid_body_object. rigid_body_velocity([0;0]);
+            c= 0 * obj.pendulum_rigid_body_object. rigid_body_velocity([0;0]);
             [~,~,Dx,Dy,~,~]=obj.pendulum_rigid_body_object.rigid_body_position_derivatives([0;0]);
             
 %             [~,~,Dx,Dy,~,~]=obj.rigidBody1.rigid_body_position_derivatives(obj.pin1);
@@ -351,7 +350,7 @@ classdef PyramidPlant01
 %             dphi_dq = [1, 0, 0; 0, 1, 0];
 %             c = dphi_dq * qd;
             
-            dc_dx = [zeros(obj.neq, obj.nq), [Dx;Dy]];
+            dc_dx = [zeros(obj.neq, obj.nq), 0 * [Dx;Dy]];
 %             dc_dx = [zeros(obj.neq, obj.nq), dphi_dq];
             
             dc_du = zeros(2, length(uk));
@@ -366,10 +365,10 @@ classdef PyramidPlant01
             fy = uk(2); 
             tau = uk(3); 
             
-            c = [tau; -tau; fx - obj.mu*fy; -fx - obj.mu*fy] ...
-                - [obj.t_m; obj.t_m; 0; 0];
+            c = 0 *( [tau; -tau; fx - obj.mu*fy; -fx - obj.mu*fy] ...
+                - [obj.t_m; obj.t_m; 0; 0]);
             dc_dx = zeros(obj.niq, obj.nx);
-            dc_du = [0, 0, 1; 0, 0, -1; 1 -obj.mu, 0; -1 -obj.mu, 0];
+            dc_du = 0 * [0, 0, 1; 0, 0, -1; 1 -obj.mu, 0; -1 -obj.mu, 0];
         end
         
         % given xk, find xkp1 and uk (pivot forces; input torque) that
