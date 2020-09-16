@@ -96,18 +96,18 @@ classdef TimeVaryingMPC2
         end
         
         % solve the MPC problem on the horizon Nmpc
-        function [Xpredicted, Upredicted] = run_mpc(obj, xk, update_linearization)
+        function [Xpredicted, Upredicted] = run_mpc(obj, xk, update_linearization_flag)
             % k is the current index (time)
             % xk is the state at that index
             
    
             % build linearization
-            if update_linearization
+            if update_linearization_flag
                 obj = obj.update_linearization();            
             end
             
             % build matrices
-            obj = obj.build_qp_matrices(xk, update_linearization);
+            obj = obj.build_qp_matrices(xk, update_linearization_flag);
             
             % solve for z = [x_1, ..., x_n, u_0, ..., u_{n-1}]^T;
             [z, ~, exitflag] = quadprog(obj.big_H, [], obj.big_Aiq, obj.big_biq, ...
@@ -123,9 +123,9 @@ classdef TimeVaryingMPC2
             
         end
         
-        function obj = build_qp_matrices(obj, xk, update_linearization)
+        function obj = build_qp_matrices(obj, xk, update_linearization_flag)
             
-            if update_linearization
+            if update_linearization_flag
                 % transition
                 bigAdyn = zeros(obj.nx * obj.Nmpc);
                 for k = 1:obj.Nmpc
