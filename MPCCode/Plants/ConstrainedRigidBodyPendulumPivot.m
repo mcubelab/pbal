@@ -163,7 +163,8 @@ classdef ConstrainedRigidBodyPendulumPivot
         end
         
         % inequality constraints, c(x, u) <= 0, and first derivatives
-        % currently constraints uk(end) i.e., the torque to be -t_m <= tau <= t_m
+        % currently constraints uk(end) i.e., the torque 
+        to be -t_m <= tau <= t_m
         function [c, dc_dx, dc_du] = inequality_const(obj, xk, uk)
             
             fx = uk(1);
