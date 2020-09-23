@@ -6,13 +6,14 @@ classdef PyramidPlant01
         
         % user specified
         m;   % mass (kg)
-        l;   % pendulum length (m)
+        r_cm; %location of center of mass in the body frame
+        contact_point; %location of contact point in the body frame
+        I_cm; %moment of inertia about center of mass;
         t_m  % control torque limit (N * m)
         mu   % coefficient of friction
         
         % fixed/derived
         g;              % acceleration due to gravity (kg/m^2)
-        I;              % inertia about pivot (kg^2 * m^2)
         fmincon_opt;    % options for fmincon
         
         
@@ -35,11 +36,6 @@ classdef PyramidPlant01
         %Generalized force representing the wrench of the end effector
         EffectorWrench;
         
-        %location of the contact point with end effector in body frame
-        %This is the actual location, not the estimated location!
-        %the controller should not see this in implementation!
-        contact_point;
-        
         %Constraint associated with ground contact
         sticking_constraint_ground;
         
@@ -54,8 +50,9 @@ classdef PyramidPlant01
         function obj = PyramidPlant01(params)
             
             obj.m = params.m;       % mass  (kg)
-            obj.l = params.l;       % length (m)
+            obj.I_cm = params.I_cm; % moment of inertia about center of mass;
             obj.t_m = params.t_m;   % control torque limit (N*m)
+
             obj.g = params.g;                     % gravity (m/s^2)
             obj.mu_pivot = params.mu_pivot;       % coefficient of friction at obj/ground contact
             obj.mu_contact = params.mu_contact;   % coefficient of friction at obj/robot contact
@@ -64,13 +61,14 @@ classdef PyramidPlant01
 %             obj.l_contact = params.l_contact;     % length of object/robot contact
             obj.contact_normal = params.contact_normal; % direction of the contact normal in the body frame
             obj.I = obj.l^2 * obj.m^2/3;          % inertia (kg^2 * m^2)
-            obj.contact_point = params.contact_point;
             
-            plist = [0,0;0,-obj.l];
-            r_cm  = [0;-obj.l/2];
-            I_com = obj.m*(obj.l)^2/12;
+            obj.contact_point = params.contact_point;   %location of contact point in the body frame
+            obj.r_cm  = params.r_cm;            %location of center of mass in the body frame
             
-            obj.pendulum_rigid_body_object=PolygonRigidBody(plist, r_cm, obj.m, I_com);
+            
+            plist = [[0;0],obj.r_cm];
+            
+            obj.pendulum_rigid_body_object=PolygonRigidBody(plist, obj.r_cm, obj.m, obj.I_cm);
             
             obj.sticking_constraint_ground=PolygonConstraint();
             obj.sticking_constraint_ground.StickingContactOneBody(obj.pendulum_rigid_body_object,[0;0],[0;0]);
@@ -79,8 +77,9 @@ classdef PyramidPlant01
             obj.myGravity.gravity(obj.pendulum_rigid_body_object,[0;-obj.g]);
             
             obj.EffectorWrench=PolygonGeneralizedForce();
+
             obj.EffectorWrench.external_wrench(obj.pendulum_rigid_body_object,obj.contact_point);
-            
+
             obj.MyEnvironment=SimulationEnvironment();
             
             obj.MyEnvironment.addRigidBody(obj.pendulum_rigid_body_object);
@@ -96,7 +95,6 @@ classdef PyramidPlant01
             obj.nu = 3;
             obj.neq = 2;
             obj.niq = 4;
-            
         end
         
         
@@ -104,7 +102,7 @@ classdef PyramidPlant01
             %Unpack the system state/system parameters
             theta=X_in(1);  %angle of rigid body with resepect to -y axis
             %Specifically, angle that line segment connecting pivot to
-            %robot contact with respect to the -y axis
+            %robot contact with respect to the +x axis
             
             dtheta_dt=X_in(2); %time derivative of theta
             
@@ -112,42 +110,46 @@ classdef PyramidPlant01
             %for an arbitrary rigid body, a=mgl/I where l is the distance
             %of the center of mass from the pivot, and I is the moment of
             %inertia of the body with respect to the pivot
-            %for a simple pendulum, a=3/2 g/l
+            
             
             b=X_in(4); %coefficient representing the moment of inertia
             %about the pivot locaction.
             %for an arbitrary rigid body, b=1/I
-            %for the simple pendulum systme, b=3/ml^2
+            
             
             theta_0=X_in(5); %offset angle from ray1 to ray 2
-            %where ray1 is the ray from pivot to center of mass
-            %and ray2 is the ray from pivot to contact point
+            %where ray1 is the ray from pivot to contact point
+            %and ray2 is the ray from pivot to center of mass
             
             x_c=X_in(6); %x coordinate of the pivot location in world frame
             y_c=X_in(7); %y coordinate of the pivot location in world frame
             R=X_in(8); %distance from pivot to contact point
             
             
-            %a=(3/2) g/l
-            %b=3/(ml^2)
             
-            params.l=1;
-            params.g=(2/3)*a;
-            params.m=3/b;
+            params.g=10;
+            
+            %m*g*l_cm = a -> m*l_cm=a/g
+            %m*lcm^2+I_cm =I_pivot= 1/b -> m*lcm^2=(m*lcm)*lcm=1/b
+            %l_cm*a/g=1/b-> g/(ab)=l_cm
+            
+        
+            l_cm=params.g/(a*b);  %distance from pivot to the center of mass
+
+            params.I_cm=0;
+            params.m=a/(params.g*l_cm);
+            
+            params.contact_point= R*[1,0];
+            params.r_cm= l_cm*[cos(theta_0);sin(theta_0)];
+            
             params.mu=obj.mu;
             params.t_m=obj.t_m;
             
-            
-            
-            %             params.contact_point=R*[0;-1];
-            params.contact_point=R*[sin(theta_0);-cos(theta_0)];
-            
+
             obj.UpdateParams(params);
             
-            theta_in=theta-theta_0;
             
-            
-            xk=[x_c;y_c;theta_in;0;0;dtheta_dt];
+            xk=[x_c;y_c;theta;0;0;dtheta_dt];
             
             f = obj.dynamics_no_partials(xk, u);
             
@@ -180,7 +182,7 @@ classdef PyramidPlant01
             %Unpack the system state/system parameters
             theta=X_in(1);  %angle of rigid body with resepect to -y axis
             %Specifically, angle that line segment connecting pivot to
-            %robot contact with respect to the -y axis
+            %robot contact with respect to the +x axis
             
             dtheta_dt=X_in(2); %time derivative of theta
             
@@ -188,45 +190,51 @@ classdef PyramidPlant01
             %for an arbitrary rigid body, a=mgl/I where l is the distance
             %of the center of mass from the pivot, and I is the moment of
             %inertia of the body with respect to the pivot
-            %for a simple pendulum, a=3/2 g/l
+            
             
             b=X_in(4); %coefficient representing the moment of inertia
             %about the pivot locaction.
             %for an arbitrary rigid body, b=1/I
-            %for the simple pendulum systme, b=3/ml^2
+            
             
             theta_0=X_in(5); %offset angle from ray1 to ray 2
-            %where ray1 is the ray from pivot to center of mass
-            %and ray2 is the ray from pivot to contact point
+            %where ray1 is the ray from pivot to contact point
+            %and ray2 is the ray from pivot to center of mass
             
             x_c=X_in(6); %x coordinate of the pivot location in world frame
             y_c=X_in(7); %y coordinate of the pivot location in world frame
             R=X_in(8); %distance from pivot to contact point
             
             
-            %a=(3/2) g/l
-            %b=3/(ml^2)
+            params.g=10;
             
-            params.l=1;
-            params.g=(2/3)*a;
-            params.m=3/b;
+            %m*g*l_cm = a -> m*l_cm=a/g
+            %m*lcm^2+I_cm =I_pivot= 1/b -> m*lcm^2=(m*lcm)*lcm=1/b
+            %l_cm*a/g=1/b-> g/(ab)=l_cm
+            
+        
+            l_cm=params.g/(a*b);  %distance from pivot to the center of mass
+
+            params.I_cm=0;
+            params.m=a/(params.g*l_cm);
+            
+            
+            params.contact_point= R*[1,0];
+            params.r_cm= l_cm*[cos(theta_0);sin(theta_0)];
+            
             params.mu=obj.mu;
             params.t_m=obj.t_m;
             
-            theta_in=theta-theta_0;
-            
-            %             params.contact_point=R*[0;-1];
-            params.contact_point=R*[sin(theta_0);-cos(theta_0)];
-            
+
             obj.UpdateParams(params);
             
+
             obj.sticking_constraint_ground.UpdateParamsStickingContactOneBody([0;0],[x_c;y_c]);
-            obj.MyEnvironment.assign_coordinate_vector([x_c;y_c;theta_in]);
+            obj.MyEnvironment.assign_coordinate_vector([x_c;y_c;theta]);
             obj.MyEnvironment.assign_velocity_vector([0;0;dtheta_dt]);
             
-            
-            %             pin=R*[0;-1];
-            pin=R*[sin(theta_0);-cos(theta_0)];
+  
+            pin=params.contact_point;
             
             pout=obj.pendulum_rigid_body_object.rigid_body_position(pin);
             vout=obj.pendulum_rigid_body_object.rigid_body_velocity(pin);
@@ -274,23 +282,23 @@ classdef PyramidPlant01
         
         %Updates the systems for the new parameter values
         function UpdateParams(obj,params)
+          
             obj.m = params.m;       % mass  (kg)
-            obj.l = params.l;       % length (m)
+            obj.I_cm = params.I_cm; % moment of inertia about center of mass;
             obj.t_m = params.t_m;   % control torque limit (N*m)
-            obj.g = params.g;                   % gravity (m/s^2)
+            obj.g = params.g;       % gravity (m/s^2)
             obj.mu = params.mu;     % coefficient of friction
-            obj.I = obj.l^2 * obj.m^2/3;   % inertia (kg^2 * m^2)
-            obj.contact_point = params.contact_point;
             
-            plist = [0,0;0,-obj.l];
-            r_cm  = [0;-obj.l/2];
-            I_com = obj.m*(obj.l)^2/12;
-            
-            
+
+            obj.contact_point = params.contact_point;   %location of contact point in the body frame
+            obj.r_cm  = params.r_cm;            %location of center of mass in the body frame
+                        
+            plist = [[0;0],obj.r_cm];
+
             obj.EffectorWrench.set_wrench_location(obj.contact_point);
-            
-            obj.pendulum_rigid_body_object.UpdateParams(plist, r_cm, obj.m, I_com);
-            obj.myGravity.UpdateParamsGravity([0;-obj.g]);
+            obj.pendulum_rigid_body_object.UpdateParams(plist, obj.r_cm, obj.m, obj.I_cm);
+            obj.myGravity.UpdateParamsGravity([0;-obj.g]);            
+
         end
         
         
@@ -320,10 +328,8 @@ classdef PyramidPlant01
             f=[v;a];
         end
         
-        
-        
-        
-        
+
+        % JUST A VELOCITY CONSTRAINT
         % equality constraints, c(x, u) = 0, and first derivatives
         % current this is the constraint the pin-joint has on the
         % velocity
