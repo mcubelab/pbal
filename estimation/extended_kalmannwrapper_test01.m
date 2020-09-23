@@ -15,14 +15,14 @@ R=8;
 X=[x;dxdt;a;b;theta_0;x_c;y_c;R];
 
 % inital guess
-x_guess= x+pi/2;
-dxdt_guess=0.2;
-a_guess=7-1;
-b_guess=5+1;
-theta_0_guess=pi/6;
-x_c_guess=1-0.2;
-y_c_guess=-2+0.2;
-R_guess=8-1;
+x_guess= x;
+dxdt_guess=0;
+a_guess=7;
+b_guess=5;
+theta_0_guess=0;
+x_c_guess=1;
+y_c_guess=-2;
+R_guess=8+1;
 X_guess=[x_guess;dxdt_guess;a_guess;b_guess;theta_0_guess;x_c_guess;y_c_guess;R_guess];
 % X_guess=X;
 
@@ -44,7 +44,7 @@ params.m= 3/b;
 params.t_m = params.m * params.g * params.l; % torque limit on input
 params.b = 0.0;  % damping
 params.mu = 0.3; % coefficient of friction
-params.contact_point = [0;-6];
+params.contact_point = R*[sin(theta_0);-cos(theta_0)];
 p = PyramidPlant01(params);
 p.setPivot(x_c,y_c);
 
@@ -106,7 +106,7 @@ for t=0:dt:10000*dt
 
 %     u=-3*X(1)-.3*X(2)-(X_guess(3)/X_guess(4))*sin(X_guess(5));
 %      u=-2*X(1)-.3*X_guess(2);
-    u=[0;0;.1*sin(2*t)];
+    u=[1;.5;.1*sin(2*t)];
 %     u=0;
     
 %     uk = [2; 1; 0]; 
