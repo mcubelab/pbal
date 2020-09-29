@@ -7,7 +7,7 @@ classdef PyramidPlant01
         % user specified
         m;   % mass (kg)
         r_cm; %location of center of mass in the body frame
-        contact_point; %location of contact point in the body frame
+        
         I_cm; %moment of inertia about center of mass;
         t_m  % control torque limit (N * m)
         mu   % coefficient of friction
@@ -16,10 +16,16 @@ classdef PyramidPlant01
         g;              % acceleration due to gravity (kg/m^2)
         fmincon_opt;    % options for fmincon
         
+        mu_pivot;       % coefficient of friction at obj/ground contact
+        mu_contact;     % coefficient of friction at obj/robot contact
+        Nmax_pivot;     % maximum force the ground can exert on obj along contact normal
+        Nmax_contact;   % maximum force the robot can exert on obj along contact normal
+        contact_normal; % direction of the contact normal in the body frame
+        contact_point;  % location of contact point in the body frame
         
         % dimensions
         nq;                 % config dimension
-        nv;                 % gen.;; gevelocity dimension
+        nv;                 % gen gevelocity dimension
         nx;
         nu;                 % input dimension
         neq;                % # of equality const
@@ -60,7 +66,6 @@ classdef PyramidPlant01
             obj.Nmax_contact = params.Nmax_pivot; % maximum force the robot can exert on obj along contact normal
 %             obj.l_contact = params.l_contact;     % length of object/robot contact
             obj.contact_normal = params.contact_normal; % direction of the contact normal in the body frame
-            obj.I = obj.l^2 * obj.m^2/3;          % inertia (kg^2 * m^2)
             
             obj.contact_point = params.contact_point;   %location of contact point in the body frame
             obj.r_cm  = params.r_cm;            %location of center of mass in the body frame
@@ -139,7 +144,7 @@ classdef PyramidPlant01
             params.I_cm=0;
             params.m=a/(params.g*l_cm);
             
-            params.contact_point= R*[1,0];
+            params.contact_point= R*[1;0];
             params.r_cm= l_cm*[cos(theta_0);sin(theta_0)];
             
             params.mu=obj.mu;
@@ -151,6 +156,7 @@ classdef PyramidPlant01
             
             xk=[x_c;y_c;theta;0;0;dtheta_dt];
             
+           
             f = obj.dynamics_no_partials(xk, u);
             
             dXdt=zeros(8,1);
@@ -219,7 +225,7 @@ classdef PyramidPlant01
             params.m=a/(params.g*l_cm);
             
             
-            params.contact_point= R*[1,0];
+            params.contact_point= R*[1;0];
             params.r_cm= l_cm*[cos(theta_0);sin(theta_0)];
             
             params.mu=obj.mu;
@@ -269,6 +275,7 @@ classdef PyramidPlant01
         end
         
         function [dXdt_guess,dPdt]= extended_kalmann_update(obj,Z,X_guess,u,P,Q,R)
+            obj.PrintParams();
             
             [dXdt_guess_star,F] = obj.my_KalmannPlantWithPartials(X_guess,u);
             [Z_guess,H] = obj.my_KalmannOutputWithPartials(X_guess);
@@ -279,10 +286,22 @@ classdef PyramidPlant01
             dXdt_guess=dXdt_guess_star+K*(Z-Z_guess);
         end
         
+        %Prints the system paramaters
+        function PrintParams(obj)
+            'Mass'
+            obj.m
+            'I_cm'
+            obj.I_cm
+            'contact point'
+            obj.contact_point
+            'r_cm'
+            obj.r_cm
+            
+        end
         
         %Updates the systems for the new parameter values
         function UpdateParams(obj,params)
-          
+            
             obj.m = params.m;       % mass  (kg)
             obj.I_cm = params.I_cm; % moment of inertia about center of mass;
             obj.t_m = params.t_m;   % control torque limit (N*m)
