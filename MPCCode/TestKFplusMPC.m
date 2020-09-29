@@ -2,80 +2,105 @@
 clear; clc; close all;
 addpath('./Plants', './Solvers', '../ControlCode/')
 
-% true parmeters
-x= pi - pi/3;
+
+%true parameters
+x= pi/2 - pi/6;
 dxdt=0;
 a=7;
-b=5;
+b=1;
 theta_0=0;
 x_c=1;
 y_c=-2;
 R=8;
-rc = R*[sin(theta_0); -cos(theta_0)]; 
 X=[x;dxdt;a;b;theta_0;x_c;y_c;R];
 
-% % inital guess
-x_guess= x;
-dxdt_guess=0;
-a_guess=7;
-b_guess=5;
-theta_0_guess=0;
-x_c_guess=1;
-y_c_guess=-2;
-R_guess=8-5;
-rc_guess = rc; 
+% inital guess
+x_guess= x+0.5*(rand()-.5);
+dxdt_guess=dxdt+0*(rand()-.5);
+a_guess=a+2*(rand()-.5);
+b_guess=b+0.3*(rand()-.5);
+theta_0_guess=theta_0+0*(rand()-.5);
+x_c_guess=x_c+1*(rand()-.5);
+y_c_guess=y_c+1*(rand()-.5);
+R_guess=R+2*(rand()-.5);
 X_guess=[x_guess;dxdt_guess;a_guess;b_guess;theta_0_guess;x_c_guess;y_c_guess;R_guess];
-% X_guess = X; 
 
-% kalman pendulum plant
-params_guess.l = 1; % length
-params_guess.g= (2/3)*a_guess;
-params_guess.m= 3/b_guess;
-params_guess.t_m = params_guess.m * params_guess.g * params_guess.l; % torque limit on input
-params_guess.b = 0.0;  % damping
-params_guess.mu = 0.3; % coefficient of friction
-params_guess.contact_point = rc_guess; 
-p_guess = PyramidPlant01(params_guess);
-p_guess.setPivot(x_c_guess,y_c_guess);
+% true pendulum plant
+params.g=10;            % gravity (m/s^2)
+l_cm=params.g/(a*b);
 
-% true plant
-params.l = 1; % length
-params.g= (2/3)*a;
-params.m= 3/b;
-params.t_m = params.m * params.g * params.l; % torque limit on input
-params.b = 0.0;  % damping
-params.mu = 0.3; % coefficient of friction
-params.contact_point = rc;
+params.m=a/(params.g*l_cm);      % mass  (kg)
+params.I_cm=0; % moment of inertia about center of mass;
+params.t_m=100;   % control torque limit (N*m)
+
+params.l_contact =1;
+params.mu_pivot=10;     % coefficient of friction at obj/ground contact
+params.mu_contact=10;   % coefficient of friction at obj/robot contact
+params.Nmax_pivot=100;   % maximum force the ground can exert on obj along contact normal
+params.Nmax_pivot=100; % maximum force the robot can exert on obj along contact normal
+%             obj.l_contact = params.l_contact;     % length of object/robot contact
+params.contact_normal=[1;0]; % direction of the contact normal in the body frame
+
+
+params.contact_point=R*[1;0];                   %location of contact point in the body frame
+params.r_cm=l_cm*[cos(theta_0);sin(theta_0)];    %location of center of mass in the body frame
+
 p = PyramidPlant01(params);
 p.setPivot(x_c,y_c);
 
+% kalman pendulum plant
+params_guess.g=10;            % gravity (m/s^2)
+l_cm_guess=params_guess.g/(a_guess*b_guess);
+
+params_guess.m=a/(params_guess.g*l_cm_guess);       % mass  (kg)
+params_guess.I_cm=0; % moment of inertia about center of mass;
+params_guess.t_m=100;   % control torque limit (N*m)
+
+params_guess.l_contact =1;
+params_guess.mu_pivot=10;     % coefficient of friction at obj/ground contact
+params_guess.mu_contact=10;   % coefficient of friction at obj/robot contact
+params_guess.Nmax_pivot=100;   % maximum force the ground can exert on obj along contact normal
+params_guess.Nmax_pivot=100; % maximum force the robot can exert on obj along contact normal
+%             obj.l_contact = params.l_contact;     % length of object/robot contact
+params_guess.contact_normal=[1;0]; % direction of the contact normal in the body frame
+
+
+params_guess.contact_point=R_guess*[1;0];                   %location of contact point in the body frame
+params_guess.r_cm=l_cm_guess*[cos(theta_0_guess);sin(theta_0_guess)];    %location of center of mass in the body frame
+
+
+p_guess = PyramidPlant01(params_guess);
+p_guess.setPivot(x_c_guess,y_c_guess);
+
+
+
 % mpc parameters
 mpc_params.Nmpc = 10;    % mpc horizon
-mpc_params.Ntraj = 50;  % trajectory length
-mpc_params.dt = 0.02;    % time-step
+mpc_params.Ntraj = 500;  % trajectory length
+mpc_params.dt = 0.01;    % time-step
 mpc_params.QN = blkdiag(eye(p.nq), 0.1*eye(p.nv));
 mpc_params.Q = blkdiag(eye(p.nq), 0.1*eye(p.nv));
 mpc_params.R = 0.001*eye(p.nu);
 
 % kalman filter parameters
 R=.1*eye(4);
-Q=.1*eye(8);
+Q=.01*eye(8);
 P=.1*eye(8);
 
 xk = [x_c; y_c; x; 0; 0; dxdt]; % true initial state
 xk_guess = [x_c_guess; y_c_guess; x_guess; 0; 0; dxdt_guess]; % guess initial state
 
-xg = [x_c; y_c; pi; 0; 0; 0]; % goal state
+xg = [x_c; y_c; pi/2; 0; 0; 0]; % goal state
 % ug = [0; -p.m; 0.5 * p.m * p.g * p.l*sin(pi)];
 
-ug = [0; 0; 0.5 * p_guess.m * p_guess.g * p_guess.l*sin(pi)];
+ug = [0; 0; 0];  %TODO: should not always be zero
 
 % goal state
 mpc_params.x0 = xg;
 mpc_params.u0 = ug;
 
 % build mpc
-mpc_tv = TimeVaryingMPC2(p, mpc_params);
+mpc_tv = TimeVaryingMPC2(p_guess, mpc_params);
 
 % plotting
 xvec = xk;
@@ -92,7 +117,7 @@ Pvec = P;
 % X and X_guess is in the format [tht_c; omega; a; b; tht_0; xp; yp; R];  
 
 for k=1:mpc_tv.Ntraj
-    
+%     
 %     if k == 1
 %         update_linearization_flag = true;
 %     else
@@ -101,15 +126,16 @@ for k=1:mpc_tv.Ntraj
 %     
     % compute control input
     tic; 
-    [dx_mpc, dU_mpc] = mpc_tv.run_mpc(xk, true);
-    uk = 0 * (mpc_tv.u0 + dU_mpc(1:mpc_tv.nu));
+    [dx_mpc, dU_mpc] = mpc_tv.run_mpc(xk_guess, true);
+    uk = (mpc_tv.u0 + dU_mpc(1:mpc_tv.nu));
+%     uk=[0;0;-3*X(1)-.3*X(2)-(X_guess(3)/X_guess(4))*sin(X_guess(5))];
     dt1 = toc; 
     
     % advance true state
     [xkp1, lk] = p.dynamics_solve(xk, uk, mpc_tv.dt);
     
     % KF
-%     tic; 
+    tic; 
     Z = p.my_KalmannOutputNoPartials(X);
     [dXdt_guess,dPdt]= p_guess.extended_kalmann_update(Z,X_guess,...
         uk,P,Q,R);
@@ -118,7 +144,7 @@ for k=1:mpc_tv.Ntraj
     P=P+mpc_tv.dt*dPdt;
     X_guess=X_guess+mpc_tv.dt*dXdt_guess;
     xk_guess = [X_guess(6); X_guess(7); X_guess(1) - X_guess(5);
-        0; 0; X_guess(2)];
+        0; 0; X_guess(2)];   %TODO: NOT SURE IF THIS IS RIGHT
     dt2 = toc; 
     
     fprintf('\r MPC Rate: %f,  KF Rate: %f, Total Rate: %f', ...
@@ -149,15 +175,18 @@ t = 0:(size(xvec, 2)-1);
 % animation
 figure(1); clf;
 hold on; axis equal;
-xlim(x_c + [-1.5, 1.5]*p.l)
-ylim(y_c + [-1.5, 1.5]*p.l)
-ph = plot( [xvec(1, 1); xvec(1, 1) + p.l * sin(xvec(3,1))], ...
-    [ xvec(2, 1); xvec(2, 1) - p.l * cos(xvec(3,1))]);
+xlim(x_c + [-1.5, 1.5]*norm(p.r_cm))
+ylim(y_c + [-1.5, 1.5]*norm(p.r_cm))
+p.pendulum_rigid_body_object.initialize_visualization()
+% ph = plot( [xvec(1, 1); xvec(1, 1) + p.l * sin(xvec(3,1))], ...
+%     [ xvec(2, 1); xvec(2, 1) - p.l * cos(xvec(3,1))]);
 th = title(sprintf('time: %f', 0.0));
 for i = 1:numel(t)
-    set(ph, 'Xdata',  [ xvec(1, i); xvec(1, i) + p.l * sin(xvec(3,i))], ...
-        'Ydata', [ xvec(2, i); xvec(2, i) -  p.l * cos(xvec(3,i))])
-    set(th, 'string', sprintf('time: %f', t(i)*mpc_tv.dt))
+    p.pendulum_rigid_body_object.set_state(xvec(1:2, i), 0*xvec(1:2, i), ...
+        0 * xvec(1:2, i), xvec(3, i), 0, 0)
+    p.pendulum_rigid_body_object.update_visualization()
+    xlim(x_c + [-1.5, 1.5]*norm(p.r_cm))
+    ylim(y_c + [-1.5, 1.5]*norm(p.r_cm))
     pause(mpc_tv.dt)
 end
 

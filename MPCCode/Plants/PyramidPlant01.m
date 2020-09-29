@@ -23,6 +23,8 @@ classdef PyramidPlant01
         contact_normal; % direction of the contact normal in the body frame
         contact_point;  % location of contact point in the body frame
         
+        l_contact;          % length of robot contact
+        
         % dimensions
         nq;                 % config dimension
         nv;                 % gen gevelocity dimension
@@ -50,6 +52,22 @@ classdef PyramidPlant01
         
     end
     
+    methods(Static)
+    
+        % TODO: This is probably defined in the wrong place
+        function J = jacobian(contant_point)
+            
+            rx = contant_point(1);
+            ry = contant_point(2);
+            rt = 0;  % TODO: fix this --> generalize to contact frame not aligned with reference fame
+            
+            J = [cos(rt) -sin(rt), 0;
+                sin(rt) cos(rt), 0;
+                rx*sin(rt) - ry*cos(rt), rx*cos(rt) + ry*sin(rt), 1];            
+        end   
+    
+    end
+    
     methods
         
         % initialize
@@ -64,7 +82,7 @@ classdef PyramidPlant01
             obj.mu_contact = params.mu_contact;   % coefficient of friction at obj/robot contact
             obj.Nmax_pivot = params.Nmax_pivot;   % maximum force the ground can exert on obj along contact normal
             obj.Nmax_contact = params.Nmax_pivot; % maximum force the robot can exert on obj along contact normal
-%             obj.l_contact = params.l_contact;     % length of object/robot contact
+            obj.l_contact = params.l_contact;     % length of object/robot contact
             obj.contact_normal = params.contact_normal; % direction of the contact normal in the body frame
             
             obj.contact_point = params.contact_point;   %location of contact point in the body frame
@@ -410,7 +428,7 @@ classdef PyramidPlant01
         
         function [c, dc_dx, dc_du] = inequality_const(obj, xk, uk)            
             
-            c = inequality_const_no_partials(obj, xk, uk);
+            c = obj.inequality_const_no_partials( xk, uk);
             
             Ix = eye(numel(xk));
             Iu = eye(numel(uk));
@@ -418,8 +436,8 @@ classdef PyramidPlant01
             
             dc_dx = zeros(numel(c), numel(xk));            
             for i = 1:numel(xk)
-                cp =  inequality_const_no_partials(obj, xk + Ix(:,i)*EPS, uk);
-                cm =  inequality_const_no_partials(obj, xk - Ix(:,i)*EPS, uk);
+                cp =  obj.inequality_const_no_partials(xk + Ix(:,i)*EPS, uk);
+                cm =  obj.inequality_const_no_partials(xk - Ix(:,i)*EPS, uk);
                 dc_dx(:,i) = (cp - cm)/(2*EPS);
             end
             
@@ -524,7 +542,7 @@ classdef PyramidPlant01
                 0, 0, 1];
         end
         
-        function c = line_wrench_cone_constraints(xk, uk)
+        function c = line_wrench_cone_constraints(obj, xk, uk)
             
             
             fc = obj.Nmax_contact*[1.0, 1.0; obj.mu_contact, -obj.mu_contact; 0, 0];    % friction cone at at end point of line
@@ -532,8 +550,8 @@ classdef PyramidPlant01
             plp = [0; obj.l_contact/2; 0];             % pos end of line (contact frame)
             plm = [0; -obj.l_contact/2; 0];            % neg end of line (contact frame)
             
-            wcp = jacobian(plp)*fc;         % wrench at line COM from top
-            wcm = jacobian(plm)*fc;         % wrench at line COM from bottom
+            wcp = PyramidPlant01.jacobian(plp)*fc;         % wrench at line COM from top
+            wcm = PyramidPlant01.jacobian(plm)*fc;         % wrench at line COM from bottom
             wc = [wcp, wcm(:,2), wcm(:,1)]; % generators for wrench cone in contact frame
                       
            
@@ -550,29 +568,20 @@ classdef PyramidPlant01
             outward_facing_normals_world_frame = zeros(3, 4);
             
             for i = 1:(size(wcw_wrap,2) - 1)
-                outward_facing_normals_world_frame(:,i) = cross(wcw(:,i), wcw(:,i+1));
+                outward_facing_normals_world_frame(:,i) = cross(wcw_wrap(:,i), ...
+                    wcw_wrap(:,i+1));
             end                                     
             
             % compute the normal for the top
-            outward_facing_normals_world_frame = [outward_facing_normals_world_frame, 
+            outward_facing_normals_world_frame = [outward_facing_normals_world_frame, ...
                 [PolygonMath.theta_to_rotmat(xk(3))*obj.contact_normal; 0]]; 
             
             b = [0; 0; 0; 0; obj.Nmax_contact]; 
             
-            c = outward_facing_normals_world_frame*uk - b; 
+            c = outward_facing_normals_world_frame'*uk - b; 
             
         end       
-        
-        function J = jacobian(contant_point, contact_normal)
-            
-            rx = contant_point(1);
-            ry = contant_point(2);
-            rt = contact_normal(3);
-            
-            J = [cos(rt) -sin(rt), 0;
-                sin(rt) cos(rt), 0;
-                rx*sin(rt) - ry*cos(rt), rx*cos(rt) + ry*sin(rt), 1];            
-        end       
+    
         
     end
 end

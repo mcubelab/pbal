@@ -1,5 +1,7 @@
 function res= extended_kalmannwrapper_test01()
 
+addpath('../MPCCode/Plants/*')
+
 figure1=figure(1);
 figure2=figure(2);
 
