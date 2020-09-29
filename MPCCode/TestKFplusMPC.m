@@ -33,11 +33,11 @@ params.m=a/(params.g*l_cm);      % mass  (kg)
 params.I_cm=0; % moment of inertia about center of mass;
 params.t_m=100;   % control torque limit (N*m)
 
-params.l_contact =1;
-params.mu_pivot=10;     % coefficient of friction at obj/ground contact
-params.mu_contact=10;   % coefficient of friction at obj/robot contact
-params.Nmax_pivot=100;   % maximum force the ground can exert on obj along contact normal
-params.Nmax_pivot=100; % maximum force the robot can exert on obj along contact normal
+params.l_contact =.1;
+params.mu_pivot=0.3;     % coefficient of friction at obj/ground contact
+params.mu_contact=0.3;   % coefficient of friction at obj/robot contact
+params.Nmax_pivot=10;   % maximum force the ground can exert on obj along contact normal
+params.Nmax_pivot=10; % maximum force the robot can exert on obj along contact normal
 %             obj.l_contact = params.l_contact;     % length of object/robot contact
 params.contact_normal=[1;0]; % direction of the contact normal in the body frame
 
@@ -56,11 +56,11 @@ params_guess.m=a/(params_guess.g*l_cm_guess);       % mass  (kg)
 params_guess.I_cm=0; % moment of inertia about center of mass;
 params_guess.t_m=100;   % control torque limit (N*m)
 
-params_guess.l_contact =1;
-params_guess.mu_pivot=10;     % coefficient of friction at obj/ground contact
-params_guess.mu_contact=10;   % coefficient of friction at obj/robot contact
-params_guess.Nmax_pivot=100;   % maximum force the ground can exert on obj along contact normal
-params_guess.Nmax_pivot=100; % maximum force the robot can exert on obj along contact normal
+params_guess.l_contact =.1;
+params_guess.mu_pivot=0.3;     % coefficient of friction at obj/ground contact
+params_guess.mu_contact=0.3;   % coefficient of friction at obj/robot contact
+params_guess.Nmax_pivot=10;   % maximum force the ground can exert on obj along contact normal
+params_guess.Nmax_pivot=10; % maximum force the robot can exert on obj along contact normal
 %             obj.l_contact = params.l_contact;     % length of object/robot contact
 params_guess.contact_normal=[1;0]; % direction of the contact normal in the body frame
 
