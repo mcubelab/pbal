@@ -4,7 +4,7 @@ addpath('./Plants', './Solvers', '../ControlCode/')
 
 
 %true parameters
-x= pi/2 - pi/6;
+x= pi/2 - pi/3;
 dxdt=0;
 a=7;
 b=1;
@@ -143,8 +143,7 @@ for k=1:mpc_tv.Ntraj
     % advance guess x
     P=P+mpc_tv.dt*dPdt;
     X_guess=X_guess+mpc_tv.dt*dXdt_guess;
-    xk_guess = [X_guess(6); X_guess(7); X_guess(1) - X_guess(5);
-        0; 0; X_guess(2)];   %TODO: NOT SURE IF THIS IS RIGHT
+    xk_guess = [X_guess(6); X_guess(7); X_guess(1); 0; 0; X_guess(2)];
     dt2 = toc; 
     
     fprintf('\r MPC Rate: %f,  KF Rate: %f, Total Rate: %f', ...
