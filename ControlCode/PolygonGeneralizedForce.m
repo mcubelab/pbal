@@ -132,7 +132,7 @@ classdef PolygonGeneralizedForce < handle
         %point of a rigid body of the system.
         function F = generateForceExternalWrench(obj,num_coordinates)
             F=zeros(num_coordinates,1);
-
+            
             [~,~,Dx,Dy,~,~]=obj.rigidBody1.rigid_body_position_derivatives(obj.pin1);
             F(obj.rigidBody1.coord_index)=obj.external_wrench_val(1)*Dx'+obj.external_wrench_val(2)*Dy'+obj.external_wrench_val(3)*[0;0;1];
         end
