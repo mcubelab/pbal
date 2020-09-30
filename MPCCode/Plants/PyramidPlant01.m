@@ -122,59 +122,8 @@ classdef PyramidPlant01
         
         
         function dXdt = my_KalmannPlantNoPartials(obj,X_in,u)
-            %Unpack the system state/system parameters
-            theta=X_in(1);  %angle of rigid body with resepect to -y axis
-            %Specifically, angle that line segment connecting pivot to
-            %robot contact with respect to the +x axis
+            [~,xk] = obj.UpdateParams_kalmann(X_in);
             
-            dtheta_dt=X_in(2); %time derivative of theta
-            
-            a=X_in(3); %coefficient representing gravity and moment of inertia
-            %for an arbitrary rigid body, a=mgl/I where l is the distance
-            %of the center of mass from the pivot, and I is the moment of
-            %inertia of the body with respect to the pivot
-            
-            
-            b=X_in(4); %coefficient representing the moment of inertia
-            %about the pivot locaction.
-            %for an arbitrary rigid body, b=1/I
-            
-            
-            theta_0=X_in(5); %offset angle from ray1 to ray 2
-            %where ray1 is the ray from pivot to contact point
-            %and ray2 is the ray from pivot to center of mass
-            
-            x_c=X_in(6); %x coordinate of the pivot location in world frame
-            y_c=X_in(7); %y coordinate of the pivot location in world frame
-            R=X_in(8); %distance from pivot to contact point
-            
-            
-            
-            params.g=10;
-            
-            %m*g*l_cm = a -> m*l_cm=a/g
-            %m*lcm^2+I_cm =I_pivot= 1/b -> m*lcm^2=(m*lcm)*lcm=1/b
-            %l_cm*a/g=1/b-> g/(ab)=l_cm
-            
-        
-            l_cm=params.g/(a*b);  %distance from pivot to the center of mass
-
-            params.I_cm=0;
-            params.m=a/(params.g*l_cm);
-            
-            params.contact_point= R*[1;0];
-            params.r_cm= l_cm*[cos(theta_0);sin(theta_0)];
-            
-            params.mu=obj.mu;
-            params.t_m=obj.t_m;
-            
-
-            obj.UpdateParams(params);
-            
-            
-            xk=[x_c;y_c;theta;0;0;dtheta_dt];
-            
-           
             f = obj.dynamics_no_partials(xk, u);
             
             dXdt=zeros(8,1);
@@ -202,7 +151,9 @@ classdef PyramidPlant01
             end
         end
         
-        function Z = my_KalmannOutputNoPartials(obj,X_in)
+        %Unpack the system state/system parameters
+        %and inject them into the system
+        function [params,xk] = UpdateParams_kalmann(obj, X_in)
             %Unpack the system state/system parameters
             theta=X_in(1);  %angle of rigid body with resepect to -y axis
             %Specifically, angle that line segment connecting pivot to
@@ -230,6 +181,8 @@ classdef PyramidPlant01
             R=X_in(8); %distance from pivot to contact point
             
             
+            params.l_contact=obj.l_contact;
+            
             params.g=10;
             
             %m*g*l_cm = a -> m*l_cm=a/g
@@ -256,6 +209,12 @@ classdef PyramidPlant01
             obj.sticking_constraint_ground.UpdateParamsStickingContactOneBody([0;0],[x_c;y_c]);
             obj.MyEnvironment.assign_coordinate_vector([x_c;y_c;theta]);
             obj.MyEnvironment.assign_velocity_vector([0;0;dtheta_dt]);
+            
+            xk=[x_c;y_c;theta;0;0;dtheta_dt];
+        end
+        
+        function Z = my_KalmannOutputNoPartials(obj,X_in)
+            [params,~] = obj.UpdateParams_kalmann(X_in);
             
   
             pin=params.contact_point;
