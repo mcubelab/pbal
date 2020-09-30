@@ -38,6 +38,7 @@ X_guess=[x_guess;dxdt_guess;a_guess;b_guess;theta_0_guess;x_c_guess;y_c_guess;R_
 % params_guess.contact_point = [0;-5];
 
 params.g=10;            % gravity (m/s^2)
+params.l_contact=1;
 l_cm=params.g/(a*b);
 
 params.m=a/(params.g*l_cm);      % mass  (kg)
@@ -64,6 +65,7 @@ params_guess.m=a/(params_guess.g*l_cm_guess);       % mass  (kg)
 params_guess.I_cm=0; % moment of inertia about center of mass;
 params_guess.t_m=100;   % control torque limit (N*m)
 
+params_guess.l_contact=1;
 
 params_guess.mu_pivot=10;     % coefficient of friction at obj/ground contact
 params_guess.mu_contact=10;   % coefficient of friction at obj/robot contact
