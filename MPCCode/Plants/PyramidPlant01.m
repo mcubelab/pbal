@@ -9,7 +9,7 @@ classdef PyramidPlant01
         r_cm; %location of center of mass in the body frame
         
         I_cm; %moment of inertia about center of mass;
-        t_m  % control torque limit (N * m)
+%         t_m  % control torque limit (N * m)
         mu   % coefficient of friction
         
         % fixed/derived
@@ -75,13 +75,12 @@ classdef PyramidPlant01
             
             obj.m = params.m;       % mass  (kg)
             obj.I_cm = params.I_cm; % moment of inertia about center of mass;
-            obj.t_m = params.t_m;   % control torque limit (N*m)
 
             obj.g = params.g;                     % gravity (m/s^2)
             obj.mu_pivot = params.mu_pivot;       % coefficient of friction at obj/ground contact
             obj.mu_contact = params.mu_contact;   % coefficient of friction at obj/robot contact
             obj.Nmax_pivot = params.Nmax_pivot;   % maximum force the ground can exert on obj along contact normal
-            obj.Nmax_contact = params.Nmax_pivot; % maximum force the robot can exert on obj along contact normal
+            obj.Nmax_contact = params.Nmax_contact; % maximum force the robot can exert on obj along contact normal
             obj.l_contact = params.l_contact;     % length of object/robot contact
             obj.contact_normal = params.contact_normal; % direction of the contact normal in the body frame
             
@@ -198,10 +197,8 @@ classdef PyramidPlant01
             
             params.contact_point= R*[1;0];
             params.r_cm= l_cm*[cos(theta_0);sin(theta_0)];
-            
             params.mu=obj.mu;
-            params.t_m=obj.t_m;
-            
+           
 
             obj.UpdateParams(params);
             
@@ -281,7 +278,7 @@ classdef PyramidPlant01
             
             obj.m = params.m;       % mass  (kg)
             obj.I_cm = params.I_cm; % moment of inertia about center of mass;
-            obj.t_m = params.t_m;   % control torque limit (N*m)
+%             obj.t_m = params.t_m;   % control torque limit (N*m)
             obj.g = params.g;       % gravity (m/s^2)
             obj.mu = params.mu;     % coefficient of friction
             
@@ -343,22 +340,12 @@ classdef PyramidPlant01
             obj.MyEnvironment.assign_velocity_vector(xk(4:6));
             obj.EffectorWrench.set_wrench_value(uk);
             
-            c= obj.pendulum_rigid_body_object. rigid_body_velocity([0;0]);
-            [~,~,Dx,Dy,~,~]=obj.pendulum_rigid_body_object.rigid_body_position_derivatives([0;0]);
+            % TODO this doesn't look right
+            c= obj.pendulum_rigid_body_object.rigid_body_velocity([0;0]);
+            [~,~,Dx,Dy,~,~]=obj.pendulum_rigid_body_object. ...
+                rigid_body_position_derivatives([0;0]);
             
-            %             [~,~,Dx,Dy,~,~]=obj.rigidBody1.rigid_body_position_derivatives(obj.pin1);
-            %             F(obj.rigidBody1.coord_index)=obj.external_wrench_val(1)*Dx'+obj.external_wrench_val(2)*Dy'+obj.external_wrench_val(3)*[0;0;1];
-            
-            % velocity of pivot
-            %             qd = xk(obj.nq + (1:obj.nv));
-            
-            % pivot const on velocity
-            %             dphi_dq = [1, 0, 0; 0, 1, 0];
-            %             c = dphi_dq * qd;
-            
-            dc_dx = [zeros(obj.neq, obj.nq), [Dx;Dy]];
-            %             dc_dx = [zeros(obj.neq, obj.nq), dphi_dq];
-            
+            dc_dx = [zeros(obj.neq, obj.nq), [Dx;Dy]];            
             dc_du = zeros(2, length(uk));
             
         end
@@ -387,7 +374,7 @@ classdef PyramidPlant01
         
         function [c, dc_dx, dc_du] = inequality_const(obj, xk, uk)            
             
-            c = obj.inequality_const_no_partials( xk, uk);
+            c = obj.inequality_const_no_partials(xk, uk);
             
             Ix = eye(numel(xk));
             Iu = eye(numel(uk));
