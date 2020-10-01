@@ -88,7 +88,7 @@ classdef PyramidPlant01
             obj.r_cm  = params.r_cm;            %location of center of mass in the body frame
             
             
-            plist = [[0;0],obj.r_cm];
+            plist = [[0;0],obj.contact_point];
             
             obj.pendulum_rigid_body_object=PolygonRigidBody(plist, obj.r_cm, obj.m, obj.I_cm);
             
@@ -490,8 +490,9 @@ classdef PyramidPlant01
         
         function c = line_wrench_cone_constraints(obj, xk, uk)
             
+            test = [1; 0; 0]; 
             
-            fc = obj.Nmax_contact*[1.0, 1.0; obj.mu_contact, -obj.mu_contact; 0, 0];    % friction cone at at end point of line
+            fc = obj.Nmax_contact*[1.0, 1.0; -obj.mu_contact, obj.mu_contact; 0, 0];    % friction cone at at end point of line
             
             plp = [0; obj.l_contact/2; 0];             % pos end of line (contact frame)
             plm = [0; -obj.l_contact/2; 0];            % neg end of line (contact frame)
@@ -500,7 +501,6 @@ classdef PyramidPlant01
             wcm = PyramidPlant01.jacobian(plm)*fc;         % wrench at line COM from bottom
             wc = [wcp, wcm(:,2), wcm(:,1)]; % generators for wrench cone in contact frame
                       
-           
             % rotation from contact to body and body to world
             RContactToBody = blkdiag([obj.contact_normal, ...
                 PolygonMath.theta_to_rotmat(pi/2)*obj.contact_normal], 1); 
@@ -509,12 +509,14 @@ classdef PyramidPlant01
             % generator for wrench at contact in world frame
             wcw = RBodyToWorld*RContactToBody*wc;
             
+            test_world =  RBodyToWorld*RContactToBody*test;
+            
             % compute the normals for the sides of the wrench cone
-            wcw_wrap = [wcw, wcw(:,end)];
+            wcw_wrap = [wcw, wcw(:,1)];
             outward_facing_normals_world_frame = zeros(3, 4);
             
             for i = 1:(size(wcw_wrap,2) - 1)
-                outward_facing_normals_world_frame(:,i) = cross(wcw_wrap(:,i), ...
+                outward_facing_normals_world_frame(:,i) = -cross(wcw_wrap(:,i), ...
                     wcw_wrap(:,i+1));
             end                                     
             
