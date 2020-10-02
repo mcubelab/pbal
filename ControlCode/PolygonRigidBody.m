@@ -127,6 +127,12 @@ classdef PolygonRigidBody < handle
             pout=PolygonMath.rigid_body_position(obj.LocalPolygon.position,obj.LocalPolygon.theta,pin);
         end
         
+        %Calls the rigid_body_vector function, using the current state
+        %of this polygon rigid body
+        function vout=rigid_body_vector(obj,vin)
+            vout=PolygonMath.rigid_body_vector(obj.LocalPolygon.theta,vin);
+        end
+        
         %Calls the rigid_body_velocity function, using the current state
         %of this polygon rigid body
         function vout=rigid_body_velocity(obj,pin)

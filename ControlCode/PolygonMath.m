@@ -16,13 +16,24 @@ classdef PolygonMath
         
         %this function maps point pin on some rigid body B
         %to their new locations
-        %pout, after the rigid body has translated 
+        %pout, after the rigid body has translated/rotated 
         %given by the position of the origin of the rigid body
         %in the world frame 'position', and it's rotation 'theta'
         function pout=rigid_body_position(position,theta,pin)
             s=size(pin);
             rot_matf=PolygonMath.theta_to_rotmat(theta);
             pout=rot_matf*pin+repmat(position,[1,s(2)]);
+        end
+        
+        %this function maps vector vin on some rigid body B
+        %to its new direction
+        %vout, after the rigid body has translated/rotated 
+        %given by the position of the origin of the rigid body
+        %in the world frame 'position', and it's rotation 'theta'
+        %this only incorporates the rotation of the rigid body
+        function vout=rigid_body_vector(theta,vin)
+            rot_matf=PolygonMath.theta_to_rotmat(theta);
+            vout=rot_matf*vin;
         end
         
         

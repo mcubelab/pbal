@@ -10,7 +10,7 @@ classdef PyramidPlant01
         
         I_cm; %moment of inertia about center of mass;
 %         t_m  % control torque limit (N * m)
-        mu   % coefficient of friction
+
         
         % fixed/derived
         g;              % acceleration due to gravity (kg/m^2)
@@ -49,6 +49,16 @@ classdef PyramidPlant01
         
         %gravity
         myGravity;
+        
+        
+        %Plotting objects for the various contact forces and friction cone
+        %boundaries
+        Contact_force_draw;
+        Contact_generator1_draw;
+        Contact_generator2_draw;
+        Ground_force_draw;
+        Ground_generator1_draw;
+        Ground_generator2_draw;
         
     end
     
@@ -197,7 +207,7 @@ classdef PyramidPlant01
             
             params.contact_point= R*[1;0];
             params.r_cm= l_cm*[cos(theta_0);sin(theta_0)];
-            params.mu=obj.mu;
+
            
 
             obj.UpdateParams(params);
@@ -210,13 +220,115 @@ classdef PyramidPlant01
             xk=[x_c;y_c;theta;0;0;dtheta_dt];
         end
         
-        function initialize_visualization_with_forces(obj,u)
-            pendulum_rigid_body_object.initialize_visualization()
+        function initialize_visualization(obj, xk, uk, length_scale)
+                     
+            obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
+            obj.MyEnvironment.assign_velocity_vector(xk(4:6));
+            obj.EffectorWrench.set_wrench_value(uk);
             
+            obj.MyEnvironment.computeAccelerations();
+            
+            pivot_multipliers=obj.sticking_constraint_ground.getMultipliers();
+            
+            obj.pendulum_rigid_body_object.initialize_visualization();
+            
+            pivot_WF=obj.pendulum_rigid_body_object.rigid_body_position([0;0]);
+            contact_WF=obj.pendulum_rigid_body_object.rigid_body_position(obj.contact_point);
+            
+            Ground_generator1_WF=[obj.mu_pivot,1];
+            Ground_generator2_WF=[-obj.mu_pivot,1];
+            
+            Contact_generator1_BF=obj.mu_contact*([0,1;-1,0]*obj.contact_normal)+obj.contact_normal;
+            Contact_generator2_BF=-obj.mu_contact*([0,1;-1,0]*obj.contact_normal)+obj.contact_normal;
+            
+            Contact_generator1_WF=obj.pendulum_rigid_body_object.rigid_vector(Contact_generator1_BF);
+            Contact_generator2_WF=obj.pendulum_rigid_body_object.rigid_vector(Contact_generator2_BF);
+            
+            Contact_generator1_plot_vector=length_scale*Contact_generator1_WF;
+            Contact_generator2_plot_vector=length_scale*Contact_generator2_WF;
+            
+            Ground_generator1_plot_vector=length_scale*Ground_generator1_WF;
+            Ground_generator2_plot_vector=length_scale*Ground_generator2_WF;
+            
+            Contact_force_plot_vector=length_scale*[uk(1);uk(2)]/obj.Nmax_contact;
+            Ground_force_plot_vector=length_scale*pivot_multipliers/obj.Nmax_contact;
+            
+            
+            obj.Contact_force_draw     =line('XData',contact_WF(1)+[0,Contact_force_plot_vector(1)],...
+                                             'YData',contact_WF(2)+[0,Contact_force_plot_vector(2)],...
+                                             'color','r','linewidth',2);
+            
+            obj.Contact_generator1_draw=line('XData',contact_WF(1)+[0,Contact_generator1_plot_vector(1)],...
+                                             'YData',contact_WF(2)+[0,Contact_generator1_plot_vector(2)],...
+                                             'color','g','linewidth',2);
+            obj.Contact_generator2_draw=line('XData',contact_WF(1)+[0,Contact_generator2_plot_vector(1)],...
+                                             'YData',contact_WF(2)+[0,Contact_generator2_plot_vector(2)],...
+                                             'color','g','linewidth',2);
+                                         
+            obj.Ground_force_draw     =line('XData',pivot_WF(1)+[0,Ground_force_plot_vector(1)],...
+                                            'YData',pivot_WF(2)+[0,Ground_force_plot_vector(2)],...
+                                            'color','g','linewidth',2);                            
+                                         
+            obj.Ground_generator1_draw=line('XData',pivot_WF(1)+[0,Ground_generator1_plot_vector(1)],...
+                                            'YData',pivot_WF(2)+[0,Ground_generator1_plot_vector(2)],...
+                                            'color','g','linewidth',2);
+            obj.Ground_generator2_draw=line('XData',pivot_WF(1)+[0,Ground_generator2_plot_vector(1)],...
+                                            'YData',pivot_WF(2)+[0,Ground_generator2_plot_vector(2)],...
+                                            'color','g','linewidth',2);
+      
+
         end
         
-        function update_visualization_with_forces(obj,u)
+        function update_visualization(obj, xk, uk, length_scale)
             
+            obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
+            obj.MyEnvironment.assign_velocity_vector(xk(4:6));
+            obj.EffectorWrench.set_wrench_value(uk);
+            
+            obj.MyEnvironment.computeAccelerations();
+            
+            pivot_multipliers=obj.sticking_constraint_ground.getMultipliers();
+            
+            obj.pendulum_rigid_body_object.update_visualization();
+            
+            pivot_WF=obj.pendulum_rigid_body_object.rigid_body_position([0;0]);
+            contact_WF=obj.pendulum_rigid_body_object.rigid_body_position(obj.contact_point);
+            
+            Ground_generator1_WF=[obj.mu_pivot,1];
+            Ground_generator2_WF=[-obj.mu_pivot,1];
+            
+            Contact_generator1_BF=obj.mu_contact*([0,1;-1,0]*obj.contact_normal)+obj.contact_normal;
+            Contact_generator2_BF=-obj.mu_contact*([0,1;-1,0]*obj.contact_normal)+obj.contact_normal;
+            
+            Contact_generator1_WF=obj.pendulum_rigid_body_object.rigid_vector(Contact_generator1_BF);
+            Contact_generator2_WF=obj.pendulum_rigid_body_object.rigid_vector(Contact_generator2_BF);
+            
+            Contact_generator1_plot_vector=length_scale*Contact_generator1_WF;
+            Contact_generator2_plot_vector=length_scale*Contact_generator2_WF;
+            
+            Ground_generator1_plot_vector=length_scale*Ground_generator1_WF;
+            Ground_generator2_plot_vector=length_scale*Ground_generator2_WF;
+            
+            Contact_force_plot_vector=length_scale*[uk(1);uk(2)]/obj.Nmax_contact;
+            Ground_force_plot_vector=length_scale*pivot_multipliers/obj.Nmax_contact;
+            
+            
+            set(obj.Contact_force_draw ,'XData',contact_WF(1)+[0,Contact_force_plot_vector(1)],...
+                                        'YData',contact_WF(2)+[0,Contact_force_plot_vector(2)]);
+            
+            set(obj.Contact_generator1_draw,'XData',contact_WF(1)+[0,Contact_generator1_plot_vector(1)],...
+                                            'YData',contact_WF(2)+[0,Contact_generator1_plot_vector(2)]);
+            set(obj.Contact_generator2_draw,'XData',contact_WF(1)+[0,Contact_generator2_plot_vector(1)],...
+                                            'YData',contact_WF(2)+[0,Contact_generator2_plot_vector(2)]);
+                                         
+            set(obj.Ground_force_draw,'XData',pivot_WF(1)+[0,Ground_force_plot_vector(1)],...
+                                      'YData',pivot_WF(2)+[0,Ground_force_plot_vector(2)]);                            
+                                         
+            set(obj.Ground_generator1_draw,'XData',pivot_WF(1)+[0,Ground_generator1_plot_vector(1)],...
+                                           'YData',pivot_WF(2)+[0,Ground_generator1_plot_vector(2)]);
+            set(obj.Ground_generator2_draw,'XData',pivot_WF(1)+[0,Ground_generator2_plot_vector(1)],...
+                                           'YData',pivot_WF(2)+[0,Ground_generator2_plot_vector(2)]);
+ 
         end
         
         function Z = my_KalmannOutputNoPartials(obj,X_in)
@@ -289,7 +401,6 @@ classdef PyramidPlant01
             obj.I_cm = params.I_cm; % moment of inertia about center of mass;
 %             obj.t_m = params.t_m;   % control torque limit (N*m)
             obj.g = params.g;       % gravity (m/s^2)
-            obj.mu = params.mu;     % coefficient of friction
             
 
             obj.contact_point = params.contact_point;   %location of contact point in the body frame
