@@ -210,6 +210,15 @@ classdef PyramidPlant01
             xk=[x_c;y_c;theta;0;0;dtheta_dt];
         end
         
+        function initialize_visualization_with_forces(obj,u)
+            pendulum_rigid_body_object.initialize_visualization()
+            
+        end
+        
+        function update_visualization_with_forces(obj,u)
+            
+        end
+        
         function Z = my_KalmannOutputNoPartials(obj,X_in)
             [params,~] = obj.UpdateParams_kalmann(X_in);
             
