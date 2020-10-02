@@ -241,8 +241,8 @@ classdef PyramidPlant01
             Contact_generator1_BF=obj.mu_contact*([0,1;-1,0]*obj.contact_normal)+obj.contact_normal;
             Contact_generator2_BF=-obj.mu_contact*([0,1;-1,0]*obj.contact_normal)+obj.contact_normal;
             
-            Contact_generator1_WF=obj.pendulum_rigid_body_object.rigid_vector(Contact_generator1_BF);
-            Contact_generator2_WF=obj.pendulum_rigid_body_object.rigid_vector(Contact_generator2_BF);
+            Contact_generator1_WF=obj.pendulum_rigid_body_object.rigid_body_vector(Contact_generator1_BF);
+            Contact_generator2_WF=obj.pendulum_rigid_body_object.rigid_body_vector(Contact_generator2_BF);
             
             Contact_generator1_plot_vector=length_scale*Contact_generator1_WF;
             Contact_generator2_plot_vector=length_scale*Contact_generator2_WF;
@@ -260,27 +260,27 @@ classdef PyramidPlant01
             
             obj.Contact_generator1_draw=line('XData',contact_WF(1)+[0,Contact_generator1_plot_vector(1)],...
                                              'YData',contact_WF(2)+[0,Contact_generator1_plot_vector(2)],...
-                                             'color','g','linewidth',2);
+                                             'color','m','linewidth',2);
             obj.Contact_generator2_draw=line('XData',contact_WF(1)+[0,Contact_generator2_plot_vector(1)],...
                                              'YData',contact_WF(2)+[0,Contact_generator2_plot_vector(2)],...
-                                             'color','g','linewidth',2);
+                                             'color','m','linewidth',2);
                                          
             obj.Ground_force_draw     =line('XData',pivot_WF(1)+[0,Ground_force_plot_vector(1)],...
                                             'YData',pivot_WF(2)+[0,Ground_force_plot_vector(2)],...
-                                            'color','g','linewidth',2);                            
+                                            'color','b','linewidth',2);                            
                                          
             obj.Ground_generator1_draw=line('XData',pivot_WF(1)+[0,Ground_generator1_plot_vector(1)],...
                                             'YData',pivot_WF(2)+[0,Ground_generator1_plot_vector(2)],...
-                                            'color','g','linewidth',2);
+                                            'color','c','linewidth',2);
             obj.Ground_generator2_draw=line('XData',pivot_WF(1)+[0,Ground_generator2_plot_vector(1)],...
                                             'YData',pivot_WF(2)+[0,Ground_generator2_plot_vector(2)],...
-                                            'color','g','linewidth',2);
+                                            'color','c','linewidth',2);
       
 
         end
         
         function update_visualization(obj, xk, uk, length_scale)
-            
+            disp(xk)
             obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
             obj.MyEnvironment.assign_velocity_vector(xk(4:6));
             obj.EffectorWrench.set_wrench_value(uk);
@@ -300,8 +300,8 @@ classdef PyramidPlant01
             Contact_generator1_BF=obj.mu_contact*([0,1;-1,0]*obj.contact_normal)+obj.contact_normal;
             Contact_generator2_BF=-obj.mu_contact*([0,1;-1,0]*obj.contact_normal)+obj.contact_normal;
             
-            Contact_generator1_WF=obj.pendulum_rigid_body_object.rigid_vector(Contact_generator1_BF);
-            Contact_generator2_WF=obj.pendulum_rigid_body_object.rigid_vector(Contact_generator2_BF);
+            Contact_generator1_WF=obj.pendulum_rigid_body_object.rigid_body_vector(Contact_generator1_BF);
+            Contact_generator2_WF=obj.pendulum_rigid_body_object.rigid_body_vector(Contact_generator2_BF);
             
             Contact_generator1_plot_vector=length_scale*Contact_generator1_WF;
             Contact_generator2_plot_vector=length_scale*Contact_generator2_WF;
