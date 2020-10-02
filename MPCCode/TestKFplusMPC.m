@@ -165,67 +165,75 @@ end
 t = 0:(size(xvec, 2)-1);
 %
 % animation
-figure(1); clf;
-hold on; axis equal;
-xlim(x_c + 0.5 * [-1.5, 1.5]*norm(p.contact_point))
-ylim(y_c + [0, 1.5]*norm(p.contact_point))
-p.pendulum_rigid_body_object.initialize_visualization()
+fh = figure(1); clf; hold on;
+ah = get(fh, 'currentaxes');
+p.initialize_visualization(xvec(:, 1), uvec(:, 1), length/4)
+p_guess.initialize_visualization(xvec_guess(:, 1), uvec(:, 1), length/4)
+% xlim(x_c + 0.5 * [-1.5, 1.5]*norm(p.contact_point))
+% ylim(y_c + [0, 1.5]*norm(p.contact_point))
+axis equal; 
+xlims = get(ah, 'xlim');
+ylims = get(ah, 'ylim');
 
-
-% contact point
-rc_w = PolygonMath.theta_to_rotmat(xvec(3, 1))*p.contact_point + [x_c; y_c];
-pcontact = plot(rc_w(1), rc_w(2), 'g+', 'MarkerSize', 10);
-
-% force at pivot
-fpivot = plot(x_c + 0.5 * (length/p.Nmax_contact) * [0, lvec(1,1)], ...
-    y_c + 0.5 * (length/p.Nmax_contact) * [0, lvec(2,1)], 'k');
-
-fcontact_const_contact = [1, 1; -p.mu_contact, p.mu_contact];
-
-fcontact_const_body = [p.contact_normal, ...
-    PolygonMath.theta_to_rotmat(pi/2)*p.contact_normal]*fcontact_const_contact;
-
-fcontact_const_world =  PolygonMath.theta_to_rotmat(xvec(3, 1))*fcontact_const_body;
-
-% force at contact
-fcontact = plot(rc_w(1) + 0.5 * (length / p.Nmax_contact) * [0, uvec(1,1)], ...
-    rc_w(2) + 0.5 * (length / p.Nmax_contact) * [0, uvec(2,1)], 'g');
-
-fcontact_max = plot(rc_w(1) + (length/2) * [0, fcontact_const_world(1, 1)], ...
-    rc_w(2) + (length/2) * [0, fcontact_const_world(2, 1)], 'g--');
-
-fcontact_min = plot(rc_w(1) +  (length/2) * [0, fcontact_const_world(1, 2)], ...
-    rc_w(2) + (length/2) * [0, fcontact_const_world(2, 2)], 'g--');
+% % contact point
+% rc_w = PolygonMath.theta_to_rotmat(xvec(3, 1))*p.contact_point + [x_c; y_c];
+% pcontact = plot(rc_w(1), rc_w(2), 'g+', 'MarkerSize', 10);
+% 
+% % force at pivot
+% fpivot = plot(x_c + 0.5 * (length/p.Nmax_contact) * [0, lvec(1,1)], ...
+%     y_c + 0.5 * (length/p.Nmax_contact) * [0, lvec(2,1)], 'k');
+% 
+% fcontact_const_contact = [1, 1; -p.mu_contact, p.mu_contact];
+% 
+% fcontact_const_body = [p.contact_normal, ...
+%     PolygonMath.theta_to_rotmat(pi/2)*p.contact_normal]*fcontact_const_contact;
+% 
+% fcontact_const_world =  PolygonMath.theta_to_rotmat(xvec(3, 1))*fcontact_const_body;
+% 
+% % force at contact
+% fcontact = plot(rc_w(1) + 0.5 * (length / p.Nmax_contact) * [0, uvec(1,1)], ...
+%     rc_w(2) + 0.5 * (length / p.Nmax_contact) * [0, uvec(2,1)], 'g');
+% 
+% fcontact_max = plot(rc_w(1) + (length/2) * [0, fcontact_const_world(1, 1)], ...
+%     rc_w(2) + (length/2) * [0, fcontact_const_world(2, 1)], 'g--');
+% 
+% fcontact_min = plot(rc_w(1) +  (length/2) * [0, fcontact_const_world(1, 2)], ...
+%     rc_w(2) + (length/2) * [0, fcontact_const_world(2, 2)], 'g--');
 
 th = title(sprintf('time: %f', 0.0));
 for i = 1:numel(t)
-    p.pendulum_rigid_body_object.set_state(xvec(1:2, i), 0*xvec(1:2, i), ...
-        0 * xvec(1:2, i), xvec(3, i), 0, 0)
-    p.pendulum_rigid_body_object.update_visualization()
     
-    rc_w = PolygonMath.theta_to_rotmat(xvec(3, i))*p.contact_point + [x_c; y_c];
-    set(pcontact, 'Xdata', rc_w(1), 'Ydata', rc_w(2));
     
-    % plot inputs
-    if i < numel(t)
-        set(fpivot, 'Xdata', x_c +  0.5 * (length / p.Nmax_contact) * [0, lvec(1,i)], ...
-            'Ydata', y_c +  0.5 * (length / p.Nmax_contact) * [0, lvec(2,i)]);
-        plot(x_c + 0.5 * length * [0, -p.mu_pivot], y_c + 0.5 * length * [0, 1], 'k--')
-        plot(x_c + 0.5 * length * [0, p.mu_pivot], y_c + 0.5 * length * [0, 1], 'k--')
+    p.update_visualization(xvec(:, i), uvec(:, i), length/4)
+%     p_guess.UpdateParams_kalmann(X_guessvec(:, i))
+    p_guess.update_visualization(xvec_guess(:, i), uvec(:, i), length/4)
+
+    
+
+%     
+%     rc_w = PolygonMath.theta_to_rotmat(xvec(3, i))*p.contact_point + [x_c; y_c];
+%     set(pcontact, 'Xdata', rc_w(1), 'Ydata', rc_w(2));
+%     
+%     % plot inputs
+%     if i < numel(t)
+%         set(fpivot, 'Xdata', x_c +  0.5 * (length / p.Nmax_contact) * [0, lvec(1,i)], ...
+%             'Ydata', y_c +  0.5 * (length / p.Nmax_contact) * [0, lvec(2,i)]);
+%         plot(x_c + 0.5 * length * [0, -p.mu_pivot], y_c + 0.5 * length * [0, 1], 'k--')
+%         plot(x_c + 0.5 * length * [0, p.mu_pivot], y_c + 0.5 * length * [0, 1], 'k--')
+%         
+%         
+%         fcontact_const_world =  PolygonMath.theta_to_rotmat(xvec(3, i))*fcontact_const_body;
+%         
+%         set(fcontact, 'Xdata', rc_w(1) + 0.5 * (length / p.Nmax_contact) * [0, uvec(1,i)], ...
+%             'Ydata', rc_w(2) +  (0.5 * length / p.Nmax_contact) * [0, uvec(2,i)]);        
+%         set(fcontact_max, 'Xdata', rc_w(1) + 0.5 * length * [0, fcontact_const_world(1, 1)], 'Ydata', ...
+%             rc_w(2) + 0.5 * length * [0, fcontact_const_world(2, 1)]);
+%         set(fcontact_min, 'Xdata', rc_w(1) +  0.5 * length * [0, fcontact_const_world(1, 2)], 'Ydata', ...
+%             rc_w(2) + 0.5 * length * [0, fcontact_const_world(2, 2)]);
         
-        
-        fcontact_const_world =  PolygonMath.theta_to_rotmat(xvec(3, i))*fcontact_const_body;
-        
-        set(fcontact, 'Xdata', rc_w(1) + 0.5 * (length / p.Nmax_contact) * [0, uvec(1,i)], ...
-            'Ydata', rc_w(2) +  (0.5 * length / p.Nmax_contact) * [0, uvec(2,i)]);        
-        set(fcontact_max, 'Xdata', rc_w(1) + 0.5 * length * [0, fcontact_const_world(1, 1)], 'Ydata', ...
-            rc_w(2) + 0.5 * length * [0, fcontact_const_world(2, 1)]);
-        set(fcontact_min, 'Xdata', rc_w(1) +  0.5 * length * [0, fcontact_const_world(1, 2)], 'Ydata', ...
-            rc_w(2) + 0.5 * length * [0, fcontact_const_world(2, 2)]);
-        
-    end
-    xlim(x_c + 0.5 * [-1.5, 1.5]*norm(p.contact_point))
-    ylim(y_c + [0, 1.5]*norm(p.contact_point))
+%     end
+    xlim(xlims)
+    ylim(ylims)
     th = title(sprintf('time: %f', mpc_tv.dt * t(i)));
     pause(2 * mpc_tv.dt)
 end
