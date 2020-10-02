@@ -1,4 +1,4 @@
-classdef PyramidPlant01
+classdef PyramidPlant01 < handle
     % A rod of mass (m) and length(l) pivoting about its top end in the
     % gravity plane
     
@@ -9,8 +9,8 @@ classdef PyramidPlant01
         r_cm; %location of center of mass in the body frame
         
         I_cm; %moment of inertia about center of mass;
-%         t_m  % control torque limit (N * m)
-
+        %         t_m  % control torque limit (N * m)
+        
         
         % fixed/derived
         g;              % acceleration due to gravity (kg/m^2)
@@ -63,7 +63,7 @@ classdef PyramidPlant01
     end
     
     methods(Static)
-    
+        
         % TODO: This is probably defined in the wrong place
         function J = jacobian(contant_point)
             
@@ -73,9 +73,9 @@ classdef PyramidPlant01
             
             J = [cos(rt) -sin(rt), 0;
                 sin(rt) cos(rt), 0;
-                rx*sin(rt) - ry*cos(rt), rx*cos(rt) + ry*sin(rt), 1];            
-        end   
-    
+                rx*sin(rt) - ry*cos(rt), rx*cos(rt) + ry*sin(rt), 1];
+        end
+        
     end
     
     methods
@@ -85,7 +85,7 @@ classdef PyramidPlant01
             
             obj.m = params.m;       % mass  (kg)
             obj.I_cm = params.I_cm; % moment of inertia about center of mass;
-
+            
             obj.g = params.g;                     % gravity (m/s^2)
             obj.mu_pivot = params.mu_pivot;       % coefficient of friction at obj/ground contact
             obj.mu_contact = params.mu_contact;   % coefficient of friction at obj/robot contact
@@ -109,9 +109,9 @@ classdef PyramidPlant01
             obj.myGravity.gravity(obj.pendulum_rigid_body_object,[0;-obj.g]);
             
             obj.EffectorWrench=PolygonGeneralizedForce();
-
+            
             obj.EffectorWrench.external_wrench(obj.pendulum_rigid_body_object,obj.contact_point);
-
+            
             obj.MyEnvironment=SimulationEnvironment();
             
             obj.MyEnvironment.addRigidBody(obj.pendulum_rigid_body_object);
@@ -198,21 +198,21 @@ classdef PyramidPlant01
             %m*lcm^2+I_cm =I_pivot= 1/b -> m*lcm^2=(m*lcm)*lcm=1/b
             %l_cm*a/g=1/b-> g/(ab)=l_cm
             
-        
+            
             l_cm=params.g/(a*b);  %distance from pivot to the center of mass
-
+            
             params.I_cm=0;
             params.m=a/(params.g*l_cm);
             
             
             params.contact_point= R*[1;0];
             params.r_cm= l_cm*[cos(theta_0);sin(theta_0)];
-
-           
-
+            
+            
+            
             obj.UpdateParams(params);
             
-
+            
             obj.sticking_constraint_ground.UpdateParamsStickingContactOneBody([0;0],[x_c;y_c]);
             obj.MyEnvironment.assign_coordinate_vector([x_c;y_c;theta]);
             obj.MyEnvironment.assign_velocity_vector([0;0;dtheta_dt]);
@@ -221,7 +221,7 @@ classdef PyramidPlant01
         end
         
         function initialize_visualization(obj, xk, uk, length_scale)
-                     
+            
             obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
             obj.MyEnvironment.assign_velocity_vector(xk(4:6));
             obj.EffectorWrench.set_wrench_value(uk);
@@ -255,38 +255,36 @@ classdef PyramidPlant01
             
             
             obj.Contact_force_draw     =line('XData',contact_WF(1)+[0,Contact_force_plot_vector(1)],...
-                                             'YData',contact_WF(2)+[0,Contact_force_plot_vector(2)],...
-                                             'color','r','linewidth',2);
+                'YData',contact_WF(2)+[0,Contact_force_plot_vector(2)],...
+                'color','r','linewidth',2);
             
             obj.Contact_generator1_draw=line('XData',contact_WF(1)+[0,Contact_generator1_plot_vector(1)],...
-                                             'YData',contact_WF(2)+[0,Contact_generator1_plot_vector(2)],...
-                                             'color','m','linewidth',2);
+                'YData',contact_WF(2)+[0,Contact_generator1_plot_vector(2)],...
+                'color','m','linewidth',2);
             obj.Contact_generator2_draw=line('XData',contact_WF(1)+[0,Contact_generator2_plot_vector(1)],...
-                                             'YData',contact_WF(2)+[0,Contact_generator2_plot_vector(2)],...
-                                             'color','m','linewidth',2);
-                                         
+                'YData',contact_WF(2)+[0,Contact_generator2_plot_vector(2)],...
+                'color','m','linewidth',2);
+            
             obj.Ground_force_draw     =line('XData',pivot_WF(1)+[0,Ground_force_plot_vector(1)],...
-                                            'YData',pivot_WF(2)+[0,Ground_force_plot_vector(2)],...
-                                            'color','b','linewidth',2);                            
-                                         
+                'YData',pivot_WF(2)+[0,Ground_force_plot_vector(2)],...
+                'color','b','linewidth',2);
+            
             obj.Ground_generator1_draw=line('XData',pivot_WF(1)+[0,Ground_generator1_plot_vector(1)],...
-                                            'YData',pivot_WF(2)+[0,Ground_generator1_plot_vector(2)],...
-                                            'color','c','linewidth',2);
+                'YData',pivot_WF(2)+[0,Ground_generator1_plot_vector(2)],...
+                'color','c','linewidth',2);
             obj.Ground_generator2_draw=line('XData',pivot_WF(1)+[0,Ground_generator2_plot_vector(1)],...
-                                            'YData',pivot_WF(2)+[0,Ground_generator2_plot_vector(2)],...
-                                            'color','c','linewidth',2);
-      
-
+                'YData',pivot_WF(2)+[0,Ground_generator2_plot_vector(2)],...
+                'color','c','linewidth',2);
+            
+            
         end
         
         function update_visualization(obj, xk, uk, length_scale)
-            disp(xk)
+            
             obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
             obj.MyEnvironment.assign_velocity_vector(xk(4:6));
-            obj.EffectorWrench.set_wrench_value(uk);
-            
+            obj.EffectorWrench.set_wrench_value(uk);            
             obj.MyEnvironment.computeAccelerations();
-            
             pivot_multipliers=obj.sticking_constraint_ground.getMultipliers();
             
             obj.pendulum_rigid_body_object.update_visualization();
@@ -314,27 +312,29 @@ classdef PyramidPlant01
             
             
             set(obj.Contact_force_draw ,'XData',contact_WF(1)+[0,Contact_force_plot_vector(1)],...
-                                        'YData',contact_WF(2)+[0,Contact_force_plot_vector(2)]);
+                'YData',contact_WF(2)+[0,Contact_force_plot_vector(2)]);
             
             set(obj.Contact_generator1_draw,'XData',contact_WF(1)+[0,Contact_generator1_plot_vector(1)],...
-                                            'YData',contact_WF(2)+[0,Contact_generator1_plot_vector(2)]);
+                'YData',contact_WF(2)+[0,Contact_generator1_plot_vector(2)]);
             set(obj.Contact_generator2_draw,'XData',contact_WF(1)+[0,Contact_generator2_plot_vector(1)],...
-                                            'YData',contact_WF(2)+[0,Contact_generator2_plot_vector(2)]);
-                                         
+                'YData',contact_WF(2)+[0,Contact_generator2_plot_vector(2)]);
+            
             set(obj.Ground_force_draw,'XData',pivot_WF(1)+[0,Ground_force_plot_vector(1)],...
-                                      'YData',pivot_WF(2)+[0,Ground_force_plot_vector(2)]);                            
-                                         
+                'YData',pivot_WF(2)+[0,Ground_force_plot_vector(2)]);
+            
             set(obj.Ground_generator1_draw,'XData',pivot_WF(1)+[0,Ground_generator1_plot_vector(1)],...
-                                           'YData',pivot_WF(2)+[0,Ground_generator1_plot_vector(2)]);
+                'YData',pivot_WF(2)+[0,Ground_generator1_plot_vector(2)]);
             set(obj.Ground_generator2_draw,'XData',pivot_WF(1)+[0,Ground_generator2_plot_vector(1)],...
-                                           'YData',pivot_WF(2)+[0,Ground_generator2_plot_vector(2)]);
- 
+                'YData',pivot_WF(2)+[0,Ground_generator2_plot_vector(2)]);
+            
+            drawnow;
+            
         end
         
         function Z = my_KalmannOutputNoPartials(obj,X_in)
             [params,~] = obj.UpdateParams_kalmann(X_in);
             
-  
+            
             pin=params.contact_point;
             
             pout=obj.pendulum_rigid_body_object.rigid_body_position(pin);
@@ -399,19 +399,19 @@ classdef PyramidPlant01
             
             obj.m = params.m;       % mass  (kg)
             obj.I_cm = params.I_cm; % moment of inertia about center of mass;
-%             obj.t_m = params.t_m;   % control torque limit (N*m)
+            %             obj.t_m = params.t_m;   % control torque limit (N*m)
             obj.g = params.g;       % gravity (m/s^2)
             
-
+            
             obj.contact_point = params.contact_point;   %location of contact point in the body frame
             obj.r_cm  = params.r_cm;            %location of center of mass in the body frame
-                        
+            
             plist = [[0;0],obj.r_cm];
-
+            
             obj.EffectorWrench.set_wrench_location(obj.contact_point);
             obj.pendulum_rigid_body_object.UpdateParams(plist, obj.r_cm, obj.m, obj.I_cm);
-            obj.myGravity.UpdateParamsGravity([0;-obj.g]);            
-
+            obj.myGravity.UpdateParamsGravity([0;-obj.g]);
+            
         end
         
         
@@ -441,7 +441,7 @@ classdef PyramidPlant01
             f=[v;a];
         end
         
-
+        
         % JUST A VELOCITY CONSTRAINT
         % equality constraints, c(x, u) = 0, and first derivatives
         % current this is the constraint the pin-joint has on the
@@ -465,7 +465,7 @@ classdef PyramidPlant01
             [~,~,Dx,Dy,~,~]=obj.pendulum_rigid_body_object. ...
                 rigid_body_position_derivatives([0;0]);
             
-            dc_dx = [zeros(obj.neq, obj.nq), [Dx;Dy]];            
+            dc_dx = [zeros(obj.neq, obj.nq), [Dx;Dy]];
             dc_du = zeros(2, length(uk));
             
         end
@@ -492,7 +492,7 @@ classdef PyramidPlant01
             
         end
         
-        function [c, dc_dx, dc_du] = inequality_const(obj, xk, uk)            
+        function [c, dc_dx, dc_du] = inequality_const(obj, xk, uk)
             
             c = obj.inequality_const_no_partials(xk, uk);
             
@@ -500,19 +500,19 @@ classdef PyramidPlant01
             Iu = eye(numel(uk));
             EPS = 1e-6;
             
-            dc_dx = zeros(numel(c), numel(xk));            
+            dc_dx = zeros(numel(c), numel(xk));
             for i = 1:numel(xk)
                 cp =  obj.inequality_const_no_partials(xk + Ix(:,i)*EPS, uk);
                 cm =  obj.inequality_const_no_partials(xk - Ix(:,i)*EPS, uk);
                 dc_dx(:,i) = (cp - cm)/(2*EPS);
             end
             
-            dc_du = zeros(numel(c), numel(uk));            
+            dc_du = zeros(numel(c), numel(uk));
             for i = 1:numel(uk)
                 cp =  inequality_const_no_partials(obj, xk, uk + Iu(:,i)*EPS);
                 cm =  inequality_const_no_partials(obj, xk, uk - Iu(:,i)*EPS);
                 dc_du(:,i) = (cp - cm)/(2*EPS);
-            end            
+            end
         end
         
         
@@ -610,7 +610,7 @@ classdef PyramidPlant01
         
         function c = line_wrench_cone_constraints(obj, xk, uk)
             
-            test = [1; 0; 0]; 
+            test = [1; 0; 0];
             
             fc = obj.Nmax_contact*[1.0, 1.0; -obj.mu_contact, obj.mu_contact; 0, 0];    % friction cone at at end point of line
             
@@ -620,12 +620,12 @@ classdef PyramidPlant01
             wcp = PyramidPlant01.jacobian(plp)*fc;         % wrench at line COM from top
             wcm = PyramidPlant01.jacobian(plm)*fc;         % wrench at line COM from bottom
             wc = [wcp, wcm(:,2), wcm(:,1)]; % generators for wrench cone in contact frame
-                      
+            
             % rotation from contact to body and body to world
             RContactToBody = blkdiag([obj.contact_normal, ...
-                PolygonMath.theta_to_rotmat(pi/2)*obj.contact_normal], 1); 
+                PolygonMath.theta_to_rotmat(pi/2)*obj.contact_normal], 1);
             RBodyToWorld = blkdiag(PolygonMath.theta_to_rotmat(xk(3)), 1);
-
+            
             % generator for wrench at contact in world frame
             wcw = RBodyToWorld*RContactToBody*wc;
             
@@ -638,18 +638,18 @@ classdef PyramidPlant01
             for i = 1:(size(wcw_wrap,2) - 1)
                 outward_facing_normals_world_frame(:,i) = -cross(wcw_wrap(:,i), ...
                     wcw_wrap(:,i+1));
-            end                                     
+            end
             
             % compute the normal for the top
             outward_facing_normals_world_frame = [outward_facing_normals_world_frame, ...
-                [PolygonMath.theta_to_rotmat(xk(3))*obj.contact_normal; 0]]; 
+                [PolygonMath.theta_to_rotmat(xk(3))*obj.contact_normal; 0]];
             
-            b = [0; 0; 0; 0; obj.Nmax_contact]; 
+            b = [0; 0; 0; 0; obj.Nmax_contact];
             
-            c = outward_facing_normals_world_frame'*uk - b; 
+            c = outward_facing_normals_world_frame'*uk - b;
             
-        end       
-    
+        end
+        
         
     end
 end

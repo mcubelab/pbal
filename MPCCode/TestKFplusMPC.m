@@ -23,7 +23,7 @@ x= pi/2 - pi/12;
 dxdt=0;
 a=mass*length*gravity;
 b=1/inertia;
-theta_0=0;
+theta_0=pi/12;
 x_c=0;
 y_c=0;
 R= length;
@@ -34,7 +34,7 @@ x_guess= x+0.1*(rand()-.5);
 dxdt_guess=dxdt+0*(rand()-.5);
 a_guess=a+0.1*a*(rand()-.5);
 b_guess=b+0.1*b*(rand()-.5);
-theta_0_guess=theta_0+0*(rand()-.5);
+theta_0_guess=theta_0+0.1*theta_0*(rand()-.5);
 x_c_guess=x_c+length*(rand()-.5);
 y_c_guess=y_c+length*(rand()-.5);
 R_guess=R+length*(rand()-.5);
@@ -90,7 +90,7 @@ P=.1*eye(8);
 xk = [x_c; y_c; x; 0; 0; dxdt]; % true initial state
 xk_guess = [x_c_guess; y_c_guess; x_guess; 0; 0; dxdt_guess]; % guess initial state
 
-xg = [x_c; y_c; pi/2; 0; 0; 0]; % goal state
+xg = [x_c; y_c; pi/2 - theta_0; 0; 0; 0]; % goal state (TODO: USING THETA_0 IS CHEATING!!!)
 ug = [0; 0; 0];  % goal input TODO: should not always be zero
 
 % state/input to linearize about for mpc
@@ -201,7 +201,7 @@ ylims = get(ah, 'ylim');
 %     rc_w(2) + (length/2) * [0, fcontact_const_world(2, 2)], 'g--');
 
 th = title(sprintf('time: %f', 0.0));
-for i = 1:numel(t)
+for i = 1:(numel(t)-1)
     
     
     p.update_visualization(xvec(:, i), uvec(:, i), length/4)
