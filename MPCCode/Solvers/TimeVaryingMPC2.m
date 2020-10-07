@@ -97,8 +97,7 @@ classdef TimeVaryingMPC2
         % solve the MPC problem on the horizon Nmpc
         function [Xpredicted, Upredicted] = run_mpc(obj, xk, update_linearization_flag)
             % k is the current index (time)
-            % xk is the state at that index
-            
+            % xk is the state at that index            
    
             % build linearization
             if update_linearization_flag

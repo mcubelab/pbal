@@ -233,7 +233,7 @@ classdef PyramidPlant01 < handle
             obj.pendulum_rigid_body_object.initialize_visualization();
             
             pivot_WF=obj.pendulum_rigid_body_object.rigid_body_position([0;0]);
-            contact_WF=obj.pendulum_rigid_body_object.rigid_body_position(obj.contact_point)
+            contact_WF=obj.pendulum_rigid_body_object.rigid_body_position(obj.contact_point);
             
             Ground_generator1_WF=[obj.mu_pivot,1];
             Ground_generator2_WF=[-obj.mu_pivot,1];
