@@ -233,7 +233,7 @@ classdef PyramidPlant01 < handle
             obj.pendulum_rigid_body_object.initialize_visualization();
             
             pivot_WF=obj.pendulum_rigid_body_object.rigid_body_position([0;0]);
-            contact_WF=obj.pendulum_rigid_body_object.rigid_body_position(obj.contact_point);
+            contact_WF=obj.pendulum_rigid_body_object.rigid_body_position(obj.contact_point)
             
             Ground_generator1_WF=[obj.mu_pivot,1];
             Ground_generator2_WF=[-obj.mu_pivot,1];
@@ -254,27 +254,27 @@ classdef PyramidPlant01 < handle
             Ground_force_plot_vector=length_scale*pivot_multipliers/obj.Nmax_contact;
             
             
-            obj.Contact_force_draw     =line('XData',contact_WF(1)+[0,Contact_force_plot_vector(1)],...
+            obj.Contact_force_draw =line('XData',contact_WF(1)+[0,Contact_force_plot_vector(1)],...
                 'YData',contact_WF(2)+[0,Contact_force_plot_vector(2)],...
-                'color','r','linewidth',2);
+                'color',[0, 179, 239]/255,'linewidth',2);
             
             obj.Contact_generator1_draw=line('XData',contact_WF(1)+[0,Contact_generator1_plot_vector(1)],...
                 'YData',contact_WF(2)+[0,Contact_generator1_plot_vector(2)],...
-                'color','m','linewidth',2);
+                'color',[0, 179, 239]/255,'linewidth',2, 'linestyle', '--');
             obj.Contact_generator2_draw=line('XData',contact_WF(1)+[0,Contact_generator2_plot_vector(1)],...
                 'YData',contact_WF(2)+[0,Contact_generator2_plot_vector(2)],...
-                'color','m','linewidth',2);
+                'color',[0, 179, 239]/255,'linewidth',2, 'linestyle', '--');
             
-            obj.Ground_force_draw     =line('XData',pivot_WF(1)+[0,Ground_force_plot_vector(1)],...
+            obj.Ground_force_draw=line('XData',pivot_WF(1)+[0,Ground_force_plot_vector(1)],...
                 'YData',pivot_WF(2)+[0,Ground_force_plot_vector(2)],...
-                'color','b','linewidth',2);
+                'color',[241, 90, 41]/255,'linewidth',2);
             
             obj.Ground_generator1_draw=line('XData',pivot_WF(1)+[0,Ground_generator1_plot_vector(1)],...
                 'YData',pivot_WF(2)+[0,Ground_generator1_plot_vector(2)],...
-                'color','c','linewidth',2);
+                'color',[241, 90, 41]/255,'linewidth',2,'linestyle', '--');
             obj.Ground_generator2_draw=line('XData',pivot_WF(1)+[0,Ground_generator2_plot_vector(1)],...
                 'YData',pivot_WF(2)+[0,Ground_generator2_plot_vector(2)],...
-                'color','c','linewidth',2);
+                'color',[241, 90, 41]/255,'linewidth',2,'linestyle', '--');
             
             
         end
@@ -370,7 +370,7 @@ classdef PyramidPlant01 < handle
         end
         
         function [dXdt_guess,dPdt]= extended_kalmann_update(obj,Z,X_guess,u,P,Q,R)
-            obj.PrintParams();
+%             obj.PrintParams();
             
             [dXdt_guess_star,F] = obj.my_KalmannPlantWithPartials(X_guess,u);
             [Z_guess,H] = obj.my_KalmannOutputWithPartials(X_guess);

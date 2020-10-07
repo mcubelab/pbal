@@ -2,42 +2,40 @@
 clear; clc; close all;
 addpath('./Plants', './Solvers', '../ControlCode/')
 
-
 % physical parameters (MORE INTUITIVE TO TUNE)
-mass = 0.25; % kg
+mass = 0.5; % kg
 length = 0.1; % m
 gravity = 10; % m/s^2
 inertia = mass*length^2;
 
-
 % fixed parameters
-mu_contact = 0.3;
-mu_pivot = 0.3;
+mu_contact = 0.5;
+mu_pivot = 0.5;
 Nmax_pivot = 100;
 Nmax_contact = 5;
 l_contact = 0.25 * length;
 contact_normal = [-1; 0];
 
 %true parameters
-x= pi/2 - pi/12;
+x= pi/2 - pi/6;
 dxdt=0;
 a=mass*length*gravity;
 b=1/inertia;
 theta_0=pi/12;
 x_c=0;
 y_c=0;
-R= length;
+R= 1.5 * length;
 X=[x;dxdt;a;b;theta_0;x_c;y_c;R];
 
 % initial guess parameters
-x_guess= x+0.1*(rand()-.5);
-dxdt_guess=dxdt+0*(rand()-.5);
-a_guess=a+0.1*a*(rand()-.5);
-b_guess=b+0.1*b*(rand()-.5);
-theta_0_guess=theta_0+0.1*theta_0*(rand()-.5);
-x_c_guess=x_c+length*(rand()-.5);
-y_c_guess=y_c+length*(rand()-.5);
-R_guess=R+length*(rand()-.5);
+x_guess= x + (pi/12)*(rand()-.5);
+dxdt_guess = dxdt + (pi/12)*(rand()-.5);
+a_guess= a + 0.2 * a *(rand()-.5);
+b_guess= b + 0.2 * b * (rand()-.5);
+theta_0_guess=theta_0 + 0.1 * theta_0*(rand()-.5);
+x_c_guess=x_c+ 0.2 * length*(rand()-.5);
+y_c_guess=y_c+ 0.2 * length*(rand()-.5);
+R_guess=R+ 0.2 * length*(rand()-.5);
 % X_guess = X;
 X_guess= [x_guess;dxdt_guess;a_guess;b_guess;theta_0_guess;x_c_guess;y_c_guess;R_guess];
 
@@ -76,10 +74,10 @@ p_guess.setPivot(x_c_guess,y_c_guess);
 
 % mpc parameters
 mpc_params.Nmpc = 20;    % mpc horizon
-mpc_params.Ntraj = 300;  % trajectory length
+mpc_params.Ntraj = 500;  % trajectory length
 mpc_params.dt = 0.01;    % time-step
-mpc_params.QN = blkdiag(eye(p.nq), 0.05*eye(p.nv));
-mpc_params.Q = blkdiag(eye(p.nq), 0.05*eye(p.nv));
+mpc_params.QN = blkdiag(eye(p.nq), 0.01*eye(p.nv));
+mpc_params.Q = blkdiag(eye(p.nq), 0.01*eye(p.nv));
 mpc_params.R = 0.0001*eye(p.nu);
 
 % kalman filter parameters
@@ -163,83 +161,47 @@ end
 %% Plotting
 
 t = 0:(size(xvec, 2)-1);
-%
+
 % animation
-fh = figure(1); clf; hold on;
-ah = get(fh, 'currentaxes');
-p.initialize_visualization(xvec(:, 1), uvec(:, 1), length/4)
-p_guess.initialize_visualization(xvec_guess(:, 1), uvec(:, 1), length/4)
-% xlim(x_c + 0.5 * [-1.5, 1.5]*norm(p.contact_point))
-% ylim(y_c + [0, 1.5]*norm(p.contact_point))
+% f1 = figure(1); clf; hold on;
+% s1 = get(f1, 'currentaxes');
+% p.initialize_visualization(xvec(:, 1), uvec(:, 1), length/2)
+% t1 = title(sprintf('time: %f', 0.0));
+% axis equal; 
+% xlims1 = get(s1, 'xlim');
+% ylims1 = get(s1, 'ylim');
+
+f2 = figure(2); clf; hold on;
+s2 = get(f2, 'currentaxes');
+p_guess.initialize_visualization(xvec_guess(:, 1), uvec(:, 1), length/2)
+t2 = title(sprintf('time: %f', 0.0));
 axis equal; 
-xlims = get(ah, 'xlim');
-ylims = get(ah, 'ylim');
+xlims2 = get(s2, 'xlim');
+ylims2 = get(s2, 'ylim');
 
-% % contact point
-% rc_w = PolygonMath.theta_to_rotmat(xvec(3, 1))*p.contact_point + [x_c; y_c];
-% pcontact = plot(rc_w(1), rc_w(2), 'g+', 'MarkerSize', 10);
-% 
-% % force at pivot
-% fpivot = plot(x_c + 0.5 * (length/p.Nmax_contact) * [0, lvec(1,1)], ...
-%     y_c + 0.5 * (length/p.Nmax_contact) * [0, lvec(2,1)], 'k');
-% 
-% fcontact_const_contact = [1, 1; -p.mu_contact, p.mu_contact];
-% 
-% fcontact_const_body = [p.contact_normal, ...
-%     PolygonMath.theta_to_rotmat(pi/2)*p.contact_normal]*fcontact_const_contact;
-% 
-% fcontact_const_world =  PolygonMath.theta_to_rotmat(xvec(3, 1))*fcontact_const_body;
-% 
-% % force at contact
-% fcontact = plot(rc_w(1) + 0.5 * (length / p.Nmax_contact) * [0, uvec(1,1)], ...
-%     rc_w(2) + 0.5 * (length / p.Nmax_contact) * [0, uvec(2,1)], 'g');
-% 
-% fcontact_max = plot(rc_w(1) + (length/2) * [0, fcontact_const_world(1, 1)], ...
-%     rc_w(2) + (length/2) * [0, fcontact_const_world(2, 1)], 'g--');
-% 
-% fcontact_min = plot(rc_w(1) +  (length/2) * [0, fcontact_const_world(1, 2)], ...
-%     rc_w(2) + (length/2) * [0, fcontact_const_world(2, 2)], 'g--');
 
-th = title(sprintf('time: %f', 0.0));
-for i = 1:(numel(t)-1)
-    
-    
-    p.update_visualization(xvec(:, i), uvec(:, i), length/4)
-%     p_guess.UpdateParams_kalmann(X_guessvec(:, i))
-    p_guess.update_visualization(xvec_guess(:, i), uvec(:, i), length/4)
+nskip = 5;
+for i = 1:nskip:(numel(t)-1)
+      
+%     f1; 
+%     p.update_visualization(xvec(:, i), uvec(:, i), length/2)
+%     xlim(1.25 * xlims1)
+%     ylim(1.25 * ylims1)
+%     title(sprintf('time: %f', mpc_tv.dt * t(i)));
+%     print('-dpng', sprintf('./Animations/png/true_%3f.png',  mpc_tv.dt * t(i)))
 
-    
+% 
+    f2; 
+    p_guess.update_visualization(xvec_guess(:, i), uvec(:, i), length/2)
+    xlim(1.25 * xlims2)
+    ylim(1.25 * ylims2)
+    title(sprintf('time: %f', mpc_tv.dt * t(i)));
+    print('-dpng', sprintf('./Animations/png/guess_%3f.png',  mpc_tv.dt * t(i)))
 
-%     
-%     rc_w = PolygonMath.theta_to_rotmat(xvec(3, i))*p.contact_point + [x_c; y_c];
-%     set(pcontact, 'Xdata', rc_w(1), 'Ydata', rc_w(2));
-%     
-%     % plot inputs
-%     if i < numel(t)
-%         set(fpivot, 'Xdata', x_c +  0.5 * (length / p.Nmax_contact) * [0, lvec(1,i)], ...
-%             'Ydata', y_c +  0.5 * (length / p.Nmax_contact) * [0, lvec(2,i)]);
-%         plot(x_c + 0.5 * length * [0, -p.mu_pivot], y_c + 0.5 * length * [0, 1], 'k--')
-%         plot(x_c + 0.5 * length * [0, p.mu_pivot], y_c + 0.5 * length * [0, 1], 'k--')
-%         
-%         
-%         fcontact_const_world =  PolygonMath.theta_to_rotmat(xvec(3, i))*fcontact_const_body;
-%         
-%         set(fcontact, 'Xdata', rc_w(1) + 0.5 * (length / p.Nmax_contact) * [0, uvec(1,i)], ...
-%             'Ydata', rc_w(2) +  (0.5 * length / p.Nmax_contact) * [0, uvec(2,i)]);        
-%         set(fcontact_max, 'Xdata', rc_w(1) + 0.5 * length * [0, fcontact_const_world(1, 1)], 'Ydata', ...
-%             rc_w(2) + 0.5 * length * [0, fcontact_const_world(2, 1)]);
-%         set(fcontact_min, 'Xdata', rc_w(1) +  0.5 * length * [0, fcontact_const_world(1, 2)], 'Ydata', ...
-%             rc_w(2) + 0.5 * length * [0, fcontact_const_world(2, 2)]);
-        
-%     end
-    xlim(xlims)
-    ylim(ylims)
-    th = title(sprintf('time: %f', mpc_tv.dt * t(i)));
-    pause(2 * mpc_tv.dt)
 end
 
 % state estimates
-figure(2); clf;
+figure(3); clf;
 
 titles = {'x', 'y', 'tht', 'vx', 'vy', 'omega'};
 multiplier = [1, 1, (180/pi), 1, 1, (180/pi)];
@@ -275,7 +237,7 @@ for k = 1:(p.nq + p.nv)
 end
 
 % parameter estimates
-figure(3); clf;
+figure(4); clf;
 subplot(3,1,1); hold on;
 shadedErrorBar(t, X_guessvec(3, :), sqrt(Pvec(3, 3:8:end)))
 yline(a, 'r')
@@ -290,7 +252,7 @@ yline(theta_0, 'r')
 title('Theta_0')
 
 % input forces
-figure(4); clf;
+figure(5); clf;
 titles = {'f_x', 'f_y', 'tau'};
 for k = 1:p.nq
     subplot(1, 3, k); hold on;
@@ -299,7 +261,7 @@ for k = 1:p.nq
 end
 
 % recation forces
-figure(5); clf;
+figure(6); clf;
 titles = {'\lambda_x', '\lambda_y'};
 for k = 1:2
     subplot(1, 2, k); hold on;
@@ -308,7 +270,7 @@ for k = 1:2
 end
 
 % velocity constraint
-figure(6); clf;
+figure(7); clf;
 titles = {'pivot-vx', 'pivot-vy'};
 subplot(2, 1, 1); hold on;
 plot(t, xvec(4, :));
@@ -316,3 +278,5 @@ title(titles{1});
 subplot(2, 1, 2); hold on;
 plot(t, xvec(5, :));
 title(titles{2});
+
+tilefigs; 
