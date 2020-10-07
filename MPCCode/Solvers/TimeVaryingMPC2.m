@@ -111,11 +111,11 @@ classdef TimeVaryingMPC2
             % solve for z = [x_1, ..., x_n, u_0, ..., u_{n-1}]^T;
             [z, ~, exitflag] = quadprog(obj.big_H, [], obj.big_Aiq, obj.big_biq, ...
                 obj.big_Aeq, obj.big_beq, [], [], [], optimoptions('quadprog', ...
-                'maxiterations', 1e3, 'display', 'final'));
+                'maxiterations', 1e3, 'display', 'none'));
             
-%             if exitflag < 0
-%                 error('QP solver failed')
-%             end
+            if exitflag < 0
+                error('QP solver failed')
+            end
             
             Xpredicted = z(1:(obj.Nmpc)*obj.nx); % state sequence
             Upredicted = z((obj.Nmpc) * obj.nx + 1:end); % input sequence
