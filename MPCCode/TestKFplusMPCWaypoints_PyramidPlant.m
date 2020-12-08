@@ -56,17 +56,17 @@ p = PyramidPlant01(params);
 p.setPivot(x_c,y_c);
 
 % initial guess pendulum plant
-params_guess.g=gravity;            % gravity (m/s^2)
-l_cm_guess=params_guess.g/(a_guess*b_guess); % length of robot contact
+params_guess.g=gravity;                         % gravity (m/s^2)
+l_cm_guess=params_guess.g/(a_guess*b_guess);    % length of robot contact
 params_guess.m=a_guess/(params_guess.g*l_cm_guess);       % mass  (kg)
-params_guess.I_cm=0; % moment of inertia about center of mass;
+params_guess.I_cm=0;                                      % moment of inertia about center of mass;
 params_guess.l_contact = l_contact;
-params_guess.mu_pivot=mu_pivot;     % coefficient of friction at obj/ground contact
-params_guess.mu_contact=mu_contact;   % coefficient of friction at obj/robot contact
-params_guess.Nmax_pivot=Nmax_pivot;    % maximum force the ground can exert on obj along contact normal
-params_guess.Nmax_contact=Nmax_contact;    % maximum force the robot can exert on obj along contact normal
-params_guess.contact_normal=contact_normal; % direction of the contact normal in the body frame
-params_guess.contact_point=R_guess*[1;0];                   %location of contact point in the body frame
+params_guess.mu_pivot=mu_pivot;                           % coefficient of friction at obj/ground contact
+params_guess.mu_contact=mu_contact;                       % coefficient of friction at obj/robot contact
+params_guess.Nmax_pivot=Nmax_pivot;                       % maximum force the ground can exert on obj along contact normal
+params_guess.Nmax_contact=Nmax_contact;                   % maximum force the robot can exert on obj along contact normal
+params_guess.contact_normal=contact_normal;               % direction of the contact normal in the body frame
+params_guess.contact_point=R_guess*[1;0];                 %location of contact point in the body frame
 params_guess.r_cm=l_cm_guess*[cos(theta_0_guess);sin(theta_0_guess)];    %location of center of mass in the body frame
 p_guess = PyramidPlant01(params_guess);
 p_guess.setPivot(x_c_guess,y_c_guess);
