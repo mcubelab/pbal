@@ -250,8 +250,8 @@ classdef PyramidPlant01 < handle
             Ground_generator1_plot_vector=length_scale*Ground_generator1_WF;
             Ground_generator2_plot_vector=length_scale*Ground_generator2_WF;
             
-            Contact_force_plot_vector=length_scale*[uk(1);uk(2)]/obj.Nmax_contact;
-            Ground_force_plot_vector=length_scale*pivot_multipliers/obj.Nmax_contact;
+            Contact_force_plot_vector=length_scale*[uk(1);uk(2)]; %/obj.Nmax_contact;
+            Ground_force_plot_vector=length_scale*pivot_multipliers; %/obj.Nmax_contact;
             
             
             obj.Contact_force_draw =line('XData',contact_WF(1)+[0,Contact_force_plot_vector(1)],...
@@ -283,7 +283,7 @@ classdef PyramidPlant01 < handle
             
             obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
             obj.MyEnvironment.assign_velocity_vector(xk(4:6));
-            obj.EffectorWrench.set_wrench_value(uk);            
+            obj.EffectorWrench.set_wrench_value(uk);
             obj.MyEnvironment.computeAccelerations();
             pivot_multipliers=obj.sticking_constraint_ground.getMultipliers();
             
@@ -307,8 +307,8 @@ classdef PyramidPlant01 < handle
             Ground_generator1_plot_vector=length_scale*Ground_generator1_WF;
             Ground_generator2_plot_vector=length_scale*Ground_generator2_WF;
             
-            Contact_force_plot_vector=length_scale*[uk(1);uk(2)]/obj.Nmax_contact;
-            Ground_force_plot_vector=length_scale*pivot_multipliers/obj.Nmax_contact;
+            Contact_force_plot_vector=length_scale*[uk(1);uk(2)]; %/obj.Nmax_contact;
+            Ground_force_plot_vector=length_scale*pivot_multipliers; %/obj.Nmax_contact;
             
             
             set(obj.Contact_force_draw ,'XData',contact_WF(1)+[0,Contact_force_plot_vector(1)],...
@@ -370,7 +370,7 @@ classdef PyramidPlant01 < handle
         end
         
         function [dXdt_guess,dPdt]= extended_kalmann_update(obj,Z,X_guess,u,P,Q,R)
-%             obj.PrintParams();
+            %             obj.PrintParams();
             
             [dXdt_guess_star,F] = obj.my_KalmannPlantWithPartials(X_guess,u);
             [Z_guess,H] = obj.my_KalmannOutputWithPartials(X_guess);
@@ -473,6 +473,14 @@ classdef PyramidPlant01 < handle
         % inequality constraints, c(x, u) <= 0, and first derivatives
         % figure this one out later
         function c = inequality_const_no_partials(obj, xk, uk)
+            
+            
+%             obj.MyEnvironment.assign_coordinate_vector(xk(1:3));
+%             obj.MyEnvironment.assign_velocity_vector(xk(4:6));
+%             obj.EffectorWrench.set_wrench_value(uk);     
+
+            % RECOMPUTING LAGRANGE multipliers based on xk and uk
+            obj.dynamics(xk, uk);
             
             % compute multipliers as a function of xk and uk
             pivot_multipliers=obj.sticking_constraint_ground.getMultipliers();
@@ -610,39 +618,65 @@ classdef PyramidPlant01 < handle
         
         function c = line_wrench_cone_constraints(obj, xk, uk)
             
-            test = [1; 0; 0];
+%             test = [1; 0; 0];
             
-            fc = obj.Nmax_contact*[1.0, 1.0; -obj.mu_contact, obj.mu_contact; 0, 0];    % friction cone at at end point of line
+%             fc = obj.Nmax_contact*[1.0, 1.0; -obj.mu_contact, obj.mu_contact; 0, 0];    % friction cone at at end point of line
+%             
+%             plp = [0; obj.l_contact/2; 0];             % pos end of line (contact frame)
+%             plm = [0; -obj.l_contact/2; 0];            % neg end of line (contact frame)
+%             
+%             wcp = PyramidPlant01.jacobian(plp)*fc;         % wrench at line COM from top
+%             wcm = PyramidPlant01.jacobian(plm)*fc;         % wrench at line COM from bottom
+%             wc = [wcp, wcm(:,2), wcm(:,1)];                % generators for wrench cone in contact frame
             
-            plp = [0; obj.l_contact/2; 0];             % pos end of line (contact frame)
-            plm = [0; -obj.l_contact/2; 0];            % neg end of line (contact frame)
+            % compute the normals for the sides of the wrench cone
+%             wc_wrap = [wc, wc(:,1)];
+%             outward_facing_normals_contact_frame = zeros(3, 4);
             
-            wcp = PyramidPlant01.jacobian(plp)*fc;         % wrench at line COM from top
-            wcm = PyramidPlant01.jacobian(plm)*fc;         % wrench at line COM from bottom
-            wc = [wcp, wcm(:,2), wcm(:,1)]; % generators for wrench cone in contact frame
+            b = obj.l_contact/2;
+            a = obj.mu_contact;
             
+            % normals are the columns
+            outward_facing_normals_contact_frame = -[2*b, 0, -2;
+                2*a, 2, 0;
+                2*b, 0, 2;
+                2*a, -2, 0; 
+                -1, 0, 0]'; 
+                
+                
+             
+%             for i = 1:(size(wc_wrap,2) - 1)
+%                 outward_facing_normals_contact_frame(:,i) = -cross(wc_wrap(:,i), ...
+%                     wc_wrap(:,i+1));
+%             end
+%             
+%             
             % rotation from contact to body and body to world
             RContactToBody = blkdiag([obj.contact_normal, ...
                 PolygonMath.theta_to_rotmat(pi/2)*obj.contact_normal], 1);
             RBodyToWorld = blkdiag(PolygonMath.theta_to_rotmat(xk(3)), 1);
             
             % generator for wrench at contact in world frame
-            wcw = RBodyToWorld*RContactToBody*wc;
+%             wcw = RBodyToWorld*RContactToBody*wc;
             
-            test_world =  RBodyToWorld*RContactToBody*test;
+%             test_world =  RBodyToWorld*RContactToBody*test;
             
-            % compute the normals for the sides of the wrench cone
-            wcw_wrap = [wcw, wcw(:,1)];
-            outward_facing_normals_world_frame = zeros(3, 4);
-            
-            for i = 1:(size(wcw_wrap,2) - 1)
-                outward_facing_normals_world_frame(:,i) = -cross(wcw_wrap(:,i), ...
-                    wcw_wrap(:,i+1));
-            end
+%             % compute the normals for the sides of the wrench cone
+%             wcw_wrap = [wcw, wcw(:,1)];
+%             outward_facing_normals_world_frame = zeros(3, 4);
+%             
+%             for i = 1:(size(wcw_wrap,2) - 1)
+%                 outward_facing_normals_world_frame(:,i) = -cross(wcw_wrap(:,i), ...
+%                     wcw_wrap(:,i+1));
+%             end
+
+            % outward facing normals for sides of wrench cone in the world frame
+            outward_facing_normals_world_frame = RBodyToWorld*RContactToBody*...
+                outward_facing_normals_contact_frame;
             
             % compute the normal for the top
-            outward_facing_normals_world_frame = [outward_facing_normals_world_frame, ...
-                [PolygonMath.theta_to_rotmat(xk(3))*obj.contact_normal; 0]];
+%             outward_facing_normals_world_frame = [outward_facing_normals_world_frame, ...
+%                 [PolygonMath.theta_to_rotmat(xk(3))*obj.contact_normal; 0]];
             
             b = [0; 0; 0; 0; obj.Nmax_contact];
             
