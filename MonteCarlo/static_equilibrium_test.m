@@ -1,6 +1,6 @@
 % Test MPC on pendulum stbalizaton about upright
-clear; clc;
-addpath('./Plants', './Solvers', '../ControlCode/')
+clear; clc; close all;
+addpath('../ControlCode/', '../MPCCode/Plants')
 
 % physical parameters (MORE INTUITIVE TO TUNE)
 mass = 1.0; % kg
@@ -29,7 +29,7 @@ R= 1.5 * length;
 params.g=gravity;                   % gravity (m/s^2)
 l_cm=params.g/(a*b);
 params.m=a/(params.g*l_cm);        % mass  (kg)
-params.I_cm = 0; %0.1 * params.m * length^2;                     % moment of inertia about center of mass;
+params.I_cm = 0;               % 0.1 * params.m * length^2 (moment of inertia about center of mass)
 params.l_contact = l_contact;  % length of robot contact
 params.mu_pivot= mu_pivot;     % coefficient of friction at obj/ground contact
 params.mu_contact = mu_contact;   % coefficient of friction at obj/robot contact
