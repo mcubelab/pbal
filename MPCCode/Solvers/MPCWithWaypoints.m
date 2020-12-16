@@ -20,7 +20,7 @@ classdef MPCWithWaypoints
             
         end
         
-        function [Xpredicted, Upredicted] = run_mpc_nearest_waypoint(obj, ...
+        function [Xpredicted, Upredicted, exitflag] = run_mpc_nearest_waypoint(obj, ...
                 xk, update_linearization_flag)
             
             % want a new waypoint
@@ -59,7 +59,8 @@ classdef MPCWithWaypoints
 %             disp(rad2deg(obj.mpc_tv.x0(6)))
             
             % run mpc
-            [Xpredicted, Upredicted] = obj.mpc_tv.run_mpc(xk, update_linearization_flag);
+            [Xpredicted, Upredicted, exitflag] = ...
+                obj.mpc_tv.run_mpc(xk, update_linearization_flag);
         end
     end
 end

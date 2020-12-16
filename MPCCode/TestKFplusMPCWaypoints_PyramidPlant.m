@@ -91,7 +91,7 @@ P=.1*eye(8);
 xk = [x_c; y_c; x; 0; 0; dxdt]; % true initial state
 xk_guess = [x_c_guess; y_c_guess; x_guess; 0; 0; dxdt_guess]; % guess initial state
 
-xg = [x_c; y_c; pi/2 - theta_0; 0; 0; 0]; % goal state (TODO: USING THETA_0 IS CHEATING!!!)
+xg = [x_c_guess; y_c_guess; pi/2 - theta_0_guess; 0; 0; 0]; % goal state (TODO: USING THETA_0 IS CHEATING!!!)
 ug = [0; 0; 0];  % goal input TODO: should not always be zero
 
 % state/input to linearize about for mpc

@@ -95,7 +95,7 @@ classdef TimeVaryingMPC2
         end
         
         % solve the MPC problem on the horizon Nmpc
-        function [Xpredicted, Upredicted] = run_mpc(obj, xk, update_linearization_flag)
+        function [Xpredicted, Upredicted, exitflag] = run_mpc(obj, xk, update_linearization_flag)
             % k is the current index (time)
             % xk is the state at that index            
    
@@ -112,9 +112,9 @@ classdef TimeVaryingMPC2
                 obj.big_Aeq, obj.big_beq, [], [], [], optimoptions('quadprog', ...
                 'maxiterations', 1e3, 'display', 'none'));
             
-            if exitflag < 0
-                error('QP solver failed')
-            end
+%             if exitflag < 0
+%                 error('QP solver failed')
+%             end
             
             Xpredicted = z(1:(obj.Nmpc)*obj.nx); % state sequence
             Upredicted = z((obj.Nmpc) * obj.nx + 1:end); % input sequence

@@ -1,4 +1,4 @@
-function [outputArg1,outputArg2] = runsim(x0,xguess,not_estimated_params, ...
+function [is_feasible, succeed, solution, p, p_guess] = runsim(x0,xguess,not_estimated_params, ...
     mpc_params, waypoint_params, kf_params)
 
 % x0 is the initial state, which consists of 
@@ -100,28 +100,16 @@ params_guess.r_cm = l_cm_guess*[cos(theta_0_guess);sin(theta_0_guess)];    % loc
 p_guess = PyramidPlant01(params_guess);
 p_guess.setPivot(x_c_guess,y_c_guess);
 
-% mpc parameters
-% mpc_params.Nmpc = 20;    % mpc horizon
-% mpc_params.Ntraj = 300;  % trajectory length
-% mpc_params.dt = 0.01;    % time-step
-% mpc_params.QN = blkdiag(eye(p.nq), 0.01*eye(p.nv));
-% mpc_params.Q = blkdiag(eye(p.nq), 0.01*eye(p.nv));
-% mpc_params.R = 0.0001*eye(p.nu);
-
-% waypoint params
-waypoint_params.tht_min = pi/12;            % minimum distance between waypoints
-waypoint_params.omega_desired = pi/6;       % desired rotational velocity
-
 % kalman filter parameters
 R = kf_params.R; %0.1*eye(4);
 Q = kf_params.Q; %0.01*eye(8);
-P = kf_paramd.P; %0.1*eye(8);
+P = kf_params.P; %0.1*eye(8);
 
 xk = [x_c; y_c; x; 0; 0; dxdt]; % true initial state
 xk_guess = [x_c_guess; y_c_guess; x_guess; 0; 0; dxdt_guess]; % guess initial state
 
-xg = [x_c_guess; y_c_guess; pi/2 - theta_0_guess; 0; 0; 0]; % goal state
-% ug = 
+xg = [x_c; y_c; pi/2 - theta_0; 0; 0; 0]; % goal state
+ug = zeros(3,1); 
 
 % state/input to linearize about for mpc
 mpc_params.x0 = xg;
@@ -138,19 +126,32 @@ uvec = [];
 lvec = [];
 Pvec = P;
 
+% solve QP to check if initial guess is feasible
+[~, ~, is_feasible] = static_equilibrium(xk, p);
 
 % xk and xkp1 are in the format used in the mpc: [xp, yp, tht, vx_p, vy_p,
 % omega];
 
 % X and X_guess is in the format [tht_c; omega; a; b; tht_0; xp; yp; R];
 
+succeed = 1;
 for k=1:mpc_wp.mpc_tv.Ntraj
+    fprintf('Time: %d \r', k);
     
     % compute control input
     tic;
-    [dx_mpc, dU_mpc] = mpc_wp.run_mpc_nearest_waypoint(xk_guess, true);
+    mpc_wp = MPCWithWaypoints(waypoint_params, p, mpc_params);
+    [dx_mpc, dU_mpc, exitflag] = mpc_wp.run_mpc_nearest_waypoint(xk_guess, true);
     uk = (mpc_wp.mpc_tv.u0 + dU_mpc(1:mpc_wp.mpc_tv.nu));
     dt1 = toc;
+    
+    if exitflag < 1  
+%         disp('Algorithm Failed')
+        succeed = 0;
+%         xvec = [];
+%         uvec = [];        
+        break
+    end
     
     % advance true state
     [xkp1, lk] = p.dynamics_solve(xk, uk, mpc_wp.mpc_tv.dt);
@@ -171,10 +172,7 @@ for k=1:mpc_wp.mpc_tv.Ntraj
     
     % update system parameters
     p_guess.UpdateParams_kalmann(X_guess);
-    
-    fprintf('\r MPC Rate: %f,  KF Rate: %f, Total Rate: %f', ...
-        1/dt1, 1/dt2, 1/(dt1 + dt2))
-    
+
     % store solution
     xvec = [xvec, xkp1];
     xvec_guess = [xvec_guess, xk_guess];
@@ -188,6 +186,14 @@ for k=1:mpc_wp.mpc_tv.Ntraj
     X(1) = xkp1(3) + X(5);
     X(2) = xkp1(6);
 end
+
+solution.t = 0:(size(xvec, 2)-1);
+solution.xvec = xvec;
+solution.xvec_guess = xvec_guess;
+solution.uvec = uvec;
+solution.lvec = lvec;
+solution.X_guessvec = X_guessvec;
+solution.Pvec = Pvec; 
 
 
 %% Plotting
