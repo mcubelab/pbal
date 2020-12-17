@@ -64,7 +64,7 @@ for k=1:mpc_wp.mpc_tv.Ntraj
     
     % compute control input
     tic;
-    [dx_mpc, dU_mpc] = mpc_wp.run_mpc_nearest_waypoint(xk, true);
+    [dx_mpc, dU_mpc] = mpc_wp.run_mpc_nearest_waypoint(xk, trtue);
     uk = (mpc_wp.mpc_tv.u0 + dU_mpc(1:mpc_wp.mpc_tv.nu));
     dt_mpc = toc;
     

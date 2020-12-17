@@ -90,7 +90,7 @@ classdef TimeVaryingMPC2
             obj.big_beq = zeros(obj.Nmpc * (obj.nx + obj.neq), 1); 
             
             % build linearixation
-            obj.update_linearization();            
+            obj = obj.update_linearization();            
 
         end
         
@@ -140,7 +140,7 @@ classdef TimeVaryingMPC2
                 % equality constraint
                 bigAeq = kron(eye(obj.Nmpc), obj.A_eq);
                 bigBeq = kron(eye(obj.Nmpc), obj.B_eq);
-                bigceq = repmat(obj.c_eq, obj.Nmpc, 1);
+%                 bigceq = repmat(obj.c_eq, obj.Nmpc, 1);
 
                 % inequality constraint
                 bigAiq = kron(eye(obj.Nmpc), obj.A_iq);
@@ -158,7 +158,7 @@ classdef TimeVaryingMPC2
             % update starting constraint
             obj.big_beq = [obj.A_dyn * obj.sys.state_diff(xk, obj.x0); ...
                 zeros(obj.nx * (obj.Nmpc-1), 1); ...
-                bigceq]; 
+                repmat(obj.c_eq, obj.Nmpc, 1)]; 
             
         end
 
