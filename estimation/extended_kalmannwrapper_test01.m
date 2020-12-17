@@ -79,6 +79,7 @@ params_guess.contact_point=R_guess*[1;0];                   %location of contact
 params_guess.r_cm=l_cm_guess*[cos(theta_0_guess);sin(theta_0_guess)];    %location of center of mass in the body frame
 
 
+params_guess.Nmax_contact=10;
 p_guess = PyramidPlant01(params_guess);
 p_guess.setPivot(x_c_guess,y_c_guess);
 
@@ -90,13 +91,14 @@ p_guess.setPivot(x_c_guess,y_c_guess);
 % params.b = 0.0;  % damping
 % params.mu = 0.3; % coefficient of friction
 % params.contact_point = R*[sin(theta_0);-cos(theta_0)];
+params.Nmax_contact=10;
 p = PyramidPlant01(params);
 p.setPivot(x_c,y_c);
 
 
-R=.1*eye(4);
-Q=.01*eye(8);
-P=.1*eye(8);
+R=.3*eye(4);
+Q=.0001*eye(8);
+P=.3*eye(8);
 
 xk = [x_c; y_c; x; 0; 0; dxdt]; % true initial state
 xk_guess = [x_c_guess; y_c_guess; x_guess; 0; 0; dxdt_guess]; % guess initial state

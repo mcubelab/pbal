@@ -164,7 +164,7 @@ classdef PyramidPlant01 < handle
         %and inject them into the system
         function [params,xk] = UpdateParams_kalmann(obj, X_in)
             %Unpack the system state/system parameters
-            theta=X_in(1);  %angle of rigid body with resepect to -y axis
+            theta=X_in(1);  %angle of rigid body with resepect to +x axis
             %Specifically, angle that line segment connecting pivot to
             %robot contact with respect to the +x axis
             
