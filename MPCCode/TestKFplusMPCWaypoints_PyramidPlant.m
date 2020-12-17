@@ -84,8 +84,8 @@ waypoint_params.tht_min = pi/12;            % minimum distance between waypoints
 waypoint_params.omega_desired = pi/6;       % desired rotational velocity
 
 % kalman filter parameters
-R=.1*eye(4);
-Q=.01*eye(8);
+R=.01*eye(4);
+Q=.001*eye(8);
 P=.1*eye(8);
 
 xk = [x_c; y_c; x; 0; 0; dxdt]; % true initial state
@@ -119,7 +119,10 @@ for k=1:mpc_wp.mpc_tv.Ntraj
     
     % compute control input
     tic;
-    [dx_mpc, dU_mpc] = mpc_wp.run_mpc_nearest_waypoint(xk_guess, true);
+    [dx_mpc, dU_mpc, exitflag] = mpc_wp.run_mpc_nearest_waypoint(xk_guess, true);
+    if exitflag < 1
+        error('QP Solve failed')
+    end
     uk = (mpc_wp.mpc_tv.u0 + dU_mpc(1:mpc_wp.mpc_tv.nu));
     dt1 = toc;
     
