@@ -5,23 +5,23 @@ addpath('../','../ControlCode/', '../MPCCode/Plants', ...
 % NOMINAL SYSTEM
 mass = 0.25; % kg
 length = 0.1; % m
-gravity = 10; % m/s^2
+gravity = 1; % m/s^2
 inertia = mass*length^2;
 
 % fixed parameters (from hyper parameters)
 not_estimated_params.mu_contact = 0.5;
 not_estimated_params.mu_pivot = 1.0;
 not_estimated_params.Nmax_pivot = 100;
-not_estimated_params.Nmax_contact = 5;
+not_estimated_params.Nmax_contact = 30;
 not_estimated_params.l_contact = 0.25 * length;
 not_estimated_params.contact_normal = [-1; 0];
 not_estimated_params.gravity = 10; 
 
 %true parameters
-x0.x = pi/4*(rand(1) - 0.5) + pi/2; 
+x0.x = pi/12*(rand(1) - 0.5) + pi/2; 
 x0.dxdt = 0;
-x0.a = mass*length*gravity*(0.5*(rand(1) - 0.5) + 1); 
-x0.b = 1/inertia*(0.5*(rand(1) - 0.5) + 1);
+x0.a = mass*length*gravity*(0.1*(rand(1) - 0.5) + 1); 
+x0.b = 1/inertia*(0.1*(rand(1) - 0.5) + 1);
 x0.theta_0 = 0*(rand(1) - 0.5);
 x0.x_c = 0*length*(rand(1) - 0.5);
 x0.y_c = 0*length*(rand(1) - 0.5);
