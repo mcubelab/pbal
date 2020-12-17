@@ -254,7 +254,7 @@ classdef PyramidPlant01 < handle
             %robot contact with respect to the +x axis
             
             dtheta_dt=X_in(2); %time derivative of theta
-            pin=params.contact_point;
+            pin=obj.contact_point;
             
             [pivot_location,~]=obj.pendulum_rigid_body_object.get_p_and_theta();
             obj.pendulum_rigid_body_object.set_p_and_theta(pivot_location,theta);

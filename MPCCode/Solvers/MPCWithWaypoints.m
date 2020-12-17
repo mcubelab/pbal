@@ -46,17 +46,7 @@ classdef MPCWithWaypoints
                 obj.mpc_tv.x0(3) = waypoint;
                 obj.mpc_tv.x0(6) = omega;
                 
-                
-            end
-            
-%             disp('current angle:')
-%             disp(rad2deg(xk(3)))
-%             
-%             disp('next waypoint:')
-%             disp(rad2deg(waypoint))
-%             
-%             disp(rad2deg(obj.mpc_tv.x0(3)))
-%             disp(rad2deg(obj.mpc_tv.x0(6)))
+            end    
             
             % run mpc
             [Xpredicted, Upredicted, exitflag] = ...
