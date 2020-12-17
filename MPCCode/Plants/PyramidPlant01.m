@@ -160,6 +160,144 @@ classdef PyramidPlant01 < handle
             end
         end
         
+        function Z = my_KalmannOutputNoPartials(obj,X_in)
+            [params,~] = obj.UpdateParams_kalmann(X_in);
+            
+            
+            pin=params.contact_point;
+            
+            pout=obj.pendulum_rigid_body_object.rigid_body_position(pin);
+            vout=obj.pendulum_rigid_body_object.rigid_body_velocity(pin);
+            
+            Z=[pout;vout];
+        end
+        
+        function [Z,pZpX] = my_KalmannOutputWithPartials(obj,X_in)
+            Z=obj.my_KalmannOutputNoPartials(X_in);
+            
+            delta_val=10^-6;
+            pZpX=zeros(length(Z),length(X_in));
+            
+            for count=1:length(X_in)
+                delta_X_in=zeros(length(X_in),1);
+                delta_X_in(count)=delta_val;
+                
+                X_in_plus_temp=X_in+delta_X_in;
+                X_in_minus_temp=X_in-delta_X_in;
+                
+                f_plus=obj.my_KalmannOutputNoPartials(X_in_plus_temp);
+                f_minus=obj.my_KalmannOutputNoPartials(X_in_minus_temp);
+                
+                pZpX(:,count)=(f_plus-f_minus)/(2*delta_val);
+            end
+        end
+        
+        function [dXdt_guess,dPdt]= extended_kalmann_update(obj,Z,X_guess,u,P,Q,R)
+            %             obj.PrintParams();
+            
+            [dXdt_guess_star,F] = obj.my_KalmannPlantWithPartials(X_guess,u);
+            [Z_guess,H] = obj.my_KalmannOutputWithPartials(X_guess);
+            
+            K=P*H'/R;
+            dPdt=F*P+P*F'-K*H*P+Q;
+            
+            dXdt_guess=dXdt_guess_star+K*(Z-Z_guess);
+        end
+        
+        function dXdt = my_KalmannPlantNoPartials_state_only(obj,X_in,u)
+%             [~,xk] = obj.UpdateParams_kalmann(X_in);
+            
+            theta=X_in(1);  %angle of rigid body with resepect to +x axis
+            %Specifically, angle that line segment connecting pivot to
+            %robot contact with respect to the +x axis
+            
+            dtheta_dt=X_in(2); %time derivative of theta
+            
+            [pivot_location,~]=obj.pendulum_rigid_body_object.get_p_and_theta();
+            x_c=pivot_location(1);
+            y_c=pivot_location(2);
+            
+            xk=[x_c;y_c;theta;0;0;dtheta_dt];
+            
+            f = obj.dynamics_no_partials(xk, u);
+            
+            dXdt=zeros(2,1);
+            dXdt(1)=f(3);
+            dXdt(2)=f(6);
+        end
+        
+        function [dXdt,J] = my_KalmannPlantWithPartials_state_only(obj,X_in,u)
+            dXdt=obj.my_KalmannPlantNoPartials_state_only(X_in,u);
+            
+            delta_val=10^-6;
+            J=zeros(length(dXdt),length(X_in));
+            
+            for count=1:length(X_in)
+                delta_X_in=zeros(length(X_in),1);
+                delta_X_in(count)=delta_val;
+                
+                X_in_plus_temp=X_in+delta_X_in;
+                X_in_minus_temp=X_in-delta_X_in;
+                
+                f_plus=obj.my_KalmannPlantNoPartials_state_only(X_in_plus_temp,u);
+                f_minus=obj.my_KalmannPlantNoPartials_state_only(X_in_minus_temp,u);
+                
+                J(:,count)=(f_plus-f_minus)/(2*delta_val);
+            end
+        end
+        
+        function Z = my_KalmannOutputNoPartials_state_only(obj,X_in)
+%             [params,~] = obj.UpdateParams_kalmann(X_in);
+
+            theta=X_in(1);  %angle of rigid body with resepect to +x axis
+            %Specifically, angle that line segment connecting pivot to
+            %robot contact with respect to the +x axis
+            
+            dtheta_dt=X_in(2); %time derivative of theta
+            pin=params.contact_point;
+            
+            [pivot_location,~]=obj.pendulum_rigid_body_object.get_p_and_theta();
+            obj.pendulum_rigid_body_object.set_p_and_theta(pivot_location,theta);
+            obj.pendulum_rigid_body_object.set_v_and_omega([0;0],dtheta_dt);
+            
+            pout=obj.pendulum_rigid_body_object.rigid_body_position(pin);
+            vout=obj.pendulum_rigid_body_object.rigid_body_velocity(pin);
+            
+            Z=[pout;vout];
+        end
+        
+        function [Z,pZpX] = my_KalmannOutputWithPartials_state_only(obj,X_in)
+            Z=obj.my_KalmannOutputNoPartials_state_only(X_in);
+            
+            delta_val=10^-6;
+            pZpX=zeros(length(Z),length(X_in));
+            
+            for count=1:length(X_in)
+                delta_X_in=zeros(length(X_in),1);
+                delta_X_in(count)=delta_val;
+                
+                X_in_plus_temp=X_in+delta_X_in;
+                X_in_minus_temp=X_in-delta_X_in;
+                
+                f_plus=obj.my_KalmannOutputNoPartials_state_only(X_in_plus_temp);
+                f_minus=obj.my_KalmannOutputNoPartials_state_only(X_in_minus_temp);
+                
+                pZpX(:,count)=(f_plus-f_minus)/(2*delta_val);
+            end
+        end
+        
+        function [dXdt_guess,dPdt]= extended_kalmann_update_state_only(obj,Z,X_guess,u,P,Q,R)
+            %             obj.PrintParams();
+            
+            [dXdt_guess_star,F] = obj.my_KalmannPlantWithPartials_state_only(X_guess,u);
+            [Z_guess,H] = obj.my_KalmannOutputWithPartials_state_only(X_guess);
+            
+            K=P*H'/R;
+            dPdt=F*P+P*F'-K*H*P+Q;
+            
+            dXdt_guess=dXdt_guess_star+K*(Z-Z_guess);
+        end
+        
         %Unpack the system state/system parameters
         %and inject them into the system
         function [params,xk] = UpdateParams_kalmann(obj, X_in)
@@ -330,56 +468,14 @@ classdef PyramidPlant01 < handle
             drawnow;
             
         end
-        
-        function Z = my_KalmannOutputNoPartials(obj,X_in)
-            [params,~] = obj.UpdateParams_kalmann(X_in);
-            
-            
-            pin=params.contact_point;
-            
-            pout=obj.pendulum_rigid_body_object.rigid_body_position(pin);
-            vout=obj.pendulum_rigid_body_object.rigid_body_velocity(pin);
-            
-            Z=[pout;vout];
-        end
-        
+          
         function setPivot(obj,x_c,y_c)
             obj.sticking_constraint_ground.UpdateParamsStickingContactOneBody([0;0],[x_c;y_c]);
             [~,theta]=obj.pendulum_rigid_body_object.get_p_and_theta();
             obj.pendulum_rigid_body_object.set_p_and_theta([x_c;y_c],theta);
         end
         
-        function [Z,pZpX] = my_KalmannOutputWithPartials(obj,X_in)
-            Z=obj.my_KalmannOutputNoPartials(X_in);
-            
-            delta_val=10^-6;
-            pZpX=zeros(length(Z),length(X_in));
-            
-            for count=1:length(X_in)
-                delta_X_in=zeros(length(X_in),1);
-                delta_X_in(count)=delta_val;
-                
-                X_in_plus_temp=X_in+delta_X_in;
-                X_in_minus_temp=X_in-delta_X_in;
-                
-                f_plus=obj.my_KalmannOutputNoPartials(X_in_plus_temp);
-                f_minus=obj.my_KalmannOutputNoPartials(X_in_minus_temp);
-                
-                pZpX(:,count)=(f_plus-f_minus)/(2*delta_val);
-            end
-        end
-        
-        function [dXdt_guess,dPdt]= extended_kalmann_update(obj,Z,X_guess,u,P,Q,R)
-            %             obj.PrintParams();
-            
-            [dXdt_guess_star,F] = obj.my_KalmannPlantWithPartials(X_guess,u);
-            [Z_guess,H] = obj.my_KalmannOutputWithPartials(X_guess);
-            
-            K=P*H'/R;
-            dPdt=F*P+P*F'-K*H*P+Q;
-            
-            dXdt_guess=dXdt_guess_star+K*(Z-Z_guess);
-        end
+
         
         %Prints the system paramaters
         function PrintParams(obj)
