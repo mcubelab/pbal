@@ -17,19 +17,21 @@ l_contact = 0.25 * length;
 contact_normal = [-1; 0];
 
 %true parameters
-x= pi/2;
-dxdt=0;
+x= pi/2 + pi/2*(rand(1) - 0.5);
+dxdt= sqrt(gravity/length)*0.1*(rand()-.5);
 a=mass*length*gravity;
 b=1/inertia;
-theta_0= pi/12;
+theta_0= 0;
 x_c=0;
 y_c=0;
 R= 1.5 * length;
 X=[x;dxdt]; %;a;b;theta_0;x_c;y_c;R];
 
+fprintf('Initial position from pi/2: %f, \n Initial velocity: %f \r', x - pi/2, dxdt);
+
 % initial guess parameters
-x_guess= x + pi*(rand(1) - 0.5);
-dxdt_guess = 0; %dxdt + (pi/6)*(rand()-.5);
+x_guess= pi/2;
+dxdt_guess = 0; %dxdt 
 X_guess= [x_guess;dxdt_guess]; %;a_guess;b_guess;theta_0_guess;x_c_guess;y_c_guess;R_guess];
 
 % true pendulum plant parameters
@@ -51,7 +53,7 @@ p.setPivot(x_c,y_c);
 % % initial guess pendulum plant
 params_guess = params;
 p_guess = PyramidPlant01(params_guess);
-p_guess.setPivot(x_c,y_c);  % NEED TO CHANGE TO X_C_GUESS, Y_C_GUESS EVENTUALLY
+p_guess.setPivot(x_c,y_c);                  % NEED TO CHANGE TO X_C_GUESS, Y_C_GUESS EVENTUALLY
 
 % mpc parameters
 mpc_params.Nmpc = 20;    % mpc horizon
@@ -91,12 +93,6 @@ uvec = [];
 lvec = [];
 Pvec = P;
 
-
-% xk and xkp1 are in the format used in the mpc: [xp, yp, tht, vx_p, vy_p,
-% omega];
-
-% X and X_guess is in the format [tht_c; omega; a; b; tht_0; xp; yp; R];
-
 for k=1:mpc_wp.mpc_tv.Ntraj
     
     % compute control input
@@ -114,7 +110,7 @@ for k=1:mpc_wp.mpc_tv.Ntraj
     
     %
     tic;
-    Z = p.my_KalmannOutputNoPartials_state_only(X);  % observation
+    Z = p.my_KalmannOutputNoPartials_state_only(X);  % observation (based on true system)
     
     % kalmann update
     [dXdt_guess,dPdt]= p_guess.extended_kalmann_update_state_only(Z,X_guess,...
