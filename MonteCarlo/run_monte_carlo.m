@@ -45,7 +45,7 @@ kf_params.Q = 0.01*eye(8);
 kf_params.P = 0.1*eye(8);
 
 % Variable to monte-carlo over
-Nmc = 20;
+Nmc = 1;
 x_vec = linspace(xguess.x, xguess.x, Nmc);
 x_c_vec = linspace(xguess.x_c, xguess.x_c, Nmc);
 y_c_vec = linspace(xguess.y_c, xguess.y_c, Nmc);
