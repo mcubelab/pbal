@@ -125,6 +125,8 @@ X_guessvec = X_guess;
 uvec = [];
 lvec = [];
 Pvec = P;
+Zvec = [];
+Z_guessvec = [];
 
 % solve QP to check if initial guess is feasible
 [~, ~, is_feasible] = static_equilibrium(xk, p);
@@ -159,6 +161,7 @@ for k=1:mpc_wp.mpc_tv.Ntraj
     %
     tic;
     Z = p.my_KalmannOutputNoPartials(X);  % observation
+    Z_guess = p_guess.my_KalmannOutputNoPartials(X_guess);
     
     % kalmann update
     [dXdt_guess,dPdt]= p_guess.extended_kalmann_update(Z,X_guess,...
@@ -180,6 +183,8 @@ for k=1:mpc_wp.mpc_tv.Ntraj
     lvec = [lvec, lk];
     X_guessvec = [X_guessvec, X_guess];
     Pvec = [Pvec, P];
+    Zvec = [Zvec, Z];
+    Z_guessvec = [Z_guessvec, Z_guess];
     
     % update true x
     xk = xkp1;
@@ -194,6 +199,9 @@ solution.uvec = uvec;
 solution.lvec = lvec;
 solution.X_guessvec = X_guessvec;
 solution.Pvec = Pvec; 
+solution.Pvec = Pvec; 
+solution.Zvec = Zvec; 
+solution.Z_guessvec = Z_guessvec; 
 
 
 %% Plotting

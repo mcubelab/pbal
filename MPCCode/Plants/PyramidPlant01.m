@@ -161,7 +161,7 @@ classdef PyramidPlant01 < handle
         end
         
         function Z = my_KalmannOutputNoPartials(obj,X_in)
-            [params,~] = obj.UpdateParams_kalmann(X_in);
+            [params,~] = obj.UpdateParams_kalmann(X_in); % update system
             
             
             pin=params.contact_point;
@@ -344,9 +344,7 @@ classdef PyramidPlant01 < handle
             
             
             params.contact_point= R*[1;0];
-            params.r_cm= l_cm*[cos(theta_0);sin(theta_0)];
-            
-            
+            params.r_cm= l_cm*[cos(theta_0);sin(theta_0)];          
             
             obj.UpdateParams(params);
             

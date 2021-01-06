@@ -18,7 +18,7 @@ not_estimated_params.contact_normal = [-1; 0];
 not_estimated_params.gravity = 10; 
 
 % initial guess parameters
-xguess.x= pi/2;
+xguess.x= pi/3;
 xguess.dxdt = 0;
 xguess.a = mass_nom*length_nom*gravity_nom;
 xguess.b = 1/inertia_nom;
@@ -37,7 +37,7 @@ mpc_params.R = 0.0001*eye(3);
 
 % waypoint params
 waypoint_params.tht_min = pi/12;            % minimum distance between waypoints
-waypoint_params.omega_desired = pi/6;       % desired rotational velocity
+waypoint_params.omega_desired = 0;          % desired rotational velocity
 
 % kalman filter parameters
 kf_params.R = 0.1*eye(4);
@@ -45,12 +45,12 @@ kf_params.Q = 0.01*eye(8);
 kf_params.P = 0.1*eye(8);
 
 % Variable to monte-carlo over
-Nmc = 1;
-x_vec = linspace(xguess.x, xguess.x, Nmc);
+Nmc = 20;
+x_vec = linspace(0, pi, Nmc);
 x_c_vec = linspace(xguess.x_c, xguess.x_c, Nmc);
 y_c_vec = linspace(xguess.y_c, xguess.y_c, Nmc);
 mass_vec = linspace(mass_nom, mass_nom, Nmc);
-length_vec = linspace(0.5 * length_nom, 2 * length_nom, Nmc);
+length_vec = linspace(length_nom, length_nom, Nmc);
 theta_0_vec = linspace(xguess.theta_0, xguess.theta_0, Nmc);
 
 %true parameters (what we're varying)
@@ -106,31 +106,31 @@ for i = 1:Nmc
 
 end
 
-save(['vary_theta0_', datestr(now,'mmm_dd_yyyy_HH_MM')], 'monte_carlo_data');
+save(['vary_x_', datestr(now,'mmm_dd_yyyy_HH_MM')], 'monte_carlo_data');
 
 %% Plotting
 
-figure(1); clf; hold on; 
-plot(theta_0_vec, [monte_carlo_data.is_feasible], 'ko', 'markersize', 10, ...
-    'markerfacecolor', 'k')
-plot(theta_0_vec, [monte_carlo_data.succeed], 'go', 'markerfacecolor', 'g')
-
-figure(2); clf; hold on; 
-for i = 1:Nmc
-    p1 = plot(monte_carlo_data(i).solution.t, ...
-        monte_carlo_data(i).solution.X_guessvec(5, :));
-    p2 = plot(monte_carlo_data(i).solution.t(end), theta_0_vec(i), ...
-        'o', 'markerfacecolor',  get(p1, 'color'), 'markeredgecolor', ...
-         get(p1, 'color')); 
-end
-
-figure(3); clf; hold on; 
-for i = 1:Nmc
-    p1 = plot(monte_carlo_data(i).solution.t, ...
-        monte_carlo_data(i).solution.X_guessvec(1, :), '--');
-    plot(monte_carlo_data(i).solution.t, ...
-        monte_carlo_data(i).solution.xvec(3, :), 'color', get(p1, 'color'));
-end
+% figure(1); clf; hold on; 
+% plot(length_vec, [monte_carlo_data.is_feasible], 'ko', 'markersize', 10, ...
+%     'markerfacecolor', 'k')
+% plot(length_vec, [monte_carlo_data.succeed], 'go', 'markerfacecolor', 'g')
+% 
+% figure(2); clf; hold on; 
+% for i = 1:Nmc
+%     p1 = plot(monte_carlo_data(i).solution.t, ...
+%         monte_carlo_data(i).solution.X_guessvec(8, :));
+%     p2 = plot(monte_carlo_data(i).solution.t(end), length_vec(i), ...
+%         'o', 'markerfacecolor',  get(p1, 'color'), 'markeredgecolor', ...
+%          get(p1, 'color')); 
+% end
+% 
+% figure(3); clf; hold on; 
+% for i = 1:Nmc
+%     p1 = plot(monte_carlo_data(i).solution.t, ...
+%         monte_carlo_data(i).solution.X_guessvec(1, :), '--');
+%     plot(monte_carlo_data(i).solution.t, ...
+%         monte_carlo_data(i).solution.xvec(3, :), 'color', get(p1, 'color'));
+% end
 
 % t = solution.t;
 % xvec = solution.xvec;
