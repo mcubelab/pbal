@@ -136,7 +136,7 @@ Pvec = P;
 
 succeed = 1;
 for k=1:mpc_wp.mpc_tv.Ntraj
-    fprintf('Time: %d \r', k);
+%     fprintf('Time: %d \r', k);
     
     % compute control input
     tic;

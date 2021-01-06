@@ -1,5 +1,5 @@
 function [ueq, lambda, isfeasible] = static_equilibrium(x,plant)
-
+% Find static equilibrium
 
 q = x(1:plant.nq);
 qd = 0 * q; 
