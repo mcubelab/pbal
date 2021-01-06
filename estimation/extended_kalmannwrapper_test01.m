@@ -96,7 +96,7 @@ p = PyramidPlant01(params);
 p.setPivot(x_c,y_c);
 
 
-R=.3*eye(4);
+R=.03*eye(4);
 Q=.0001*eye(8);
 P=.3*eye(8);
 
