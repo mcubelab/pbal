@@ -48,9 +48,9 @@ kf_params.P = 0.1*eye(8);
 Nmc = 20;
 x_vec = linspace(xguess.x, xguess.x, Nmc);
 x_c_vec = linspace(xguess.x_c, xguess.x_c, Nmc);
-y_c_vec = linspace(xguess.y_c-length_nom, xguess.y_c+length_nom, Nmc);
+y_c_vec = linspace(xguess.y_c, xguess.y_c, Nmc);
 mass_vec = linspace(mass_nom, mass_nom, Nmc);
-length_vec = linspace(length_nom, length_nom, Nmc);
+length_vec = linspace(0.5 * length_nom, 2 * length_nom, Nmc);
 theta_0_vec = linspace(xguess.theta_0, xguess.theta_0, Nmc);
 
 %true parameters (what we're varying)
@@ -106,20 +106,20 @@ for i = 1:Nmc
 
 end
 
-save(['vary_yc_', datestr(now,'mmm_dd_yyyy_HH_MM')], 'monte_carlo_data');
+save(['vary_theta0_', datestr(now,'mmm_dd_yyyy_HH_MM')], 'monte_carlo_data');
 
 %% Plotting
 
 figure(1); clf; hold on; 
-plot(x_c_vec, [monte_carlo_data.is_feasible], 'ko', 'markersize', 10, ...
+plot(theta_0_vec, [monte_carlo_data.is_feasible], 'ko', 'markersize', 10, ...
     'markerfacecolor', 'k')
-plot(x_c_vec, [monte_carlo_data.succeed], 'go', 'markerfacecolor', 'g')
+plot(theta_0_vec, [monte_carlo_data.succeed], 'go', 'markerfacecolor', 'g')
 
 figure(2); clf; hold on; 
 for i = 1:Nmc
     p1 = plot(monte_carlo_data(i).solution.t, ...
-        monte_carlo_data(i).solution.X_guessvec(7, :));
-    p2 = plot(monte_carlo_data(i).solution.t(end), x_c_vec(i), ...
+        monte_carlo_data(i).solution.X_guessvec(5, :));
+    p2 = plot(monte_carlo_data(i).solution.t(end), theta_0_vec(i), ...
         'o', 'markerfacecolor',  get(p1, 'color'), 'markeredgecolor', ...
          get(p1, 'color')); 
 end
