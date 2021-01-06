@@ -576,7 +576,7 @@ classdef PyramidPlant01 < handle
 %             obj.EffectorWrench.set_wrench_value(uk);     
 
             % RECOMPUTING LAGRANGE multipliers based on xk and uk
-            obj.dynamics(xk, uk);
+            obj.dynamics_no_partials(xk, uk);
             
             % compute multipliers as a function of xk and uk
             pivot_multipliers=obj.sticking_constraint_ground.getMultipliers();
