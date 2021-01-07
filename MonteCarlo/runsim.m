@@ -145,10 +145,11 @@ for k=1:mpc_wp.mpc_tv.Ntraj
     mpc_wp = MPCWithWaypoints(waypoint_params, p, mpc_params);
     [dx_mpc, dU_mpc, exitflag] = mpc_wp.run_mpc_nearest_waypoint(xk_guess, true);
     uk = (mpc_wp.mpc_tv.u0 + dU_mpc(1:mpc_wp.mpc_tv.nu));
-    dt1 = toc;
+%     uk = ueq; 
+%     dt1 = toc;
     
     if exitflag < 1  
-%         disp('Algorithm Failed')
+        disp('Algorithm Failed')
         succeed = 0;
 %         xvec = [];
 %         uvec = [];        
@@ -311,15 +312,24 @@ for k = 1:2
     title(titles{k})
 end
 
-% velocity constraint
-figure(7); clf;
-titles = {'pivot-vx', 'pivot-vy'};
-subplot(2, 1, 1); hold on;
-plot(t, xvec(4, :));
-title(titles{1});
-subplot(2, 1, 2); hold on;
-plot(t, xvec(5, :));
-title(titles{2});
+% plot outputs
+figure(7); clf; 
+for k = 1:size(Zvec, 1)
+   subplot(size(Zvec, 1), 1, k); 
+   hold on;
+   plot(Zvec(k, :))
+   plot(Z_guessvec(k, :))
+end
+
+% % velocity constraint
+% figure(7); clf;
+% titles = {'pivot-vx', 'pivot-vy'};
+% subplot(2, 1, 1); hold on;
+% plot(t, xvec(4, :));
+% title(titles{1});
+% subplot(2, 1, 2); hold on;
+% plot(t, xvec(5, :));
+% title(titles{2});
 
 % tilefigs;
 

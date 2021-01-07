@@ -5,7 +5,7 @@ addpath('../','../ControlCode/', '../MPCCode/Plants', ...
 % NOMINAL SYSTEM
 mass_nom = 0.25; % kg
 length_nom = 0.1; % m
-gravity_nom = 1; % m/s^2
+gravity_nom = 10; % m/s^2
 inertia_nom = mass_nom*length_nom^2;
 
 % fixed parameters (from hyper parameters)
@@ -29,8 +29,8 @@ xguess.R = length_nom;
 
 % mpc parameters
 mpc_params.Nmpc = 20;    % mpc horizon
-mpc_params.Ntraj = 200;  % trajectory length
-mpc_params.dt = 0.005;    % time-step
+mpc_params.Ntraj = 1000;  % trajectory length
+mpc_params.dt = 0.001;    % time-step
 mpc_params.QN = blkdiag(10 * eye(3), 0.01*eye(3));
 mpc_params.Q = blkdiag(10 * eye(3), 0.01*eye(3));
 mpc_params.R = 0.0001*eye(3);
@@ -41,12 +41,12 @@ waypoint_params.omega_desired = 0;          % desired rotational velocity
 
 % kalman filter parameters
 kf_params.R = 0.1*eye(4);
-kf_params.Q = 0.01*eye(8);
-kf_params.P = 0.1*eye(8);
+kf_params.Q = 0.1*eye(8);
+kf_params.P = eye(8);
 
 % Variable to monte-carlo over
 Nmc = 4;
-x_vec = linspace(pi/4, 3*pi/4, Nmc);
+x_vec = linspace(pi/3, 2*pi/3, Nmc);
 x_c_vec = linspace(xguess.x_c, xguess.x_c, Nmc);
 y_c_vec = linspace(xguess.y_c, xguess.y_c, Nmc);
 mass_vec = linspace(mass_nom, mass_nom, Nmc);
