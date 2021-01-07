@@ -1,11 +1,11 @@
 clear; clc; close all; 
 addpath('../','../ControlCode/', '../MPCCode/Plants', ...
-    '../MPCCode/Solvers')
+    '../MPCCode/Solvers', '../MPCCode')
 
 % NOMINAL SYSTEM
 mass_nom = 0.25; % kg
 length_nom = 0.1; % m
-gravity_nom = 10; % m/s^2
+gravity_nom = 1; % m/s^2
 inertia_nom = mass_nom*length_nom^2;
 
 % fixed parameters (from hyper parameters)
@@ -18,7 +18,7 @@ not_estimated_params.contact_normal = [-1; 0];
 not_estimated_params.gravity = 10; 
 
 % initial guess parameters
-xguess.x= pi/3;
+xguess.x= pi/2;
 xguess.dxdt = 0;
 xguess.a = mass_nom*length_nom*gravity_nom;
 xguess.b = 1/inertia_nom;
@@ -29,8 +29,8 @@ xguess.R = length_nom;
 
 % mpc parameters
 mpc_params.Nmpc = 20;    % mpc horizon
-mpc_params.Ntraj = 100;  % trajectory length
-mpc_params.dt = 0.01;    % time-step
+mpc_params.Ntraj = 200;  % trajectory length
+mpc_params.dt = 0.005;    % time-step
 mpc_params.QN = blkdiag(10 * eye(3), 0.01*eye(3));
 mpc_params.Q = blkdiag(10 * eye(3), 0.01*eye(3));
 mpc_params.R = 0.0001*eye(3);
@@ -45,8 +45,8 @@ kf_params.Q = 0.01*eye(8);
 kf_params.P = 0.1*eye(8);
 
 % Variable to monte-carlo over
-Nmc = 20;
-x_vec = linspace(0, pi, Nmc);
+Nmc = 4;
+x_vec = linspace(pi/4, 3*pi/4, Nmc);
 x_c_vec = linspace(xguess.x_c, xguess.x_c, Nmc);
 y_c_vec = linspace(xguess.y_c, xguess.y_c, Nmc);
 mass_vec = linspace(mass_nom, mass_nom, Nmc);
@@ -106,7 +106,7 @@ for i = 1:Nmc
 
 end
 
-save(['vary_x_', datestr(now,'mmm_dd_yyyy_HH_MM')], 'monte_carlo_data');
+% save(['vary_x_', datestr(now,'mmm_dd_yyyy_HH_MM')], 'monte_carlo_data');
 
 %% Plotting
 
