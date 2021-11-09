@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 import rospy
 import pdb
 import json
@@ -78,7 +79,9 @@ def get_orientation_in_base(contact_pose_homog):
     return -np.arctan2(hand_normal_x, -hand_normal_z)
 
 def load_shape_data(name_in):
-    f = open("/home/mcube/Documents/panda/base_ws/src/franka_ros_interface/franka_ros_controllers/scripts/models/shape_description/"+name_in+".json")
+    curr_dir = os.path.dirname(__file__)
+    fname = os.path.join(curr_dir, 'models', 'shape_description', name_in+".json")
+    f = open(fname)
     shape_data = json.load(f)
 
     vertex_array = np.array([shape_data["x_vert"],shape_data["y_vert"]])
