@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 import tf
 import tf.transformations as tfm
 from ros_helper import lookupTransform
@@ -46,7 +47,10 @@ def camera_info_callback(data):
     camera_info = data
 
 def load_shape_data(name_in):
-    f = open("/home/oneills/Documents/panda/base_ws/src/franka_ros_interface/franka_ros_controllers/scripts/models/shape_description/"+name_in+".json")
+    curr_dir = os.path.dirname(__file__)
+    fname = os.path.join(curr_dir, 'models', 'shape_description', name_in+".json")
+    f = open(fname)
+    # f = open("/home/oneills/Documents/panda/base_ws/src/franka_ros_interface/franka_ros_controllers/scripts/models/shape_description/"+name_in+".json")
     shape_data = json.load(f)
 
     vertex_array = np.array([shape_data["x_vert"],shape_data["y_vert"]])
