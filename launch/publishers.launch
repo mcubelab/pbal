@@ -1,0 +1,42 @@
+<?xml version="1.0" ?>
+<launch>
+<!--   <arg name="robot_ip" />
+  <arg name="load_gripper" default="true" />
+  <include file="$(find franka_control)/launch/franka_control.launch" >
+    <arg name="robot_ip" default="172.16.0.2" />
+    <arg name="load_gripper" default="true" />
+  </include>
+
+  <rosparam command="load" file="$(find pbal)/config/ros_controllers.yaml" />
+  <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="cartesian_impedance_controller"/> -->
+  
+<!--   <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find franka_interface)/launch/rviz/franka_description_with_marker.rviz"/> -->
+
+  <node name="ee_apriltag_pose_in_world_from_camera" pkg="pbal" type="ee_apriltag_pose_in_world_from_camera.py" respawn="true"> </node>
+
+<!--   <node name="line_ee_pose_in_world_from_camera" pkg="pbal" type="line_ee_pose_in_world_from_camera.py" respawn="true"> </node> -->
+  
+  <node name="obj_apriltag_pose_in_world_from_camera" pkg="pbal" type="obj_apriltag_pose_in_world_from_camera.py" respawn="true" >
+  </node>
+
+  <node name="ft_sensor_in_base_and_end_effector_frame" pkg="pbal" type=  "ft_sensor_in_base_and_end_effector_frames.py" respawn="true" >
+  </node>
+
+  <node name="ee_pose_in_world_from_franka" pkg="pbal" type="ee_pose_in_world_from_franka.py" respawn="true" >
+  </node>
+
+  <!-- camera in world -->
+  <!-- <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="5.40272795e-01 6.66828163e-01 1.44895785e-01 4.14709992e-03 -6.96395250e-01 7.17631003e-01 -4.71172969e-03
+  base /camera_color_optical_frame 100" /> -->
+  <!-- <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="5.33228760e-01 6.60866255e-01 1.48655879e-01 6.55607077e-03 -6.95607188e-01 7.18351089e-01 -7.70526707e-03
+   base /camera_color_optical_frame 100" /> -->
+  <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="5.32832518e-01 6.60723735e-01 1.47530495e-01 6.78999756e-03 -6.95608794e-01 7.18353054e-01 -7.15478117e-03
+   base /camera_color_optical_frame 100" />
+  
+  <!--- face center in april tag -->
+  <node pkg="tf" type="static_transform_publisher" name="panda_hand_in_apriltag_frame" args=" 0 -0.0128 0 1.5708 -1.5708 0 /ee_apriltag_in_world /panda_hand_from_camera 100" />
+
+
+
+<!--   <node name="rqt_reconfigure" pkg="rqt_reconfigure" type="rqt_reconfigure" required="false" /> -->
+</launch>
