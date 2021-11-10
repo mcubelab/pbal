@@ -14,13 +14,13 @@
     <link name="${ns}_hand">
       <visual>
         <geometry>          
-          <mesh filename="package://franka_description/meshes/visual/FTSensorPlusWiderLineEndEffector.dae"/> <!-- changed by ORION and NEEL -->
+          <mesh filename="package://pbal/franka_description/meshes/visual/FTSensorPlusWiderLineEndEffector.dae"/> <!-- changed by ORION and NEEL -->
         </geometry>
         <origin rpy="3.1416 0 0.7853" xyz="-0.012 0 -0.0945" />
       </visual>
       <collision>
         <geometry>
-          <mesh filename="package://franka_description/meshes/collision/hand.stl"/>
+          <mesh filename="package://pbal/franka_description/meshes/visual/FTSensorPlusWiderLineEndEffector.dae"/>
         </geometry>
       </collision>
     </link>
