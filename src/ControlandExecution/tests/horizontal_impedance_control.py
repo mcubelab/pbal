@@ -77,7 +77,7 @@ if __name__ == '__main__':
     arm = ArmInterface()
     rospy.sleep(1.0)
 
-    IMPEDANCE_STIFFNESS_LIST = [1000, 1000, 1000,100, 100, 100]  #[4000, 4000, 4000, 400, 120, 400] #[1200, 600, 200, 100, 0, 100]
+    IMPEDANCE_STIFFNESS_LIST = [3000, 3000, 3000, 100, 100, 100]  #[4000, 4000, 4000, 400, 120, 400] #[1200, 600, 200, 100, 0, 100]
     print("Setting collision behaviour")
     collision = CollisionBehaviourInterface()
     rospy.sleep(0.5)
@@ -105,13 +105,13 @@ if __name__ == '__main__':
     base_horizontal_pose = adjusted_current_pose['position'][0]
     base_vertical_pose = adjusted_current_pose['position'][2] 
 
-    fname_in = 'RobotDelayData32.txt'
+    fname_in = 'FreeMoveData11.txt'
 
     # motion schedule
-    amplitude = 0.04
+    amplitude = 0.02
 
-    period = 6
-    num_periods = 20.0
+    period = 4.0
+    num_periods = 10.0
     tmax = period*num_periods
 
     tmax_margin = 3.0
