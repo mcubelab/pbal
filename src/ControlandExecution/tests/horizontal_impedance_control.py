@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
     tmax_margin = 3.0
 
-    filter_params_ = .000005
+    filter_params_ = .05
     
     tlist = []
     measured_horizontal_pose_list = []
