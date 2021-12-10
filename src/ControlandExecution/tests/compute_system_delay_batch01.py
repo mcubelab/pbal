@@ -1,12 +1,14 @@
 #!/usr/bin/env python
-import matplotlib.pyplot as plt
+import inspect
 import json
 import os
-import sys
 import pdb
-import numpy as np
 import sys
-import inspect
+from typing import ForwardRef
+
+import numpy as np
+import matplotlib.pyplot as plt
+import itertools as it
 
 currentdir = os.path.dirname(os.path.abspath(
     inspect.getfile(inspect.currentframe())))
@@ -35,6 +37,7 @@ def analyze_data_file(filename, plot_data=True):
     measured_vertical_pose_list = data_dict["measured_vertical_pose_list"]
     measured_horiztonal_force_list = data_dict["measured_horiztonal_force_list"]
     measured_vertical_force_list = data_dict["measured_vertical_force_list"]
+    IMPEDANCE_STIFFNESS_LIST = data_dict["IMPEDANCE_STIFFNESS_LIST"]
     filter_params_ = data_dict["filter_params_"]
     tlist = data_dict["tlist"]
     period = data_dict["period"]
@@ -82,7 +85,6 @@ def analyze_data_file(filename, plot_data=True):
         Coeff_Vec_vert[1], Coeff_Vec_vert[0])/(2*np.pi/period)
     amplitude_vert = np.sqrt(Coeff_Vec_vert[0]**2+Coeff_Vec_vert[1]**2)
     phase_vert = np.arctan2(Coeff_Vec_vert[1], Coeff_Vec_vert[0])*180.0/np.pi
-
     if plot_data:
 
         fig, axs = plt.subplots(4, 1, figsize=(20, 10))
@@ -116,13 +118,16 @@ def analyze_data_file(filename, plot_data=True):
         axs[3].plot(tlist, Coeff_Vec_vert[2] + cos_wave(tlist -
                     delay_vert, amplitude_vert, period), color='r')
 
+    print("Stiffness = ", IMPEDANCE_STIFFNESS_LIST)
+
     return 1./period, delay_horz, delay_vert, phase_horz, phase_vert, filter_params_
 
 
 if __name__ == '__main__':
 
+    # load data
     (freq_list, delay_horz_list, delay_vert_list,
-     phase_horz_list, phase_vert_list) = [], [], [], [], []
+     phase_horz_list, phase_vert_list, filter_params_list) = [], [], [], [], [], []
     for filename in os.listdir():
         if filename.lower().endswith('.txt'):
 
@@ -138,30 +143,71 @@ if __name__ == '__main__':
             # print("phase vert (deg) = ", phase_vert)
             print("filter params = ", filter_params_)
 
-            if filter_params_ == 0.005:
+            # if filter_params_ == 0.005:
 
-                freq_list.append(freq)
-                delay_horz_list.append(delay_horz)
-                delay_vert_list.append(delay_vert)
-                phase_horz_list.append(phase_horz)
-                phase_vert_list.append(phase_vert)
+            freq_list.append(freq)
+            delay_horz_list.append(delay_horz)
+            delay_vert_list.append(delay_vert)
+            phase_horz_list.append(phase_horz)
+            phase_vert_list.append(phase_vert)
+            filter_params_list.append(filter_params_)
 
-    fig, axs = plt.subplots(2, 1, figsize=(20, 10))
-    axs[0].scatter(freq_list, delay_horz_list, color='blue',
-                   marker='o', label='horizontal')
-    axs[0].scatter(freq_list, delay_vert_list, color='red',
-                   marker='o', label='vertical')
-    axs[0].set_title('Filter Params = 0.005')
-    axs[0].set_xlabel('freq (hz)')
-    axs[0].set_ylabel('latency (s)')
-    axs[0].legend()
+    # sort by filter params and plot
+    fig, axs = plt.subplots(2, 2, figsize=(20, 10))
 
-    axs[1].scatter(freq_list, phase_horz_list, color='blue',
-                   marker='o', label='horizontal')
-    axs[1].scatter(freq_list, phase_vert_list, color='red',
-                   marker='o', label='vertical')
-    axs[1].set_xlabel('freq (hz)')
-    axs[1].set_ylabel('phase (deg)')
-    axs[1].legend()
+    # labels
+    axs[0, 0].set_title('Horizontal')
+    axs[0, 0].set_ylabel('latency (s)')
+
+    axs[1, 0].set_xlabel('freq (hz)')
+    axs[1, 0].set_ylabel('phase (deg)')
+
+    axs[0, 1].set_title('Vertical')
+
+    axs[1, 1].set_xlabel('freq (hz)')
+
+    unique_filter_params = np.unique(np.array(filter_params_list))
+    num_filter_params = len(unique_filter_params)
+
+    freq_list2 = []
+    delay_horz_list2 = []
+    delay_vert_list2 = []
+    phase_horz_list2 = []
+    phase_vert_list2 = []
+
+    for filter_param in unique_filter_params:
+        print(filter_param)
+        mask = filter_params_list == filter_param
+        freq_list2.append(np.array(list(it.compress(freq_list, mask))))
+        delay_horz_list2.append(np.array(
+            list(it.compress(delay_horz_list, mask))))
+        delay_vert_list2.append(np.array(
+            list(it.compress(delay_vert_list, mask))))
+        phase_horz_list2.append(np.array(
+            list(it.compress(phase_horz_list,  mask))))
+        phase_vert_list2.append(np.array(
+            list(it.compress(phase_vert_list, mask))))
+
+        # sort in ascending order
+        # pdb.set_trace()
+        sort_order = np.argsort(freq_list2[-1])
+
+        axs[0, 0].semilogy(freq_list2[-1][sort_order], delay_horz_list2[-1][sort_order],
+                           linestyle='-', marker='o', label='filter params = '+str(filter_param))
+        axs[0, 1].semilogy(freq_list2[-1][sort_order], delay_vert_list2[-1][sort_order],
+                           linestyle='-', marker='o', label='filter params = '+str(filter_param))
+        axs[1, 0].plot(freq_list2[-1][sort_order], phase_horz_list2[-1][sort_order],
+                       linestyle='-', marker='o', label='filter params = '+str(filter_param))
+        axs[1, 1].plot(freq_list2[-1][sort_order], phase_vert_list2[-1][sort_order],
+                       linestyle='-', marker='o', label='filter params = '+str(filter_param))
+
+    # axs[1].scatter(freq_list, phase_horz_list, color='blue',
+    #                marker='o', label='horizontal')
+    # axs[1].scatter(freq_list, phase_vert_list,
+    #                marker='o', label='vertical')
+    # axs[0].set_title('Vertical')
+    # axs[1].set_xlabel('freq (hz)')
+    # axs[1].set_ylabel('phase (deg)')
+    axs[1, 1].legend()
 
     plt.show()
