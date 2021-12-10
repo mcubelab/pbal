@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0,parentdir) 
+sys.path.insert(0,gparentdir)
 
 import rospy
 import tf
@@ -6,14 +12,14 @@ import netft_rdt_driver.srv as srv
 import numpy as np
 import pdb
 
-from ros_helper import (unit_pose, list2pose_stamped, pose_stamped2list,
+from Modelling.ros_helper import (unit_pose, list2pose_stamped, pose_stamped2list,
                                convert_reference_frame, quat2list, 
                                lookupTransform, wrenchstamped_2FT, rotate_wrench, 
                                wrench_reference_point_change, matrix_from_pose,
                                wrench_stamped2list, list2wrench_stamped)
 from std_msgs.msg import Bool, Int32
 from geometry_msgs.msg import WrenchStamped
-from models.system_params import SystemParams
+from Modelling.system_params import SystemParams
 
 # ft sensor topic
 ft_wrench_in_ft_sensor_frame = "/netft/netft_data"

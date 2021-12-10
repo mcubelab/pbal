@@ -30,7 +30,9 @@
   base /camera_color_optical_frame 100" /> -->
   <!-- <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="5.33228760e-01 6.60866255e-01 1.48655879e-01 6.55607077e-03 -6.95607188e-01 7.18351089e-01 -7.70526707e-03
    base /camera_color_optical_frame 100" /> -->
-  <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="5.32832518e-01 6.60723735e-01 1.47530495e-01 6.78999756e-03 -6.95608794e-01 7.18353054e-01 -7.15478117e-03
+<!--      <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="5.32832518e-01 6.60723735e-01 1.47530495e-01 6.78999756e-03 -6.95608794e-01 7.18353054e-01 -7.15478117e-03
+   base /camera_color_optical_frame 100" /> -->
+  <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="5.06423387e-01 6.15130675e-01 1.47602280e-01 -7.77802963e-03 -7.01780459e-01 7.12291922e-01 9.16006536e-03
    base /camera_color_optical_frame 100" />
   
   <!--- face center in april tag -->

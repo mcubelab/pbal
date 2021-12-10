@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0,parentdir) 
+sys.path.insert(0,gparentdir)
 
 import numpy as np
 import rospy
@@ -8,7 +14,7 @@ import pdb
 
 from geometry_msgs.msg import PoseStamped, TransformStamped
 from apriltag_ros.msg import AprilTagDetectionArray
-from ros_helper import (list2pose_twod, unit_pose, list2pose_stamped,
+from Modelling.ros_helper import (list2pose_twod, unit_pose, list2pose_stamped,
                                convert_reference_frame, quat2list, lookupTransform)
 
 def detect_ee_apriltag():
