@@ -25,7 +25,7 @@ def cos_wave(t, amplitude_in, period_in):
 
 if __name__ == '__main__':
 
-    with open('RobotDelayData16.txt', 'r') as f:
+    with open('RobotDelayData15.txt', 'r') as f:
         data_dict = json.loads(f.read())
 
     impedance_target_horizontal_pose_list = data_dict["impedance_target_horizontal_pose_list"]
