@@ -43,6 +43,7 @@ if __name__ == '__main__':
     tmax_margin = data_dict["tmax_margin"]
     base_horizontal_pose = data_dict["base_horizontal_pose"]
     base_vertical_pose = data_dict["base_vertical_pose"]
+    filter_params_ = data_dict["filter_params_"]
 
     min_index = 0
     while tlist[min_index] < period:
