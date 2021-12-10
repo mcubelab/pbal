@@ -1,8 +1,13 @@
 #!/usr/bin/env python
-import os
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0,parentdir) 
+sys.path.insert(0,gparentdir)
 import tf
 import tf.transformations as tfm
-from ros_helper import lookupTransform
+from Modelling.ros_helper import lookupTransform
 import rospy
 import pdb
 import json
@@ -19,9 +24,9 @@ from cv_bridge import CvBridge, CvBridgeError
 import roslib
 from franka_interface import ArmInterface 
 from apriltag_ros.msg import AprilTagDetectionArray
-import models.ros_helper as ros_helper
+import Modelling.ros_helper as ros_helper
 import franka_helper
-from models.system_params import SystemParams
+from Modelling.system_params import SystemParams
 
 
 def qp_debug_message_callback(data):
@@ -47,8 +52,11 @@ def camera_info_callback(data):
     camera_info = data
 
 def load_shape_data(name_in):
-    curr_dir = os.path.dirname(__file__)
-    fname = os.path.join(curr_dir, 'models', 'shape_description', name_in+".json")
+    curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    parentdir = os.path.dirname(curr_dir)
+    gparentdir = os.path.dirname(parentdir)
+    print 'parentdir', parentdir
+    fname = os.path.join(parentdir, 'Modelling', 'shape_description', name_in+".json")
     f = open(fname)
     # f = open("/home/oneills/Documents/panda/base_ws/src/franka_ros_interface/franka_ros_controllers/scripts/models/shape_description/"+name_in+".json")
     shape_data = json.load(f)

@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0,parentdir) 
+sys.path.insert(0,gparentdir)
 
 # this is to find out the transform between the webcam frame and robot frame
 import numpy as np
@@ -11,7 +17,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 from math import sqrt
-import ros_helper, franka_helper
+import Modelling.ros_helper as ros_helper
+import franka_helper
 from franka_interface import ArmInterface 
 from apriltag_ros.msg import AprilTagDetectionArray
 
