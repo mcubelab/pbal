@@ -73,7 +73,7 @@ if __name__ == '__main__':
     measured_base_wrench_list = []
 
 
-    rospy.init_node("test_impedance_control13")
+    rospy.init_node("test_impedance_control")
     arm = ArmInterface()
     rospy.sleep(1.0)
 
@@ -105,7 +105,7 @@ if __name__ == '__main__':
     base_horizontal_pose = adjusted_current_pose['position'][0]
     base_vertical_pose = adjusted_current_pose['position'][2] 
 
-    fname_in = 'RobotDelayData15.txt'
+    fname_in = 'RobotDelayData16.txt'
 
     # motion schedule
     amplitude = 0.04
@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
     tmax_margin = 3.0
 
-    filter_params_ = .00005
+    filter_params_ = .000005
     
     tlist = []
     measured_horizontal_pose_list = []
