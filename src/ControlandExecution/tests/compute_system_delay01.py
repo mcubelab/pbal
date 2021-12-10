@@ -99,16 +99,16 @@ if __name__ == '__main__':
     axs[2].plot(tlist, measured_vertical_pose_list,
                 marker='o', color='r', label='measured')
 
-    axs[0].set_xlabel('time (s)')
-    axs[1].set_xlabel('time (s)')
+    axs[3].set_xlabel('time (s)')
+    # axs[1].set_xlabel('time (s)')
 
     axs[0].set_ylabel('position (m)')
-    axs[1].set_ylabel('position (m)')
+    axs[2].set_ylabel('position (m)')
 
     axs[0].legend()
     axs[1].legend()
 
-    axs[0].set_title('Horizontal')
+    axs[0].set_title('Horizontal Position')
     axs[1].set_title('Horizontal Force')
 
     axs[1].plot(tlist, measured_horiztonal_force_list, color='b')
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     axs[3].plot(tlist, Coeff_Vec_vert[2] + cos_wave(tlist -
                 delay_vert, amplitude_vert, period), color='r')
 
-    axs[2].set_title('Vertical')
+    axs[2].set_title('Vertical Position')
     axs[3].set_title('Vertical Force')
 
     print("horizontal delay (s) = ", delay_horz)
