@@ -128,13 +128,17 @@ if __name__ == '__main__':
     # load data
     (freq_list, delay_horz_list, delay_vert_list,
      phase_horz_list, phase_vert_list, filter_params_list) = [], [], [], [], [], []
-    for filename in os.listdir():
+
+    dir_path = os.path.dirname(os.path.abspath(__file__))
+    save_path = os.path.join(dir_path, '..', '..', '..', 'data', 'BlockedData')
+
+    for filename in os.listdir(save_path):
         if filename.lower().endswith('.txt'):
 
             print("==========="+filename+"===============")
 
             (freq, delay_horz, delay_vert, phase_horz, phase_vert,
-                filter_params_) = analyze_data_file(filename, plot_data=False)
+                filter_params_) = analyze_data_file(os.path.join(save_path, filename), plot_data=False)
 
             print("Freq (hz) = ", freq)
             # print("horizontal delay (s) = ", delay_horz)
