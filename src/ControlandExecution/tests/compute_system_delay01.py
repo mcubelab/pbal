@@ -1,11 +1,12 @@
 #!/usr/bin/env python
-import matplotlib.pyplot as plt
 import json
-import os
-import sys
-import numpy as np
-import sys
 import inspect
+import os
+import pdb
+import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 currentdir = os.path.dirname(os.path.abspath(
     inspect.getfile(inspect.currentframe())))
@@ -25,7 +26,10 @@ def cos_wave(t, amplitude_in, period_in):
 
 if __name__ == '__main__':
 
-    with open('RobotDelayData31.txt', 'r') as f:
+    dir_path = os.path.dirname(os.path.abspath(__file__))
+    save_path = os.path.join(dir_path, '..', '..', '..', 'data', 'BlockedData')
+
+    with open(os.path.join(save_path, 'RobotDelayData31.txt'), 'r') as f:
         data_dict = json.loads(f.read())
 
     impedance_target_horizontal_pose_list = data_dict["impedance_target_horizontal_pose_list"]
