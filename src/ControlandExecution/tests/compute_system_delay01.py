@@ -29,7 +29,7 @@ if __name__ == '__main__':
     dir_path = os.path.dirname(os.path.abspath(__file__))
     save_path = os.path.join(dir_path, '..', '..', '..', 'data', 'BlockedData')
 
-    with open(os.path.join(save_path, 'RobotDelayData31.txt'), 'r') as f:
+    with open(os.path.join(save_path, 'RobotDelayData34.txt'), 'r') as f:
         data_dict = json.loads(f.read())
 
     impedance_target_horizontal_pose_list = data_dict["impedance_target_horizontal_pose_list"]
@@ -48,6 +48,8 @@ if __name__ == '__main__':
     base_horizontal_pose = data_dict["base_horizontal_pose"]
     base_vertical_pose = data_dict["base_vertical_pose"]
     filter_params_ = data_dict["filter_params_"]
+
+
 
     min_index = 0
     while tlist[min_index] < period:

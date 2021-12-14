@@ -1,12 +1,4 @@
 #!/usr/bin/env python
-from franka_interface import ArmInterface
-import json
-from franka_tools import CollisionBehaviourInterface
-import Modelling.ros_helper as ros_helper
-import matplotlib.pyplot as plt
-import copy
-import rospy
-import numpy as np
 import os
 import sys
 import inspect
@@ -16,6 +8,18 @@ parentdir = os.path.dirname(currentdir)
 gparentdir = os.path.dirname(parentdir)
 sys.path.insert(0, parentdir)
 sys.path.insert(0, gparentdir)
+
+from franka_interface import ArmInterface
+import json
+from franka_tools import CollisionBehaviourInterface
+import Modelling.ros_helper as ros_helper
+import matplotlib.pyplot as plt
+import copy
+import rospy
+import numpy as np
+from geometry_msgs.msg import PoseStamped, Pose2D, WrenchStamped, PointStamped
+import time
+
 # this is to find out the transform between the webcam frame and robot frame
 
 
@@ -32,7 +36,7 @@ def sine_wave(t, amplitude_in, period_in):
 
 
 def cos_wave(t, amplitude_in, period_in):
-    return amplitude_in*np.cos(2*np.pi*t/period_in)
+    return amplitude_in*(np.cos(2*np.pi*t/period_in)-1.0)
 
 
 def limit_range(x, x_min, x_max):
@@ -82,7 +86,8 @@ if __name__ == '__main__':
     rospy.sleep(1.0)
 
     # [4000, 4000, 4000, 400, 120, 400] #[1200, 600, 200, 100, 0, 100]
-    IMPEDANCE_STIFFNESS_LIST = [3000, 3000, 3000, 100, 100, 100]
+    # IMPEDANCE_STIFFNESS_LIST = [3000, 3000, 3000, 100, 100, 100]
+    IMPEDANCE_STIFFNESS_LIST = [1000, 1000, 1000, 100, 100, 100]
     print("Setting collision behaviour")
     collision = CollisionBehaviourInterface()
     rospy.sleep(0.5)
@@ -110,18 +115,23 @@ if __name__ == '__main__':
     base_horizontal_pose = adjusted_current_pose['position'][0]
     base_vertical_pose = adjusted_current_pose['position'][2]
 
-    fname_in = 'FreeMoveData11.txt'
+    # fname_in = 'RobotDelayData34.txt'
+    # move_type = 'BlockedData'
+
+    fname_in = 'FreeMoveData13.txt'
+    move_type = 'FreeMoveData'
+
 
     # motion schedule
-    amplitude = 0.02
+    amplitude = 0.03
 
-    period = 4.0
+    period =6.0
     num_periods = 10.0
     tmax = period*num_periods
 
     tmax_margin = 3.0
 
-    filter_params_ = .005
+    filter_params_ = 1.0
 
     tlist = []
     measured_horizontal_pose_list = []
@@ -139,7 +149,7 @@ if __name__ == '__main__':
     print('starting control loop')
 
     # start loop
-    start_time = rospy.Time.now().to_sec()
+    start_time = rospy.Time.now().to_sec()+3.0
     while not rospy.is_shutdown():
         if measured_contact_wrench_list:
             update_robot_friction_cone = True
@@ -211,7 +221,11 @@ if __name__ == '__main__':
 
     data_str = json.dumps(data_dict)
 
-    with open(fname_in, 'w') as f:
+
+    dir_path = os.path.dirname(os.path.abspath(__file__))
+    save_path = os.path.join(dir_path, '..', '..', '..', 'data', move_type)
+
+    with open(os.path.join(save_path, fname_in), 'w') as f:
         f.write(data_str)
 
     fig, axs = plt.subplots(1, 3)
