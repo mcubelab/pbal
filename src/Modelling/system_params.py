@@ -5,7 +5,7 @@ class SystemParams(object):
     def __init__(self):
 
         self.object_params = {
-            "L_CONTACT_MAX": 0.1,                     # m (length of robot/object contact)
+            "L_CONTACT_MAX": .06, #0.1,                     # m (length of robot/object contact)
             "MU_GROUND_0": None,                      # friction between obj/ground
             "MU_CONTACT_0": None,                     # friciton between robot/obj
             "TORQUE_BOUNDARY_MARGIN": 0.8,            # multiplies L_CONTACT to set conservative margin for torque boundary
@@ -37,16 +37,16 @@ class SystemParams(object):
         }
 
         pivot_params= { 
-            "K_theta": 150.,                                         # objective function parameters: theta, line/line plus point/line
+            "K_theta": 600., #150.,                                         # objective function parameters: theta, line/line plus point/line
             "theta_scale": 0.3,
             "concavity_theta": 60,
             "pure_agnostic_rotation": False,
             
-            "K_s": .3,  #1.                                              # objective function parameters: s, line/line plus point/line
+            "K_s": 6.0, #.3,  #1.                                              # objective function parameters: s, line/line plus point/line
             "s_scale": 0.0005,
             "concavity_s": 0.3,
             
-            "K_x_pivot": 108.,                                             # objective function parameters: s, line/line plus point/line
+            "K_x_pivot": 300., #108.,                                             # objective function parameters: s, line/line plus point/line
             "x_pivot_scale": 0.006,
             "concavity_x_pivot": 60,
             
@@ -57,13 +57,13 @@ class SystemParams(object):
 
             "wrench_regularization_constant": 0.00001,
 
-            "tr_friction": [0.5 , 3.0],                            # barrier function parameters for line/line plus point/line
+            "tr_friction": [0.6 , 3.0], #[0.5 , 3.0],                            # barrier function parameters for line/line plus point/line
             "friction_margin": .7, #.8
             "mu_contact": .1,
             "use_measured_mu_contact": True,
 
-            "tr_torque": [.2 , 6.], #[.2, 4.]
-            "torque_margin": 0.06,
+            "tr_torque": [.8 , 6.], #[.2 , 6.], #[.2, 4.]
+            "torque_margin": 0.03,
             "l_contact_multiplier": .95, #.9
             
             "tr_friction_external": [.9 , 1],
@@ -242,7 +242,7 @@ class SystemParams(object):
             "TORQUE_UPPER": [40, 40, 36, 36, 32, 28, 24],                  # default [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]
             "FORCE_UPPER": [100, 100, 100, 25, 25, 25],                    # default [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]
             "RATE": 100,                                                    # hz (control rate)
-            "INTEGRAL_MULTIPLIER": 30., #20
+            "INTEGRAL_MULTIPLIER": 60., #30., #20
             # "INTEGRAL_MULTIPLIER": 10.,
             "pivot_params": pivot_params,
             "guarded_move_params": guarded_move_params,

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import rospy
 import pdb
 import json
@@ -57,7 +58,7 @@ if __name__ == '__main__':
         proj_vec_list = qp_debug_dict['proj_vec_list']
         error_list = qp_debug_dict['error_list']
 
-        print qp_debug_dict['label_list_cnstr']
+        # print qp_debug_dict['label_list_cnstr']
 
             
         # clear axes

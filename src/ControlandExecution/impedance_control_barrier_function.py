@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
 
 # this is to find out the transform between the webcam frame and robot frame
 import numpy as np
@@ -12,14 +21,14 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 import franka_helper
-import models.ros_helper as ros_helper
+import Modelling.ros_helper as ros_helper
 from franka_interface import ArmInterface 
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
 from std_msgs.msg import Float32MultiArray, Float32, Bool, String
 from franka_tools import CollisionBehaviourInterface
 
-from models.system_params import SystemParams
-from models.modular_barrier_controller import ModularBarrierController
+from Modelling.system_params import SystemParams
+from Modelling.modular_barrier_controller import ModularBarrierController
 
 def initialize_frame():
     frame_message = TransformStamped()

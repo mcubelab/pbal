@@ -1,4 +1,14 @@
 #!/usr/bin/env python
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
+
 import rospy
 import pdb
 import json
@@ -8,13 +18,13 @@ from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 
 import time
-import models.ros_helper as ros_helper
+import Modelling.ros_helper as ros_helper
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.lines as lines
 from livestats import livestats
-from models.system_params import SystemParams
+from Modelling.system_params import SystemParams
 
 def end_effector_wrench_callback(data):
     global measured_contact_wrench_list
