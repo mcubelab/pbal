@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
+
 import copy
 import json
 import numpy as np
@@ -468,7 +479,7 @@ class ModularBarrierController(object):
 
         return self.general_cost(
             base_error=self.err_s,
-            base_vec=np.array([-mu_c, 1., 0.]),
+            base_vec=np.array([0., 1., 0.]), #base_vec=np.array([-mu_c, 1., 0.]),
             K=self.current_params['K_s'],
             concavity=self.current_params['concavity_s'])
 
@@ -489,7 +500,7 @@ class ModularBarrierController(object):
 
         return self.general_cost(
             base_error=-self.err_s,
-            base_vec=np.array([-mu_c, -1., 0.]),
+            base_vec=np.array([0., -1., 0.]), #base_vec=np.array([-mu_c, -1., 0.]),
             K=self.current_params['K_s'],
             concavity=self.current_params['concavity_s'])
 
@@ -673,9 +684,11 @@ class ModularBarrierController(object):
         if (self.friction_parameter_dict is not None):
             measured_friction_available = self.friction_parameter_dict["eru"]
 
+        lbiq = 1
         if self.current_params['use_measured_mu_ground'] and measured_friction_available:
             aiq = np.dot(self.friction_parameter_dict["aer"], self.R2C)
             biq = np.array(self.friction_parameter_dict["ber"])-self.current_params['friction_ground_margin']
+            lbiq = len(biq)
             # print 'num_friction_right= ', len(biq)
         else:
             mu_g = self.current_params['mu_ground']
@@ -684,7 +697,7 @@ class ModularBarrierController(object):
             biq = 0.0
             # print 'using default friction'
 
-        return aiq, biq, self.current_params['tr_friction_external'], ['fer']*len(biq)
+        return aiq, biq, self.current_params['tr_friction_external'], ['fer']*lbiq
 
     def friction_left_external_constraint(self):
         ''' left (i.e., negative) boundary of friction cone '''
@@ -692,9 +705,11 @@ class ModularBarrierController(object):
         if (self.friction_parameter_dict is not None):
             measured_friction_available = self.friction_parameter_dict["elu"]
 
+        lbiq = 1
         if self.current_params['use_measured_mu_ground'] and measured_friction_available:
             aiq = np.dot(self.friction_parameter_dict["ael"], self.R2C)
             biq = np.array(self.friction_parameter_dict["bel"])-self.current_params['friction_ground_margin']
+            lbiq = len(biq)
             # print 'num_friction_left= ', len(biq)
         else:
             mu_g = self.current_params['mu_ground']
@@ -703,4 +718,4 @@ class ModularBarrierController(object):
             biq = 0.0
             # print 'using default friction'
 
-        return aiq, biq, self.current_params['tr_friction_external'], ['fel']*len(biq)
+        return aiq, biq, self.current_params['tr_friction_external'], ['fel']*lbiq

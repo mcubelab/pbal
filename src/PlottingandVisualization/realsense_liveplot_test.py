@@ -238,7 +238,7 @@ if __name__ == '__main__':
     l_contact = sys_params.object_params["L_CONTACT_MAX"]
 
 
-    object_vertex_array, apriltag_id ,apriltag_pos = load_shape_data('triangle')
+    object_vertex_array, apriltag_id ,apriltag_pos = load_shape_data('hexagon')
 
     object_vertex_array = np.vstack([object_vertex_array,
                                 np.zeros(len(object_vertex_array[0])),
