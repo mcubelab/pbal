@@ -19,6 +19,7 @@ import rospy
 import numpy as np
 from geometry_msgs.msg import PoseStamped, Pose2D, WrenchStamped, PointStamped
 import time
+import pdb
 
 # this is to find out the transform between the webcam frame and robot frame
 
@@ -86,8 +87,17 @@ if __name__ == '__main__':
     rospy.sleep(1.0)
 
     # [4000, 4000, 4000, 400, 120, 400] #[1200, 600, 200, 100, 0, 100]
-    # IMPEDANCE_STIFFNESS_LIST = [3000, 3000, 3000, 100, 100, 100]
-    IMPEDANCE_STIFFNESS_LIST = [1000, 1000, 1000, 100, 100, 100]
+    IMPEDANCE_STIFFNESS_LIST = [3000, 3000, 3000, 100, 100, 100]
+    # IMPEDANCE_STIFFNESS_LIST = [1000, 1000, 1000, 100, 100, 100]
+    IMPEDANCE_DAMPING_LIST = [0.5 * np.sqrt(k) for k in IMPEDANCE_STIFFNESS_LIST]
+
+    # dq_dx = arm.zero_jacobian()
+    # M_joint = arm.mass_matrix()
+    # dq_dx_inv = np.linalg.pinv(dq_dx)
+    # M_cart = np.dot(dq_dx_inv.T, np.dot(M_joint, dq_dx_inv))
+    # B_crit = 
+    
+
     print("Setting collision behaviour")
     collision = CollisionBehaviourInterface()
     rospy.sleep(0.5)
@@ -123,9 +133,9 @@ if __name__ == '__main__':
 
 
     # motion schedule
-    amplitude = 0.03
+    amplitude = 0.1
 
-    period =6.0
+    period =2.0
     num_periods = 10.0
     tmax = period*num_periods
 
@@ -179,8 +189,12 @@ if __name__ == '__main__':
 
         adjusted_current_pose['position'][2] = vertical_impedance_target
 
+        # arm.set_cart_impedance_pose(adjusted_current_pose,
+        #                             stiffness=IMPEDANCE_STIFFNESS_LIST, 
+        #                             damping=IMPEDANCE_DAMPING_LIST)
         arm.set_cart_impedance_pose(adjusted_current_pose,
                                     stiffness=IMPEDANCE_STIFFNESS_LIST)
+                                    
 
         # original pose of robot
         current_pose = arm.endpoint_pose()
@@ -209,6 +223,7 @@ if __name__ == '__main__':
         "measured_vertical_force_list": measured_vertical_force_list,
         "tlist": tlist,
         "IMPEDANCE_STIFFNESS_LIST": IMPEDANCE_STIFFNESS_LIST,
+        "IMPEDANCE_DAMPING_LIST": IMPEDANCE_DAMPING_LIST,
         "amplitude": amplitude,
         "period": period,
         "num_periods": num_periods,

@@ -137,6 +137,12 @@ def friction_parameter_callback(data):
     if len(friction_parameter_list) > 3:
        friction_parameter_list.pop(0)
 
+def torque_bound_callback(data):
+    global torque_bound_list
+    torque_bound_list.append(json.loads(data.data))
+    if len(torque_bound_list) > 3:
+        torque_bound_list.pop(0)
+
 def barrier_func_control_command_callback(data):
     global command_msg_queue
     # print("hello")
@@ -175,6 +181,7 @@ if __name__ == '__main__':
         = None, None, None, None, None, None, None, []
 
     friction_parameter_list, friction_parameter_dict = [], None
+    torque_bound_list, torque_bounds = [], None
 
     # subscribers
     pivot_xyz_sub = rospy.Subscriber("/pivot_frame", 
@@ -192,6 +199,7 @@ if __name__ == '__main__':
     control_command_sub = rospy.Subscriber('/barrier_func_control_command', String,
             barrier_func_control_command_callback)
     friction_parameter_sub = rospy.Subscriber('/friction_parameters', String, friction_parameter_callback)
+    torque_bound_sub = rospy.Subscriber("/torque_bound_message", String,  torque_bound_callback)
 
     # setting up publisher for sliding
     pivot_sliding_commanded_flag_pub = rospy.Publisher('/pivot_sliding_commanded_flag', Bool, 
@@ -262,6 +270,10 @@ if __name__ == '__main__':
             while friction_parameter_list:
                 friction_parameter_dict = friction_parameter_list.pop(0)
 
+        if torque_bound_list:
+            while torque_bound_list:
+                torque_bounds = torque_bound_list.pop(0)
+
         # snapshot of current generalized position estimate
         if generalized_positions is None:
             endpoint_pose = arm.endpoint_pose()
@@ -318,6 +330,8 @@ if __name__ == '__main__':
                 coord_set = {'x_pivot'}
             if mode == 10 or mode == 11:
                 coord_set = {'s', 'theta'}
+            if mode == 12 or mode == 13:
+                coord_set = {'theta','s'}
 
             if command_flag == 0: # absolute move
 
@@ -432,7 +446,8 @@ if __name__ == '__main__':
             friction_parameter_dict=friction_parameter_dict,
             err_dict = err_dict,
             l_hand=contact_pose[0], 
-            s_hand=contact_pose[1])
+            s_hand=contact_pose[1],
+            torque_bounds = torque_bounds)
 
         # compute wrench increment 
 

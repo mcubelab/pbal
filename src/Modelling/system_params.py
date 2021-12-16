@@ -5,7 +5,7 @@ class SystemParams(object):
     def __init__(self):
 
         self.object_params = {
-            "L_CONTACT_MAX": .06, #0.1,                     # m (length of robot/object contact)
+            "L_CONTACT_MAX": .1, #0.1,                     # m (length of robot/object contact)
             "MU_GROUND_0": None,                      # friction between obj/ground
             "MU_CONTACT_0": None,                     # friciton between robot/obj
             "TORQUE_BOUNDARY_MARGIN": 0.8,            # multiplies L_CONTACT to set conservative margin for torque boundary
@@ -57,8 +57,8 @@ class SystemParams(object):
 
             "wrench_regularization_constant": 0.00001,
 
-            "tr_friction": [0.6 , 3.0], #[0.5 , 3.0],                            # barrier function parameters for line/line plus point/line
-            "friction_margin": .7, #.8
+            "tr_friction": [0.5 , 3.0], #[0.5 , 3.0],                            # barrier function parameters for line/line plus point/line
+            "friction_margin": .9, #.8
             "mu_contact": .1,
             "use_measured_mu_contact": True,
 
@@ -74,7 +74,10 @@ class SystemParams(object):
             "tr_max_normal_contact": [.3, 3.],
             "Nmax_contact": 20., #35
 
-            "tr_min_normal_external": [1., 1]                   
+            "tr_min_normal_external": [1., 1.],  
+
+            "tr_min_normal_contact": [1., 1.], 
+            "Nmin_contact": 1.,
         }
 
         guarded_move_params = {

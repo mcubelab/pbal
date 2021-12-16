@@ -1,13 +1,19 @@
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0,parentdir) 
+sys.path.insert(0,gparentdir)
+
 import rospy
 import pdb
 import numpy as np
 import json
 import time
-import models.ros_helper as ros_helper
-import os
+import Modelling.ros_helper as ros_helper
 
 from std_msgs.msg import String
-from models.system_params import SystemParams
+from Modelling.system_params import SystemParams
 
 
 
@@ -18,18 +24,21 @@ if __name__ == '__main__':
     rate = rospy.Rate(30)
 
     # start rosbag
+    # rostopic_list = [
+    #     "/camera/color/image_raw/compressed",
+    #     "/ground_truth_message",
+    #     "/gravity_torque", 
+    #     "/pivot_frame", 
+    #     "/generalized_positions", 
+    #     '/barrier_func_control_command', 
+    #     '/qp_debug_message',
+    #     "/end_effector_sensor_in_end_effector_frame", 
+    #     "/end_effector_sensor_in_base_frame", 
+    #     '/friction_parameters', 
+    #     '/sliding_state'
+    # ]
     rostopic_list = [
-        "/camera/color/image_raw/compressed",
-        "/ground_truth_message",
-        "/gravity_torque", 
-        "/pivot_frame", 
-        "/generalized_positions", 
-        '/barrier_func_control_command', 
-        '/qp_debug_message',
-        "/end_effector_sensor_in_end_effector_frame", 
-        "/end_effector_sensor_in_base_frame", 
-        '/friction_parameters', 
-        '/sliding_state'
+        "/processed_image"
     ]
 
 

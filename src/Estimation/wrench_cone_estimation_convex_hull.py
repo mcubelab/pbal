@@ -82,7 +82,7 @@ if __name__ == '__main__':
     sys_params = SystemParams()
     theta_min_contact = np.arctan(sys_params.controller_params["pivot_params"]["mu_contact"])
 
-    ground_hull_estimator = ConvexHullEstimator(theta_range=theta_range, quantile_value=.99, distance_threshold=.5, closed = False)
+    ground_hull_estimator = ConvexHullEstimator(theta_range=theta_range, quantile_value=.995, distance_threshold=.5, closed = False)
     robot_friction_estimator = RobotFrictionConeEstimator(.95,3,theta_min_contact)
 
     boundary_update_time = .2

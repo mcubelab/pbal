@@ -146,11 +146,19 @@ class ModularBarrierController(object):
 
     def update_controller(self, mode, theta_hand, contact_wrench, friction_parameter_dict, err_dict,
     	l_hand = None,
-    	s_hand = None):
+    	s_hand = None,
+        torque_bounds = None):
 
     	self.err_dict=err_dict
 
         self.friction_parameter_dict = friction_parameter_dict
+
+        if torque_bounds is not None:
+            torque_bound_delta = torque_bounds[1]-torque_bounds[0]
+            self.torque_bounds = [torque_bounds[0]+.025*torque_bound_delta,torque_bounds[1]-.025*torque_bound_delta]
+
+        else:
+            self.torque_bounds = torque_bounds
 
     	# update pose variables
     	self.theta_hand, self.l_hand, self.s_hand = theta_hand, l_hand, s_hand
@@ -172,6 +180,10 @@ class ModularBarrierController(object):
             mode = 9
         if mode == 11 and err_dict["err_s"] > 0:
             mode = 9
+        if mode == 12 and err_dict["err_s"] < 0:
+            mode = -1
+        if mode == 13 and err_dict["err_s"] > 0:
+            mode = -1
         
 
 
@@ -424,6 +436,45 @@ class ModularBarrierController(object):
                 self.normal_force_min_contact_constraint
             ]
 
+        if self.mode == 12:   # line/line slide +  and point/line stick
+            self.current_params=self.param_dict['pivot_params']
+
+            self.mode_cost = [
+                self.theta_cost,
+                self.slide_right_robot_cost,
+                self.wrench_regularization_cost
+            ]
+
+            self.mode_constraint = [
+                self.friction_left_contact_constraint,
+                self.torque_right_contact_constraint,
+                self.torque_left_contact_constraint,
+                self.normal_force_max_contact_constraint,
+                self.normal_force_min_contact_constraint,
+                self.normal_force_min_external_constraint,
+                self.friction_left_external_constraint
+            ]
+         
+
+        if self.mode == 13:   # line/line slide -  and point/line stick
+            self.current_params=self.param_dict['pivot_params']
+
+            self.mode_cost = [
+                self.theta_cost,
+                self.slide_left_robot_cost,
+                self.wrench_regularization_cost
+            ]
+
+            self.mode_constraint = [
+                self.friction_right_contact_constraint,
+                self.torque_right_contact_constraint,
+                self.torque_left_contact_constraint,
+                self.normal_force_max_contact_constraint,
+                self.normal_force_min_contact_constraint,
+                self.friction_right_external_constraint,
+                self.normal_force_min_external_constraint
+            ]
+
     def compute_error_theta(self):
         self.err_theta = self.compute_general_error(
             error_value=self.err_dict['err_theta'],
@@ -647,14 +698,20 @@ class ModularBarrierController(object):
     def torque_right_contact_constraint(self):
         ''' right (i.e., positive) boundary of torque cone '''
         lc = self.pbal_helper.l_contact * self.current_params['l_contact_multiplier']
-        aiq = np.array([-lc / 2., 0., 1.])
+        if self.torque_bounds is not None:
+            aiq = np.array([self.torque_bounds[0], 0., 1.])
+        else:
+            aiq = np.array([-lc / 2., 0., 1.])
         biq = -self.current_params['torque_margin']
         return aiq, biq, self.current_params['tr_torque'], ['trc']
 
     def torque_left_contact_constraint(self):
         ''' left (i.e., negative) boundary of torque cone '''
         lc = self.pbal_helper.l_contact * self.current_params['l_contact_multiplier']
-        aiq = np.array([-lc / 2., 0., -1.])
+        if self.torque_bounds is not None:
+            aiq = np.array([-self.torque_bounds[1], 0., -1.])
+        else:
+            aiq = np.array([-lc / 2., 0., -1.])
         biq = -self.current_params['torque_margin']
         return aiq, biq, self.current_params['tr_torque'], ['flc']
 

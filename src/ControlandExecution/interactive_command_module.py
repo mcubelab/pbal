@@ -47,6 +47,24 @@ delta_slide_robot_right = {
     "delta_s" : 0.01,
 }
 
+delta_super_slide_robot_left = {
+    "name": "delta_super_slide_robot_left",
+    "command_flag" : 1,
+    "mode" : 13,
+    "delta_theta" : 0,
+    "delta_x_pivot" : 0.00,
+    "delta_s" : -0.0003,
+}
+
+delta_super_slide_robot_right = {
+    "name": "delta_super_slide_robot_right",
+    "command_flag" : 1,
+    "mode" : 12,
+    "delta_theta" : 0,
+    "delta_x_pivot" : 0.00,
+    "delta_s" : 0.0003,
+}
+
 delta_slide_pivot_left = {
     "name": "delta_slide_pivot_left",
     "command_flag" : 1,
@@ -105,6 +123,12 @@ def on_press(key):
     if k == 'd': # robot right
         command_msg_dict = delta_slide_robot_right
         print("delta_slide_robot_right")
+    if k == '1': # robot left
+        command_msg_dict = delta_super_slide_robot_left
+        print("delta_super_slide_robot_left")
+    if k == '3': # robot right
+        command_msg_dict = delta_super_slide_robot_right
+        print("delta_super_slide_robot_right")
     if k == 'q': # object left
         command_msg_dict = delta_slide_pivot_left
         print("delta_slide_pivot_left")
