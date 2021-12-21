@@ -90,6 +90,7 @@ def get_orientation_in_base(contact_pose_homog):
 def load_shape_data(name_in):
     curr_dir = os.path.dirname(__file__)
     fname = os.path.join(curr_dir, 'shape_description', name_in+".json")
+    # fname = os.path.join(curr_dir, 'models', 'shape_description', name_in+".json")
     f = open(fname)
     shape_data = json.load(f)
 

@@ -59,6 +59,7 @@ class SystemParams(object):
 
             "tr_friction": [0.5 , 3.0], #[0.5 , 3.0],                            # barrier function parameters for line/line plus point/line
             "friction_margin": .9, #.8
+
             "mu_contact": .1,
             "use_measured_mu_contact": True,
 
