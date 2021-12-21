@@ -32,3 +32,6 @@ octave-workspace
 
 # complied python files
 *.pyc
+
+# core files?
+core
