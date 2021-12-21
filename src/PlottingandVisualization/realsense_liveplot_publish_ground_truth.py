@@ -555,7 +555,7 @@ if __name__ == '__main__':
                 right_bound = np.min([l_contact/2,new_tangent_list[1]])
                 bound_list = [left_bound,right_bound]
                 torque_bound_msg.data = json.dumps(bound_list)
-                torque_bound_pub.publish(torque_bound_msg)
+                # torque_bound_pub.publish(torque_bound_msg)
 
 
 
@@ -643,7 +643,7 @@ if __name__ == '__main__':
 
                     if P0 is not None:
                         update_frame_translation(P0, frame_message)
-                        pivot_xyz_pub.publish(frame_message)
+                        # pivot_xyz_pub.publish(frame_message)
 
                         force_tip = np.hstack([P0[0:3] - force_scale*measured_base_wrench_6D[0:3], np.array([1])])
 

@@ -15,7 +15,7 @@ delta_rotate_left = {
     "name": "delta_rotate_left",
     "command_flag" : 1,
     "mode" : -1,
-    "delta_theta" : np.pi/25,
+    "delta_theta" : np.pi/6,
     "delta_x_pivot" : 0.0,
     "delta_s" : 0.0,
 }
@@ -24,7 +24,7 @@ delta_rotate_right = {
     "name": "delta_rotate_right",
     "command_flag" : 1,
     "mode" : -1,
-    "delta_theta" : -np.pi/25,
+    "delta_theta" : -np.pi/6,
     "delta_x_pivot" : 0.0,
     "delta_s" : 0.0,
 }
@@ -35,7 +35,7 @@ delta_slide_robot_left = {
     "mode" : 1,
     "delta_theta" : 0,
     "delta_x_pivot" : 0.00,
-    "delta_s" : -0.01,
+    "delta_s" : -0.03,
 }
 
 delta_slide_robot_right = {
@@ -44,7 +44,7 @@ delta_slide_robot_right = {
     "mode" : 0,
     "delta_theta" : 0,
     "delta_x_pivot" : 0.00,
-    "delta_s" : 0.01,
+    "delta_s" : 0.03,
 }
 
 delta_super_slide_robot_left = {
@@ -70,7 +70,7 @@ delta_slide_pivot_left = {
     "command_flag" : 1,
     "mode" : 2,
     "delta_theta" : 0,
-    "delta_x_pivot" : 0.01,
+    "delta_x_pivot" : 0.1,
     "delta_s" : 0.00,
 }
 
@@ -79,7 +79,7 @@ delta_slide_pivot_right = {
     "command_flag" : 1,
     "mode" : 3,
     "delta_theta" : 0,
-    "delta_x_pivot" : -0.01,
+    "delta_x_pivot" : -0.1,
     "delta_s" : 0.00,
 }
 
