@@ -1,30 +1,39 @@
 #!/usr/bin/env python
 import os
-import rospy
-import pdb
-import json
-import numpy as np
-from std_msgs.msg import Float32MultiArray, Float32, Bool, String
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
+
+from apriltag_ros.msg import AprilTagDetectionArray
+import copy
+from cvxopt import matrix, solvers
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
-from scipy.spatial import ConvexHull, convex_hull_plot_2d
-
-import time
-import models.ros_helper as ros_helper
-
-import matplotlib.pyplot as plt
+import json
+from livestats import livestats
 from matplotlib import cm
 import matplotlib.lines as lines
-from livestats import livestats
-from models.system_params import SystemParams
+import matplotlib.pyplot as plt
+import numpy as np
+import rospy
+import pdb
+from scipy.spatial import ConvexHull, convex_hull_plot_2d
+from std_msgs.msg import Float32MultiArray, Float32, Bool, String
+import time
+import tf
+
+
 from franka_interface import ArmInterface 
 import franka_helper
-import copy
-
-from cvxopt import matrix, solvers
-from polygon_representation import PolygonRepresentation
 from ground_truth_representation import GroundTruthRepresentation
-from apriltag_ros.msg import AprilTagDetectionArray
-import tf
+import Modelling.ros_helper as ros_helper
+from Modelling.system_params import SystemParams
+from polygon_representation import PolygonRepresentation
+
 
 
 def apriltag_message_callback(apriltag_array):
@@ -80,7 +89,7 @@ def get_orientation_in_base(contact_pose_homog):
 
 def load_shape_data(name_in):
     curr_dir = os.path.dirname(__file__)
-    fname = os.path.join(curr_dir, 'models', 'shape_description', name_in+".json")
+    fname = os.path.join(curr_dir, 'shape_description', name_in+".json")
     f = open(fname)
     shape_data = json.load(f)
 

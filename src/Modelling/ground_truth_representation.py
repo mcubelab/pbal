@@ -1,24 +1,32 @@
 #!/usr/bin/env python
-import rospy
-import pdb
-import json
-import numpy as np
-from std_msgs.msg import Float32MultiArray, Float32, Bool, String
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
+
+import copy
+from cvxopt import matrix, solvers
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
-from scipy.spatial import ConvexHull, convex_hull_plot_2d
-
-import time
-import models.ros_helper as ros_helper
-
-import matplotlib.pyplot as plt
+import json
+from livestats import livestats
 from matplotlib import cm
 import matplotlib.lines as lines
-from livestats import livestats
-from models.system_params import SystemParams
-import copy
+import matplotlib.pyplot as plt
+import numpy as np
+import pdb
+import rospy
+from scipy.spatial import ConvexHull, convex_hull_plot_2d
+from std_msgs.msg import Float32MultiArray, Float32, Bool, String
+import time
 
+import Modelling.ros_helper as ros_helper
+from Modelling.system_params import SystemParams
 from polygon_representation import PolygonRepresentation
-from cvxopt import matrix, solvers
 
 class GroundTruthRepresentation(object):
     def __init__(self):

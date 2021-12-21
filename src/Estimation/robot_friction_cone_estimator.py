@@ -9,25 +9,25 @@ gparentdir = os.path.dirname(parentdir)
 sys.path.insert(0, parentdir)
 sys.path.insert(0, gparentdir)
 
-import rospy
-import pdb
-import json
-import numpy as np
-from std_msgs.msg import Float32MultiArray, Float32, Bool, String
+import copy
+from cvxopt import matrix, solvers
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
-from scipy.spatial import ConvexHull, convex_hull_plot_2d
-
-import time
-import Modelling.ros_helper as ros_helper
-
-import matplotlib.pyplot as plt
+from livestats import livestats
 from matplotlib import cm
 import matplotlib.lines as lines
-from livestats import livestats
-from Modelling.system_params import SystemParams
-import copy
+import matplotlib.pyplot as plt
+import json
+import numpy as np
+import pdb
+import rospy
+from scipy.spatial import ConvexHull, convex_hull_plot_2d
+from std_msgs.msg import Float32MultiArray, Float32, Bool, String
+import time
 
-from cvxopt import matrix, solvers
+
+import Modelling.ros_helper as ros_helper
+from Modelling.system_params import SystemParams
+
 solvers.options['show_progress'] = False
 solvers.options['reltol'] = 1e-6
 solvers.options['abstol'] = 1e-6

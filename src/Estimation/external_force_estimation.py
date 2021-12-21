@@ -1,19 +1,29 @@
 #!/usr/bin/env python
 
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
+
+from geometry_msgs.msg import TransformStamped, WrenchStamped, Vector3Stamped
+import matplotlib.pyplot as plt
 import numpy as np
+import pdb
+import rospy
+from std_msgs.msg import Float32MultiArray
 import tf
 import tf.transformations as tfm
-import rospy
-import pdb
-import ros_helper
-import franka_helper
-import matplotlib.pyplot as plt
-
-from franka_interface import ArmInterface 
-from geometry_msgs.msg import TransformStamped, WrenchStamped, Vector3Stamped
-from std_msgs.msg import Float32MultiArray
 from visualization_msgs.msg import Marker
-from models.system_params import SystemParams
+
+import franka_helper
+from franka_interface import ArmInterface 
+import Modelling.ros_helper as ros_helper
+from Modelling.system_params import SystemParams
 
 def get_xy_wrench_world(wrench_list):
     return [wrench_list[0], wrench_list[2], wrench_list[-2]]

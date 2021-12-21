@@ -1,6 +1,16 @@
  #!/usr/bin/env python
+ 
 # estimates pivot location and publishes pivot location as Marker and Point
 # subscribes to end_effector pose 
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
 
 import numpy as np
 import tf.transformations as tfm
@@ -10,13 +20,13 @@ import pdb
 import copy
 import json
 
-import ros_helper
+import Modelling.ros_helper as ros_helper
 import franka_helper
 from franka_interface import ArmInterface 
 from geometry_msgs.msg import TransformStamped
 from visualization_msgs.msg import Marker
 from std_msgs.msg import Bool, String
-from models.system_params import SystemParams
+from Modelling.system_params import SystemParams
 
 
 def initialize_marker():

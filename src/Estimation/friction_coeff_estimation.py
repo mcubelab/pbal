@@ -1,17 +1,26 @@
 #!/usr/bin/env python
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
 
+from geometry_msgs.msg import WrenchStamped
+import matplotlib.pyplot as plt
 import numpy as np
+import pdb
+import rospy
+from std_msgs.msg import Float32MultiArray, Float32, Bool
 import tf
 import tf.transformations as tfm
-import rospy
-import pdb
 
-import ros_helper
 from franka_interface import ArmInterface 
-from geometry_msgs.msg import WrenchStamped
-from std_msgs.msg import Float32MultiArray, Float32, Bool
-from models.system_params import SystemParams
-import matplotlib.pyplot as plt
+import Modelling.ros_helper as ros_helper
+from Modelling.system_params import SystemParams
 
 def generalized_velocities_callback(data):
     global generalized_velocities
@@ -101,6 +110,8 @@ if __name__ == '__main__':
                     # append
                     end_effector_2D_wrench_list.append(end_effector_2D_wrench)
                     generalized_velocities_list.append(generalized_velocities.data)
+
+            print(friction_estimate_message)
 
             # publish and sleep
             if num_measurements > 0:
