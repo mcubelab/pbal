@@ -1,21 +1,31 @@
 #!/usr/bin/env python
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
 
+import copy
+from geometry_msgs.msg import TransformStamped
+import matplotlib.pyplot as plt
 import numpy as np
+import pdb
+import rospy
+from std_msgs.msg import Float32MultiArray, Bool, Int32
 import tf
 import tf.transformations as tfm
-import rospy
-import pdb
-import copy
 import time
-import ros_helper
-import franka_helper
-import matplotlib.pyplot as plt
-
-from franka_interface import ArmInterface 
-from geometry_msgs.msg import TransformStamped
-from std_msgs.msg import Float32MultiArray, Bool, Int32
 from visualization_msgs.msg import Marker
-from models.system_params import SystemParams
+
+import franka_helper
+from franka_interface import ArmInterface 
+from Modelling.system_params import SystemParams
+import Modelling.ros_helper as ros_helper
+
 
 
 def get_hand_orientation_in_base(contact_pose_homog):
