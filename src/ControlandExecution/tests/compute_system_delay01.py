@@ -94,39 +94,49 @@ if __name__ == '__main__':
     amplitude_vert = np.sqrt(Coeff_Vec_vert[0]**2+Coeff_Vec_vert[1]**2)
     phase_vert = np.arctan2(Coeff_Vec_vert[1], Coeff_Vec_vert[0])*180.0/np.pi
 
-    fig, axs = plt.subplots(4, 1, figsize=(20, 10))
+    fig, axs = plt.subplots(4, 1, figsize=(16, 9))
+
+    # change font size for axes
+    for ax in axs.flatten():
+        for tick in ax.get_xticklabels():
+            tick.set_fontsize(18)
+        for tick in ax.get_yticklabels():
+            tick.set_fontsize(18)
+
     axs[0].plot(tlist, impedance_target_horizontal_pose_list,
-                marker='o', color='b', label='target')
-    axs[0].plot(tlist, measured_horizontal_pose_list,
-                marker='o', color='r', label='measured')
+                marker='.', color='b', label='target')
+    # axs[0].plot(tlist, measured_horizontal_pose_list,
+    #             marker='o', color='r', label='measured')
 
     axs[2].plot(tlist, impedance_target_vertical_pose_list,
-                marker='o', color='b', label='target')
-    axs[2].plot(tlist, measured_vertical_pose_list,
-                marker='o', color='r', label='measured')
+                marker='.', color='b', label='target')
+    # axs[2].plot(tlist, measured_vertical_pose_list,
+    #             marker='o', color='r', label='measured')
 
-    axs[3].set_xlabel('time (s)')
-    # axs[1].set_xlabel('time (s)')
+    axs[3].set_xlabel('Time (s)', fontsize=18)
+    # axs[1].set_xlabel('Time (s)')
 
-    axs[0].set_ylabel('position (m)')
-    axs[2].set_ylabel('position (m)')
+    axs[0].set_ylabel('Position (m)', fontsize=18)
+    axs[2].set_ylabel('Position (m)', fontsize=18)
+    axs[1].set_ylabel('Force (N)', fontsize=18)
+    axs[3].set_ylabel('Force (N)', fontsize=18)
 
-    axs[0].legend()
-    axs[1].legend()
+    # axs[0].legend()
+    # axs[1].legend()
 
-    axs[0].set_title('Horizontal Position')
-    axs[1].set_title('Horizontal Force')
+    # axs[0].set_title('Horizontal Position')
+    # axs[1].set_title('Horizontal Force')
 
-    axs[1].plot(tlist, measured_horiztonal_force_list, color='b')
-    axs[1].plot(tlist, Coeff_Vec_horz[2] + sine_wave(tlist -
-                delay_horz, amplitude_horz, period), color='r')
+    axs[1].plot(tlist, measured_horiztonal_force_list, color='k')
+    # axs[1].plot(tlist, Coeff_Vec_horz[2] + sine_wave(tlist -
+    #             delay_horz, amplitude_horz, period), color='r')
 
-    axs[3].plot(tlist, measured_vertical_force_list, color='b')
-    axs[3].plot(tlist, Coeff_Vec_vert[2] + cos_wave(tlist -
-                delay_vert, amplitude_vert, period), color='r')
+    axs[3].plot(tlist, measured_vertical_force_list, color='k')
+    # axs[3].plot(tlist, Coeff_Vec_vert[2] + cos_wave(tlist -
+    #             delay_vert, amplitude_vert, period), color='r')
 
-    axs[2].set_title('Vertical Position')
-    axs[3].set_title('Vertical Force')
+    # axs[2].set_title('Vertical Position')
+    # axs[3].set_title('Vertical Force')
 
     print("horizontal delay (s) = ", delay_horz)
     print("vertical delay (s) = ", delay_vert)

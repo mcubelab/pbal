@@ -7,6 +7,7 @@ import sys
 from typing import ForwardRef
 
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import itertools as it
 
@@ -87,7 +88,7 @@ def analyze_data_file(filename, plot_data=True):
     phase_vert = np.arctan2(Coeff_Vec_vert[1], Coeff_Vec_vert[0])*180.0/np.pi
     if plot_data:
 
-        fig, axs = plt.subplots(4, 1, figsize=(20, 10))
+        fig, axs = plt.subplots(4, 1, figsize=(16, 9))
         axs[0].plot(tlist, impedance_target_horizontal_pose_list,
                     marker='o', color='b', markersize=1, label='target')
         axs[0].plot(tlist, measured_horizontal_pose_list,
@@ -159,16 +160,23 @@ if __name__ == '__main__':
     # sort by filter params and plot
     fig, axs = plt.subplots(2, 2, figsize=(20, 10))
 
+    # change font size for axes
+    for ax in axs.flatten():
+        for tick in ax.get_xticklabels():
+            tick.set_fontsize(18)
+        for tick in ax.get_yticklabels():
+            tick.set_fontsize(18)
+
     # labels
-    axs[0, 0].set_title('Horizontal')
-    axs[0, 0].set_ylabel('latency (s)')
+    axs[0, 0].set_title('Horizontal', fontsize=18)
+    axs[0, 0].set_ylabel('Latency (s)', fontsize=18)
 
-    axs[1, 0].set_xlabel('freq (hz)')
-    axs[1, 0].set_ylabel('phase (deg)')
+    axs[1, 0].set_xlabel('Frequency (hz)', fontsize=18)
+    axs[1, 0].set_ylabel('Phase Delay (deg)', fontsize=18)
 
-    axs[0, 1].set_title('Vertical')
+    axs[0, 1].set_title('Vertical', fontsize=18)
 
-    axs[1, 1].set_xlabel('freq (hz)')
+    axs[1, 1].set_xlabel('Frequency (Hz)', fontsize=18)
 
     unique_filter_params = np.unique(np.array(filter_params_list))
     num_filter_params = len(unique_filter_params)
@@ -179,6 +187,11 @@ if __name__ == '__main__':
     phase_horz_list2 = []
     phase_vert_list2 = []
 
+    legend_dict = {unique_filter_params[0]: 'Lower Cutoff Freq',
+                   unique_filter_params[1]: 'Original Cutoff Freq',
+                   unique_filter_params[2]: 'Higher Cutoff Freq',
+                   unique_filter_params[3]: 'No Filter',
+                   }
     for filter_param in unique_filter_params:
         print(filter_param)
         mask = filter_params_list == filter_param
@@ -197,13 +210,13 @@ if __name__ == '__main__':
         sort_order = np.argsort(freq_list2[-1])
 
         axs[0, 0].semilogy(freq_list2[-1][sort_order], delay_horz_list2[-1][sort_order],
-                           linestyle='-', marker='o', label='filter params = '+str(filter_param))
+                           linestyle='-', marker='o', label=legend_dict[filter_param])
         axs[0, 1].semilogy(freq_list2[-1][sort_order], delay_vert_list2[-1][sort_order],
-                           linestyle='-', marker='o', label='filter params = '+str(filter_param))
+                           linestyle='-', marker='o', label=legend_dict[filter_param])
         axs[1, 0].plot(freq_list2[-1][sort_order], phase_horz_list2[-1][sort_order],
-                       linestyle='-', marker='o', label='filter params = '+str(filter_param))
+                       linestyle='-', marker='o', label=legend_dict[filter_param])
         axs[1, 1].plot(freq_list2[-1][sort_order], phase_vert_list2[-1][sort_order],
-                       linestyle='-', marker='o', label='filter params = '+str(filter_param))
+                       linestyle='-', marker='o', label=legend_dict[filter_param])
 
     # axs[1].scatter(freq_list, phase_horz_list, color='blue',
     #                marker='o', label='horizontal')
@@ -212,6 +225,6 @@ if __name__ == '__main__':
     # axs[0].set_title('Vertical')
     # axs[1].set_xlabel('freq (hz)')
     # axs[1].set_ylabel('phase (deg)')
-    axs[1, 1].legend()
+    axs[0, 0].legend(prop={'size': 14})
 
     plt.show()
