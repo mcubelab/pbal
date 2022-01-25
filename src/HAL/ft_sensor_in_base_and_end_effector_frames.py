@@ -6,29 +6,26 @@ gparentdir = os.path.dirname(parentdir)
 sys.path.insert(0,parentdir) 
 sys.path.insert(0,gparentdir)
 
-import rospy
-import tf
+import collections
 import netft_rdt_driver.srv as srv
 import numpy as np
 import pdb
+import rospy
+import time
+import tf
 
-from Modelling.ros_helper import (unit_pose, list2pose_stamped, pose_stamped2list,
-                               convert_reference_frame, quat2list, 
-                               lookupTransform, wrenchstamped_2FT, rotate_wrench, 
-                               wrench_reference_point_change, matrix_from_pose,
-                               wrench_stamped2list, list2wrench_stamped)
+from geometry_msgs.msg import PoseStamped, WrenchStamped
 from std_msgs.msg import Bool, Int32
-from geometry_msgs.msg import WrenchStamped
+
+import Helpers.ros_helper as rh
+import Helpers.timing_helper as th
 from Modelling.system_params import SystemParams
 
-# ft sensor topic
-ft_wrench_in_ft_sensor_frame = "/netft/netft_data"
-
 sys_params = SystemParams()
-LCONTACT = sys_params.object_params["L_CONTACT_MAX"]                                    # length of the end effector 
-NORMAL_FORCE_THRESHOLD = sys_params.estimator_params["NORMAL_FORCE_THRESHOLD_FORCE"] # Minimum required normal force
-TORQUE_BOUNDARY_MARGIN = sys_params.object_params["TORQUE_BOUNDARY_MARGIN"]             # in yaml
-END_EFFECTOR_MASS = sys_params.object_params["END_EFFECTOR_MASS"]
+LCONTACT = sys_params.object_params["L_CONTACT_MAX"]                                        # length of the end effector 
+NORMAL_FORCE_THRESHOLD = sys_params.estimator_params["NORMAL_FORCE_THRESHOLD_FORCE"]        # Minimum required normal force
+TORQUE_BOUNDARY_MARGIN = sys_params.object_params["TORQUE_BOUNDARY_MARGIN"]                 # in yaml
+END_EFFECTOR_MASS = sys_params.object_params["END_EFFECTOR_MASS"]                           # mass of end effectors
 
 def zero_ft_sensor():
     rospy.wait_for_service('/netft/zero', timeout=0.5)
@@ -39,25 +36,41 @@ def force_callback(data):
     global ft_wrench_in_ft_sensor
     ft_wrench_in_ft_sensor = data
 
+def ee_pose_callback(data):
+    global panda_hand_in_base_pose, base_z_in_panda_hand
+
+    panda_hand_in_base_pose = data
+    base_z_in_panda_hand = rh.matrix_from_pose(
+        panda_hand_in_base_pose)[2, :3]
+
 
 if __name__ == '__main__':
 
     # initialize node
-    rospy.init_node('ft_sensor_in_base_frame', anonymous=True)
-    rate = rospy.Rate(100.)
+    node_name = 'ft_sensor_in_base_frame'
+    rospy.init_node(node_name, anonymous=True)
+    sys_params = SystemParams()
+    rate = rospy.Rate(sys_params.hal_params["RATE"])     
 
 
-    # Make listener and get vicon to workobj rotation
+    # Make listener and get ft sensor in hand frame
     listener = tf.TransformListener()
 
     # ft sensor in the hand frame
     (ft_sensor_in_end_effector_trans, ft_sensor_in_end_effector_rot) = \
-        lookupTransform('/ft_sensor', '/panda_hand', listener)
+        rh.lookupTransform('/ft_sensor', '/panda_hand', listener)
 
     # Subscribe to ft data
     ft_wrench_in_ft_sensor = None
     ft_wrench_in_ft_sensor_frame_sub = rospy.Subscriber(
-        ft_wrench_in_ft_sensor_frame, WrenchStamped, force_callback, queue_size=1)
+        "/netft/netft_data", WrenchStamped, force_callback, queue_size=1)
+
+    # subscribe to ee pose data
+    panda_hand_in_base_pose, base_z_in_panda_hand = None, None
+    panda_hand_in_base_pose_sub = rospy.Subscriber(
+        '/ee_pose_in_world_from_franka_publisher', PoseStamped, 
+        ee_pose_callback, queue_size=1)
+
 
     # Define rostopic publishers
     ft_sensor_in_base_frame_pub = rospy.Publisher('/ft_sensor_in_base_frame', 
@@ -73,69 +86,106 @@ if __name__ == '__main__':
     torque_cone_boundary_flag_pub = rospy.Publisher(
         '/torque_cone_boundary_flag', Int32 , queue_size = 10)
 
-
     # wait for ft data
+    print("Waiting for F/T sensor data")
     while ft_wrench_in_ft_sensor is None:
+        pass
+
+    # wait for robot pose data
+    print("Waiting for robot data")
+    while panda_hand_in_base_pose is None:
         pass
 
     # panda hand pose in base frame WHEN TARING
     (panda_hand_in_base_trans0, panda_hand_in_base_rot0) = \
-        lookupTransform('/panda_hand', 'base', listener)
-    panda_hand_in_base_pose0 = list2pose_stamped(panda_hand_in_base_trans0 
+        rh.lookupTransform('/panda_hand', 'base', listener)
+    panda_hand_in_base_pose0 = rh.list2pose_stamped(panda_hand_in_base_trans0 
         + panda_hand_in_base_rot0, frame_id="base")
-    base_z_in_panda_hand0 = matrix_from_pose(
-        panda_hand_in_base_pose0)[2, :3]    
+    base_z_in_panda_hand0 = rh.matrix_from_pose(
+        panda_hand_in_base_pose0)[2, :3]
 
+    # ft sensor pose in end effector frame
+    (ft_sensor_in_end_effector_trans, ft_sensor_end_effector_in_base_rot) = \
+        rh.lookupTransform('/ft_sensor', '/panda_hand', listener)
+    ft_sensor_in_end_effector_pose = rh.list2pose_stamped(ft_sensor_in_end_effector_trans 
+        + ft_sensor_end_effector_in_base_rot, frame_id="/panda_hand")
+    T_ft_sensor_in_panda_hand = rh.matrix_from_pose(
+        ft_sensor_in_end_effector_pose)
+
+    # base frame in base frame
+    base_in_base_pose = rh.unit_pose()
+    
     # zero sensor
     zero_ft_sensor()
     print("Zeroing sensor")
 
+    # queue for computing frequnecy
+    time_deque = collections.deque(maxlen=sys_params.debug_params['QUEUE_LEN'])
+
     # Run node at rate
     while not rospy.is_shutdown():
 
-        # ft sensor pose in base frame
-        (ft_sensor_in_base_trans, ft_sensor_in_base_rot) = \
-            lookupTransform('/ft_sensor', 'base', listener)
-        ft_sensor_in_base_pose = list2pose_stamped(ft_sensor_in_base_trans 
-            + ft_sensor_in_base_rot, frame_id="base")
+        t0 = time.time()
+
 
         # panda hand pose in base frame
-        (panda_hand_in_base_trans, panda_hand_in_base_rot) = \
-            lookupTransform('/panda_hand', 'base', listener)
-        panda_hand_in_base_pose = list2pose_stamped(panda_hand_in_base_trans 
-            + panda_hand_in_base_rot, frame_id="base")
-        base_z_in_panda_hand = matrix_from_pose(panda_hand_in_base_pose)[2, :3]   
+        # (panda_hand_in_base_trans, panda_hand_in_base_rot) = \
+        #     rh.lookupTransform('/panda_hand', 'base', listener)
+        # panda_hand_in_base_pose = rh.list2pose_stamped(panda_hand_in_base_trans 
+        #     + panda_hand_in_base_rot, frame_id="base")
+        # base_z_in_panda_hand = rh.matrix_from_pose(panda_hand_in_base_pose)[2, :3]
 
-        # ft sensor pose in end effector frame
-        (ft_sensor_in_end_effector_trans, ft_sensor_end_effector_in_base_rot) = \
-            lookupTransform('/ft_sensor', '/panda_hand', listener)
-        ft_sensor_in_end_effector_pose = list2pose_stamped(ft_sensor_in_end_effector_trans 
-            + ft_sensor_end_effector_in_base_rot, frame_id="/panda_hand")
+        # ft sensor pose in base frame
+        T_panda_hand_in_base = rh.matrix_from_pose(panda_hand_in_base_pose)
+        T_ft_sensor_in_base = np.matmul(T_panda_hand_in_base, T_ft_sensor_in_panda_hand)
+        ft_sensor_in_base_pose2 = rh.pose_from_matrix(T_ft_sensor_in_base)
+        
+        # (ft_sensor_in_base_trans, ft_sensor_in_base_rot) = \
+        #     rh.lookupTransform('/ft_sensor', 'base', listener)
+        # ft_sensor_in_base_pose = rh.list2pose_stamped(ft_sensor_in_base_trans 
+        #     + ft_sensor_in_base_rot, frame_id="base")
+        # pdb.set_trace()
+
+        # ft_sensor_in_base_pose = rh.convert_reference_frame(
+        #     ft_sensor_in_end_effector_pose, 
+        #     base_in_base_pose,
+        #     panda_hand_in_base_pose,
+        #     frame_id='base')
+
+        # print(np.array(rh.pose_stamped2list(ft_sensor_in_base_pose)) - np.array(
+        #     rh.pose_stamped2list(ft_sensor_in_base_pose2)))
+
+
+        # print(np.array(rh.pose_stamped2list(panda_hand_in_base_pose2)) - np.array(
+        #     rh.pose_stamped2list(panda_hand_in_base_pose)))
+
+        # print("================================")
+
  
         # ft wrench reading in end-effector frame
-        ft_wrench_in_end_effector_reading = rotate_wrench(ft_wrench_in_ft_sensor, 
+        ft_wrench_in_end_effector_reading = rh.rotate_wrench(ft_wrench_in_ft_sensor, 
             ft_sensor_in_end_effector_pose)
-        ft_wrench_in_end_effector_list = wrench_stamped2list(
+        ft_wrench_in_end_effector_list = rh.wrench_stamped2list(
             ft_wrench_in_end_effector_reading)
         correction = (-base_z_in_panda_hand0 + base_z_in_panda_hand) * 9.81 * END_EFFECTOR_MASS
         ft_wrench_in_end_effector_list[0] += correction[0]
         ft_wrench_in_end_effector_list[1] += correction[1]
         ft_wrench_in_end_effector_list[2] += correction[2]
-        ft_wrench_in_end_effector = list2wrench_stamped(ft_wrench_in_end_effector_list)
+        ft_wrench_in_end_effector = rh.list2wrench_stamped(ft_wrench_in_end_effector_list)
         ft_wrench_in_end_effector.header.frame_id = "/panda_hand"
 
         # ft wrench in base frame
-        ft_wrench_in_base = rotate_wrench(ft_wrench_in_end_effector, 
+        ft_wrench_in_base = rh.rotate_wrench(ft_wrench_in_end_effector, 
             panda_hand_in_base_pose)
         ft_wrench_in_base.header.frame_id = 'base'
 
         # end effector wrench in end effector frame
-        end_effector_wrench_in_end_effector = wrench_reference_point_change(
+        end_effector_wrench_in_end_effector = rh.wrench_reference_point_change(
             ft_wrench_in_end_effector, ft_sensor_in_end_effector_trans)
         end_effector_wrench_in_end_effector.header.frame_id = "/panda_hand"
 
         # end effector wrench in base frame
-        end_effector_wrench_in_base = rotate_wrench(end_effector_wrench_in_end_effector, 
+        end_effector_wrench_in_base = rh.rotate_wrench(end_effector_wrench_in_end_effector, 
             panda_hand_in_base_pose)
         end_effector_wrench_in_base.header.frame_id = "base"
 
@@ -175,7 +225,6 @@ if __name__ == '__main__':
 
         torque_boundary_flag_message.data = torque_boundary_flag
 
-
         # publish and sleep
         ft_sensor_in_base_frame_pub.publish(ft_wrench_in_base)
         ft_sensor_in_end_effector_frame_pub.publish(ft_wrench_in_end_effector)
@@ -183,5 +232,17 @@ if __name__ == '__main__':
         end_effector_sensor_in_base_frame_pub.publish(end_effector_wrench_in_base)
         torque_cone_boundary_test_pub.publish(torque_boundary_boolean_message)
         torque_cone_boundary_flag_pub.publish(torque_boundary_flag_message)
+
+        # update time deque
+        time_deque.append(1000 * (time.time() - t0))   
+
+        # log timing info
+        if len(time_deque) == sys_params.debug_params['QUEUE_LEN']:
+            rospy.loginfo_throttle(sys_params.debug_params["LOG_TIME"], 
+                (node_name + " runtime: {mean:.3f} +/- {std:.3f} [ms]")
+                .format(mean=sum(time_deque)/len(time_deque), 
+                std=th.compute_std_dev(my_deque=time_deque, 
+                    mean_val=sum(time_deque)/len(time_deque))))
+
 
         rate.sleep()

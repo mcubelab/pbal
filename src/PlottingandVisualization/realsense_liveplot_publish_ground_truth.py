@@ -7,7 +7,7 @@ sys.path.insert(0,parentdir)
 sys.path.insert(0,gparentdir)
 import tf
 import tf.transformations as tfm
-from Modelling.ros_helper import lookupTransform
+from Helpers.ros_helper import lookupTransform
 import rospy
 import pdb
 import json
@@ -24,8 +24,8 @@ from cv_bridge import CvBridge, CvBridgeError
 import roslib
 from franka_interface import ArmInterface 
 from apriltag_ros.msg import AprilTagDetectionArray
-import Modelling.ros_helper as ros_helper
-import franka_helper
+import Helpers.ros_helper as ros_helper
+import Helpers.franka_helper as franka_helper
 from Modelling.system_params import SystemParams
 from cvxopt import matrix, solvers
 import copy
@@ -365,7 +365,7 @@ if __name__ == '__main__':
     l_contact = sys_params.object_params["L_CONTACT_MAX"]
 
 
-    object_vertex_array, apriltag_id ,apriltag_pos = load_shape_data('triangle')
+    object_vertex_array, apriltag_id ,apriltag_pos = load_shape_data('rectangle')
 
     object_vertex_array = np.vstack([object_vertex_array,
                                 np.zeros(len(object_vertex_array[0])),

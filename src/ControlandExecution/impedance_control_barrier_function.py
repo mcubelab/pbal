@@ -13,6 +13,7 @@ sys.path.insert(0, gparentdir)
 import numpy as np
 import tf.transformations as tfm
 import tf2_ros
+import time
 import rospy
 import copy
 import pdb
@@ -20,8 +21,8 @@ import json
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-import franka_helper
-import Modelling.ros_helper as ros_helper
+import Helpers.franka_helper as franka_helper
+import Helpers.ros_helper as ros_helper
 from franka_interface import ArmInterface 
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
 from std_msgs.msg import Float32MultiArray, Float32, Bool, String
@@ -252,6 +253,8 @@ if __name__ == '__main__':
     impedance_target_pose = arm.endpoint_pose()
     impedance_target = get_robot_world_xyz_theta(arm)
 
+    arm.initialize_cartesian_impedance_mode()
+
     arm.set_cart_impedance_pose(impedance_target_pose,
                 stiffness=IMPEDANCE_STIFFNESS_LIST)
     rospy.sleep(1.0)
@@ -262,8 +265,12 @@ if __name__ == '__main__':
 
     coord_set = {}
 
+    # prev_wrench_increment = None
+
     print('starting control loop')
     while not rospy.is_shutdown():
+
+        t0 = time.time()
 
         # snapshot of current friction parameter estimate
         if friction_parameter_list:
@@ -449,18 +456,26 @@ if __name__ == '__main__':
             s_hand=contact_pose[1],
             torque_bounds = torque_bounds)
 
-        # compute wrench increment 
-
-        #try:
+        # compute wrench increment
+        # tqp0 = time.time()        
+        # print(prev_wrench_increment)
         wrench_increment_contact, debug_dict = pbc.solve_for_delta_wrench()
+        # print(wrench_increment_contact)
+        # print("QP Time [ms]: ", 1000. * (time.time() - tqp0))
+        # prev_wrench_increment = wrench_increment_contact
+
         debug_dict['snewrb'] = state_not_exists_when_recieved_command
         if 'name' in current_msg:
             # print(current_msg['name'])
             debug_dict['name'] = current_msg['name']
         else:
             debug_dict['name'] = ""
+        
+        # tsavejson0 = time.time()
         debug_str = json.dumps(debug_dict)
         qp_debug_msg.data = debug_str
+        # print("Json Save Rate: ", 1./(time.time() - tsavejson0))
+
         #except Exception as e:                
         #    print("couldn't find solution")
         #    wrench_increment_contact = np.zeros(3)
@@ -484,16 +499,25 @@ if __name__ == '__main__':
             waypoint_pose_list)
 
         # send command to franka
+        # tfrank0 = time.time()
         arm.set_cart_impedance_pose(waypoint_franka_pose,
             stiffness=IMPEDANCE_STIFFNESS_LIST)
+        # print("Impedance Update Time [ms]: ", 1000. * (time.time() - tfrank0))
+
 
         # pubish target frame
+        # tpublish0 = time.time()
         update_frame(ros_helper.list2pose_stamped(waypoint_pose_list), 
             frame_message)
         target_frame_pub.publish(frame_message)
         target_frame_broadcaster.sendTransform(frame_message)
         pivot_sliding_commanded_flag_pub.publish(pivot_sliding_commanded_flag_msg)
         qp_debug_message_pub.publish(qp_debug_msg)
+        # print("Publish Rate: ", 1./(time.time() - tpublish0))
+
+
+        # print("Total Time {time:.2f} [ms]: ".format( time = 1000. * (time.time() - t0)))
+        print("==================")
 
         rate.sleep()
 

@@ -19,9 +19,12 @@ solvers.options['show_progress'] = False
 solvers.options['reltol'] = 1e-6
 solvers.options['abstol'] = 1e-6
 solvers.options['feastol'] = 1e-6
+solvers.options['maxiters'] = 10
+import quadprog
 import pdb
+import time
 
-from pbal_helper import PbalHelper
+from Helpers.pbal_helper import PbalHelper
 
 class ModularBarrierController(object):
     def __init__(self, param_dict):
@@ -33,29 +36,39 @@ class ModularBarrierController(object):
         # mode cost and constraint list
         self.mode_cost, self.mode_constraint = None, None
 
+        # previous solution
+        # self.prev_sol = None
+
 
     def solve_for_delta_wrench(self):
         P, q, proj_vec_list, error_list = \
             self.build_quadratic_program_cost()
+
         Aiq, biq, slacks, label_list_cnstr = self.build_quadratic_program_constraints()
 
+        t0 = time.time()
         try:
-            delta_wrench =  self.solve_quadratic_program(P, q, Aiq, slacks)
-        except Exception as e:                
+            delta_wrench = self.solve_quadratic_program(P, q, Aiq, slacks)
+            # delta_wrench2 =  self.solve_using_quadprog(P, q, Aiq, slacks)
+        except Exception as e:            
+           self.prev_sol = None
            print("couldn't find solution")
+           print(e.message)
            delta_wrench = np.array([0,0,0])
+        tsol = time.time() - t0;
+        print("QP Solve Time WS [ms]: ", 1000. * tsol)
   
-
-
         #delta_wrench =  self.solve_quadratic_program(P, q, Aiq, slacks)
         delta_wrench_unconstrained = np.linalg.solve(2*P, -q) 
         debug_str = self.build_debug_string(delta_wrench, delta_wrench_unconstrained, 
-            proj_vec_list, error_list, Aiq, biq, slacks, label_list_cnstr)
+            proj_vec_list, error_list, Aiq, biq, slacks, label_list_cnstr, tsol, 
+            2 * P, q)
         return delta_wrench, debug_str
 
 
     def build_debug_string(self, delta_wrench, delta_wrench_unconstrained,
-        proj_vec_list, error_list, Aiq, biq, slacks, label_list_cnstr):
+        proj_vec_list, error_list, Aiq, biq, slacks, label_list_cnstr, solve_time, 
+        quadratic_cost_term, linear_cost_term):
 
         debug_dict = {
             "mode" : self.mode,
@@ -69,6 +82,9 @@ class ModularBarrierController(object):
             "measured_wrench" : self.contact_wrench.tolist(),
             "error_dict": self.err_dict,
             "label_list_cnstr": label_list_cnstr,
+            'solve_time' : solve_time,
+            'quadratic_cost_term': quadratic_cost_term.tolist(), 
+            'linear_cost_term': linear_cost_term.tolist(),
         }
 
         # debug_str = json.dumps(debug_dict)
@@ -133,6 +149,22 @@ class ModularBarrierController(object):
         return np.array(Aiq), np.array(biq
             ), np.array(slack_product), label_list
 
+    def solve_using_quadprog(self, P, q, Aiq, biq):
+
+        P = (P + P.T)  # make sure P is symmetric    
+        # qp_G = Aiq
+        # qp_h = biq
+        # meq = 0
+                
+        # solve using quadprog
+        tsolve0 = time.time()
+        x, v, _, _, _, _ = quadprog.solve_qp(P, -q, -Aiq.T, -biq, 0)
+        print("Quadprog Solve Time: {time:.2f} [ms] ".format(time = 1000. * (time.time() - tsolve0)))
+
+        # active constraints
+        return x
+
+
     def solve_quadratic_program(self, P, q, Aiq, biq):
         
         P_cvx = matrix(2 * P)
@@ -141,7 +173,27 @@ class ModularBarrierController(object):
         Aiq_cvx = matrix(Aiq)
         biq_cvx = matrix(biq)
 
+        # t2 = time.time()
+        # result = solvers.qp(P_cvx, q_cvx, Aiq_cvx, biq_cvx)
+        # print("QP Solve Time No WS [ms]", 1000. * (time.time() - t2) )
+
+        # if self.prev_sol is not None:
+            # tsolve0 = time.time()
+            # result = solvers.qp(P_cvx, q_cvx, Aiq_cvx, biq_cvx, initvals = self.prev_sol)
+          
+        # else:
+        # tsolve0 = time.time()
         result = solvers.qp(P_cvx, q_cvx, Aiq_cvx, biq_cvx)
+        # pdb.set_trace()
+        # print("Iterations: " + str(result['iterations']))
+        # print("Status: " + result['status'])
+        # solve_time = time.time() - tsolve0
+        # print("Cvxopt Time: {time:.2f} [ms] ".format(time = 1000. * solve_time))
+
+        
+        # self.prev_sol = {'x': result['x'], 's': result['s'], 'y': result['y'], 'z' : result['z']}
+        
+
         return np.squeeze(np.array(result['x']))
 
     def update_controller(self, mode, theta_hand, contact_wrench, friction_parameter_dict, err_dict,
@@ -185,8 +237,6 @@ class ModularBarrierController(object):
         if mode == 13 and err_dict["err_s"] > 0:
             mode = -1
         
-
-
         
     	self.mode = mode
 

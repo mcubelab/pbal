@@ -37,8 +37,24 @@ if __name__ == '__main__':
     #     '/friction_parameters', 
     #     '/sliding_state'
     # ]
+    # rostopic_list = [
+    #     "/processed_image"
+    # ]
+
     rostopic_list = [
-        "/processed_image"
+        # "/camera/color/image_raw/compressed",
+        "/ground_truth_message",
+        # "/gravity_torque", 
+        # "/pivot_frame", 
+        # "/generalized_positions", 
+        '/barrier_func_control_command',
+        '/qp_debug_message',
+        '/ee_pose_in_world_from_franka_publisher',
+        "/end_effector_sensor_in_end_effector_frame", 
+        "/end_effector_sensor_in_base_frame", 
+        '/friction_parameters', 
+        # '/sliding_state',
+        '/tag_detections',
     ]
 
 
@@ -73,10 +89,7 @@ if __name__ == '__main__':
     ros_helper.initialize_rosbag(rostopic_list, exp_name=exp_name)
     
     while not rospy.is_shutdown():
-
         rate.sleep()
-
-
 
     # terminate rosbags
     ros_helper.terminate_rosbag()

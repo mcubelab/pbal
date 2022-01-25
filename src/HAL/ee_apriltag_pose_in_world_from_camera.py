@@ -6,21 +6,28 @@ gparentdir = os.path.dirname(parentdir)
 sys.path.insert(0,parentdir) 
 sys.path.insert(0,gparentdir)
 
+
+import collections
 import numpy as np
+import pdb
 import rospy
+import time
 import tf
 import tf2_ros
-import pdb
 
-from geometry_msgs.msg import PoseStamped, TransformStamped
 from apriltag_ros.msg import AprilTagDetectionArray
-from Modelling.ros_helper import (list2pose_twod, unit_pose, list2pose_stamped,
-                               convert_reference_frame, quat2list, lookupTransform)
+from geometry_msgs.msg import PoseStamped, TransformStamped
+
+from Modelling.system_params import SystemParams
+import Helpers.ros_helper as rh
+import Helpers.timing_helper as th
 
 def detect_ee_apriltag():
 
-    apriltag_array = rospy.wait_for_message("/tag_detections", AprilTagDetectionArray, timeout=2.)
-    ee_apriltag_list = [detection for detection in apriltag_array.detections if detection.id == (3,)]
+    apriltag_array = rospy.wait_for_message("/tag_detections", 
+        AprilTagDetectionArray, timeout=2.)
+    ee_apriltag_list = [detection for detection in 
+        apriltag_array.detections if detection.id == (3,)]
     if not ee_apriltag_list:
         print "end effector apriltag not detected"
         return None
@@ -55,41 +62,65 @@ def update_frame(frame_pose_stamped, frame_message):
 
 if __name__ == '__main__':
 
-    # 1. initialize node
-    rospy.init_node('ee_apriltag_pose_in_world_from_camera', anonymous=True)
-    rate = rospy.Rate(30.)                       
+    # initialize node
+    node_name = 'ee_apriltag_pose_in_world_from_camera'
+    rospy.init_node(node_name, anonymous=True)
+    sys_params = SystemParams()
+    rate = rospy.Rate(sys_params.hal_params["CAMERA_RATE"]) 
 
-    # 2. Make listener and get vicon to workobj rotation
+    # Make listener and get vicon to workobj rotation
     listener = tf.TransformListener()
 
     # camera frame in base frame
-    (cam_in_base_trans, cam_in_base_rot) = lookupTransform('/camera_color_optical_frame', 
+    (cam_in_base_trans, cam_in_base_rot) = rh.lookupTransform(
+        '/camera_color_optical_frame', 
         'base', listener)
-    cam_in_base_pose = list2pose_stamped(cam_in_base_trans + cam_in_base_rot, frame_id="base")
+    cam_in_base_pose = rh.list2pose_stamped(cam_in_base_trans + 
+        cam_in_base_rot, frame_id="base")
 
     # base frame in base frame
-    base_in_base_pose = unit_pose()
+    base_in_base_pose = rh.unit_pose()
 
-    #4. set up transform broadcaster
+    # set up transform broadcaster
     frame_message = initialize_frame()
     ee_apriltag_in_world_frame_broadcaster = tf2_ros.TransformBroadcaster()
 
-    #4. Run node at rate
+    # queue for computing frequnecy
+    time_deque = collections.deque(maxlen=sys_params.debug_params['QUEUE_LEN'])
+
+
+    # Run node at rate
     while not rospy.is_shutdown():
 
-        #5a. ee apriltag pose in camera frame
+        t0 = time.time()
+
+        # ee apriltag pose in camera frame
         ee_apriltag_in_camera_pose = detect_ee_apriltag()        
         if not ee_apriltag_in_camera_pose:
             rate.sleep()
             continue
 
-        #5b. convert ee apriltag pose from camera to base
-        ee_apriltag_in_world_pose = convert_reference_frame(ee_apriltag_in_camera_pose, base_in_base_pose,
-                                                      cam_in_base_pose, frame_id = "base")
+        # convert ee apriltag pose from camera to base
+        ee_apriltag_in_world_pose = rh.convert_reference_frame(
+            ee_apriltag_in_camera_pose, base_in_base_pose,
+            cam_in_base_pose, frame_id = "base")
 
         # update frame message
         update_frame(ee_apriltag_in_world_pose, frame_message)
 
         # publish
         ee_apriltag_in_world_frame_broadcaster.sendTransform(frame_message)
+
+        # update time deque
+        time_deque.append(1000 * (time.time() - t0)) 
+
+        # log timing info
+        if len(time_deque) == sys_params.debug_params['QUEUE_LEN']:
+            rospy.loginfo_throttle(sys_params.debug_params["LOG_TIME"], 
+                (node_name + " runtime: {mean:.3f} +/- {std:.3f} [ms]")
+                .format(mean=sum(time_deque)/len(time_deque), 
+                std=th.compute_std_dev(my_deque=time_deque, 
+                    mean_val=sum(time_deque)/len(time_deque)))) 
+
+
         rate.sleep()

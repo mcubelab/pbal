@@ -1,5 +1,5 @@
 import numpy as np
-import ros_helper
+import Helpers.ros_helper
 
 
 class PbalHelper(object):

@@ -10,6 +10,7 @@ sys.path.insert(0, parentdir)
 sys.path.insert(0, gparentdir)
 
 
+import collections
 import rospy
 import pdb
 import json
@@ -19,7 +20,7 @@ from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 
 import time
-import Modelling.ros_helper as ros_helper
+import Helpers.ros_helper as ros_helper
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
@@ -58,6 +59,16 @@ def end_effector_wrench_base_frame_callback(data):
     if len(measured_base_wrench_list) > 100:
        measured_base_wrench_list.pop(0)
 
+def compute_std_dev(time_deque, mean_runtime):
+
+    spread = 0
+
+    for runtime in time_deque:
+        spread += (runtime - mean_runtime) ** 2
+
+    return (spread/len(time_deque)) ** (0.5)
+
+
 
 if __name__ == '__main__':
     measured_contact_wrench_list = []
@@ -68,7 +79,8 @@ if __name__ == '__main__':
     theta_min_contact = np.arctan(sys_params.controller_params["pivot_params"]["mu_contact"])
     theta_min_external = np.arctan(sys_params.controller_params["pivot_params"]["mu_ground"])
 
-    rospy.init_node("wrench_cone_estimation")
+    node_name = "wrench_cone_estimation"
+    rospy.init_node(node_name)
     rospy.sleep(1.0)
 
     end_effector_wrench_sub = rospy.Subscriber("/end_effector_sensor_in_end_effector_frame", 
@@ -104,9 +116,15 @@ if __name__ == '__main__':
     should_publish_robot_friction_cone = False
     should_publish_ground_friction_cone = False
 
+    # queue for computing frequnecy
+    ntaps = 100
+    time_deque = collections.deque(maxlen=ntaps)
+
     print("Starting wrench cone estimation")
 
     while not rospy.is_shutdown():
+
+        t0 = time.time()
 
         update_robot_friction_cone = False
         update_ground_friction_cone = False
@@ -164,6 +182,13 @@ if __name__ == '__main__':
             friction_parameter_pub.publish(friction_parameter_msg)
             should_publish_robot_friction_cone = False
             should_publish_ground_friction_cone = False
+
+
+        time_deque.append(1000*(time.time() - t0))
+        print(node_name + " average runtime: ", sum(time_deque)/len(time_deque))
+        print(node_name + " min runtime: ", min(time_deque))
+        print(node_name + " std_dev: ", compute_std_dev(
+            time_deque=time_deque, mean_runtime=sum(time_deque)/len(time_deque)))
 
 
 

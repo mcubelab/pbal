@@ -12,21 +12,24 @@ gparentdir = os.path.dirname(parentdir)
 sys.path.insert(0, parentdir)
 sys.path.insert(0, gparentdir)
 
-import numpy as np
-import tf.transformations as tfm
-import tf2_ros
-import rospy
-import pdb
+import collections
 import copy
 import json
+import numpy as np
+import pdb
+import rospy
+import time
+import tf.transformations as tfm
+import tf2_ros
 
-import Modelling.ros_helper as ros_helper
-import franka_helper
-from franka_interface import ArmInterface 
-from geometry_msgs.msg import TransformStamped
-from visualization_msgs.msg import Marker
+from geometry_msgs.msg import PoseStamped, TransformStamped
 from std_msgs.msg import Bool, String
+from visualization_msgs.msg import Marker
+
+import Helpers.ros_helper as rh
+import Helpers.timing_helper as th
 from Modelling.system_params import SystemParams
+from franka_interface import ArmInterface 
 
 
 def initialize_marker():
@@ -81,8 +84,8 @@ def get_2D_normal(random_pose_array):
     nz_list = []
 
     for pose_array in random_pose_array:
-        pose_stamped = ros_helper.list2pose_stamped(pose_array.tolist())
-        pose_homog = ros_helper.matrix_from_pose(pose_stamped)
+        pose_stamped = rh.list2pose_stamped(pose_array.tolist())
+        pose_homog = rh.matrix_from_pose(pose_stamped)
         
         # 2-D unit contact normal in world frame
         e_n = pose_homog[:3, 0]
@@ -125,8 +128,8 @@ def generate_update_matrices(new_pose):
     x = new_pose[0]
     z = new_pose[2]
 
-    pose_stamped = ros_helper.list2pose_stamped(new_pose)
-    pose_homog = ros_helper.matrix_from_pose(pose_stamped)
+    pose_stamped = rh.list2pose_stamped(new_pose)
+    pose_homog = rh.matrix_from_pose(pose_stamped)
     
     # 2-D unit contact normal in world frame
     e_n = pose_homog[:3, 0]
@@ -147,8 +150,8 @@ def generate_update_matrices(new_pose):
 def update_center_of_rotation_estimate_sliding(current_pose_list,
     pivot_xyz, d):
 
-        pose_stamped = ros_helper.list2pose_stamped(current_pose_list)
-        pose_homog = ros_helper.matrix_from_pose(pose_stamped)
+        pose_stamped = rh.list2pose_stamped(current_pose_list)
+        pose_homog = rh.matrix_from_pose(pose_stamped)
         
         # 2-D unit contact normal in world frame
         e_n = pose_homog[:3, 0]
@@ -185,33 +188,37 @@ def sliding_state_callback(data):
         sliding_state_dict = json.loads(data.data) 
         sliding_measured_boolean = sliding_state_dict['psf']
 
+def ee_pose_callback(data):
+    global panda_hand_in_base_pose
+    panda_hand_in_base_pose = data
+
 if __name__ == '__main__':
 
-    rospy.init_node("pivot_estimator")
-    arm = ArmInterface()
-    rospy.sleep(0.5)
-
+    node_name = "pivot_estimator"
+    rospy.init_node(node_name, anonymous=True)
     sys_params = SystemParams()
-    RATE = sys_params.estimator_params["RATE"]
-    rate = rospy.Rate(RATE)
-
-    #endpoint_pose_all = []
-    #hand_angle_all = []
-
-    torque_boundary_boolean, pivot_sliding_commanded_boolean = None, None
-    sliding_measured_boolean = None
+    rate = rospy.Rate(sys_params.estimator_params["RATE"])
 
     # set up torque cone boundary subscriber
+    torque_boundary_boolean = None
     torque_cone_boundary_test_sub = rospy.Subscriber("/torque_cone_boundary_test", 
         Bool,  torque_cone_boundary_test_callback)
 
     # set up sliding state subscriber
+    sliding_measured_boolean = None
     sliding_state_sub = rospy.Subscriber("/sliding_state", String, 
         sliding_state_callback)
 
-    # set up pivot sliding flag
+    # set up pivot sliding flag subscriber
+    pivot_sliding_commanded_boolean = None
     pivot_sliding_commanded_flag_sub = rospy.Subscriber("/pivot_sliding_commanded_flag", 
         Bool,  pivot_sliding_commanded_flag_callback)
+
+    # subscribe to ee pose data
+    panda_hand_in_base_pose =  None
+    panda_hand_in_base_pose_sub = rospy.Subscriber(
+        '/ee_pose_in_world_from_franka_publisher', PoseStamped, 
+        ee_pose_callback, queue_size=1)
 
     # set up pivot Point publisher
     frame_message = initialize_frame()
@@ -224,8 +231,12 @@ if __name__ == '__main__':
     # set up transform broadcaster
     pivot_frame_broadcaster = tf2_ros.TransformBroadcaster()   
 
+    # wait for robot pose data
+    print("Waiting for robot data")
+    while panda_hand_in_base_pose is None:
+        pass
+
     # intialize pivot estimate
-    current_pose = arm.endpoint_pose()      # original pose of robot
     x0=None
     z0=None
     pivot_xyz=None
@@ -256,19 +267,26 @@ if __name__ == '__main__':
     # while pivot_sliding_commanded_boolean is None:
     #     pass
 
+    # queue for computing frequnecy
+    time_deque = collections.deque(
+        maxlen=sys_params.debug_params['QUEUE_LEN'])
+
     print('starting pivot estimation loop')
     while not rospy.is_shutdown():
 
+        t0 = time.time()
+
         if torque_boundary_boolean is not None:
 
-            # face_center franka pose
-            endpoint_pose_franka = arm.endpoint_pose()
+            # # face_center list
+            # endpoint_pose_franka = arm.endpoint_pose()
 
-            # face_center list
-            endpoint_pose_list = franka_helper.franka_pose2list(endpoint_pose_franka)
+            # endpoint_pose_list = fh.franka_pose2list(endpoint_pose_franka)
 
-            contact_pose_stamped = ros_helper.list2pose_stamped(endpoint_pose_list)
-            contact_pose_homog = ros_helper.matrix_from_pose(contact_pose_stamped)
+            endpoint_pose_list = rh.pose_stamped2list(panda_hand_in_base_pose)
+
+            contact_pose_stamped = rh.list2pose_stamped(endpoint_pose_list)
+            contact_pose_homog = rh.matrix_from_pose(contact_pose_stamped)
 
             hand_angle = get_hand_orientation_in_base(contact_pose_homog)
 
@@ -297,7 +315,7 @@ if __name__ == '__main__':
                     # update maker for center of rotation
                     pivot_xyz = update_center_of_rotation_estimate_sliding(
                         endpoint_pose_list, pivot_xyz, d)
-                    pivot_pose = ros_helper.list2pose_stamped(
+                    pivot_pose = rh.list2pose_stamped(
                         pivot_xyz + [0,0,0,1])
 
                 else:
@@ -361,7 +379,7 @@ if __name__ == '__main__':
                         pivot_xyz = [x0,endpoint_pose_list[1],z0]
 
                         # update maker for center of rotation
-                        pivot_pose = ros_helper.list2pose_stamped(
+                        pivot_pose = rh.list2pose_stamped(
                             pivot_xyz + [0,0,0,1])
 
                         # last sticking pivot_pose
@@ -375,7 +393,18 @@ if __name__ == '__main__':
                 pivot_xyz_pub.publish(frame_message)
                 pivot_frame_broadcaster.sendTransform(frame_message)
                 pivot_marker_pub.publish(marker_message)
-        
+
+        # update time deque
+        time_deque.append(1000 * (time.time() - t0))   
+
+        # log timing info
+        if len(time_deque) == sys_params.debug_params['QUEUE_LEN']:
+            rospy.loginfo_throttle(sys_params.debug_params["LOG_TIME"], 
+                (node_name + " runtime: {mean:.3f} +/- {std:.3f} [ms]")
+                .format(mean=sum(time_deque)/len(time_deque), 
+                std=th.compute_std_dev(my_deque=time_deque, 
+                    mean_val=sum(time_deque)/len(time_deque))))
+
         rate.sleep()    
 
 

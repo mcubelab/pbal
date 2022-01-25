@@ -128,8 +128,7 @@ if __name__ == '__main__':
 
 
     # motion schedule
-
-    amplitude = 0.1
+    amplitude = 0.01
     period =2.0
     num_periods = 10.0
     tmax = period*num_periods
@@ -148,14 +147,20 @@ if __name__ == '__main__':
     measured_horiztonal_force_list = []
     measured_vertical_force_list = []
 
+    # print("need wrench")
     while not measured_base_wrench_list:
-        rate.sleep()
+        rate.sleep()        
 
     print('starting control loop')
+    arm.initialize_cartesian_impedance_mode()
 
     # start loop
     start_time = rospy.Time.now().to_sec()+3.0
+    ct = 0.
     while not rospy.is_shutdown():
+
+        ct+= 1.
+
         if measured_contact_wrench_list:
             update_robot_friction_cone = True
 
@@ -207,6 +212,8 @@ if __name__ == '__main__':
         measured_vertical_force_list.append(measured_base_wrench[1])
 
         # rate.sleep()
+
+    print("Average runtime: ", (tmax + tmax_margin)/ct)
 
     print('control loop completed')
 

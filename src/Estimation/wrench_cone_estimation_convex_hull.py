@@ -19,7 +19,7 @@ from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 
 import time
-import Modelling.ros_helper as ros_helper
+import Helpers.ros_helper as ros_helper
 
 import matplotlib.pyplot as plt
 from matplotlib import cm

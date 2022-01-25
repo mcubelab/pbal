@@ -5,7 +5,7 @@ class SystemParams(object):
     def __init__(self):
 
         self.object_params = {
-            "L_CONTACT_MAX": .1, #0.1,                     # m (length of robot/object contact)
+            "L_CONTACT_MAX": .1, #0.1,                # m (length of robot/object contact)
             "MU_GROUND_0": None,                      # friction between obj/ground
             "MU_CONTACT_0": None,                     # friciton between robot/obj
             "TORQUE_BOUNDARY_MARGIN": 0.8,            # multiplies L_CONTACT to set conservative margin for torque boundary
@@ -34,6 +34,16 @@ class SystemParams(object):
             "ANGLE_DIFF_THRESH_GRAV": 0.001,        # rad (difference in angles for new datapoints for grav)
             "DELTA_ANGLE_THRESH_GRAV": 0.25,        # rad (minimum travel needed to publish grav params)
             "NORMAL_FORCE_THRESHOLD_FORCE": 0.05    # N (min normal force to register as being in contact)
+        }
+
+        self.hal_params = {
+            "RATE": 500,            # hz
+            "CAMERA_RATE": 30       # hz
+        }
+
+        self.debug_params = {
+            "LOG_TIME": 10,                          # time between when log messages are printed in seconds
+            "QUEUE_LEN": 100                         # length of queue for computing average timing
         }
 
         pivot_params= { 
@@ -221,7 +231,7 @@ class SystemParams(object):
             "mu_ground": 0.0,
             "use_measured_mu_ground": False,
 
-            "wrench_regularization_constant": 0.00001,   # was 0.01
+            "wrench_regularization_constant": 0.01, #0.00001,   # was 0.01
 
             "tr_friction": [1, 1],        # barrier function parameters for line/line plus point/line
             "friction_margin": -2,
@@ -241,12 +251,13 @@ class SystemParams(object):
 
         self.controller_params = {
             "IMPEDANCE_STIFFNESS_LIST": [4000, 4000, 4000, 400, 120, 400],
-            # "IMPEDANCE_STIFFNESS_LIST": [1000, 1000, 1000, 100, 30, 100],
+            # "IMPEDANCE_STIFFNESS_LIST": [2000, 2000, 2000, 200, 60, 200],
+            # "IMPEDANCE_STIFFNESS_LIST": [3000, 3000, 3000, 300, 90, 300],
             # "IMPEDANCE_STIFFNESS_LIST": [1000./5., 1000/5., 1000/5., 100/5., 30/5., 100/5.],
             "TORQUE_UPPER": [40, 40, 36, 36, 32, 28, 24],                  # default [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]
             "FORCE_UPPER": [100, 100, 100, 25, 25, 25],                    # default [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]
             "RATE": 100,                                                    # hz (control rate)
-            "INTEGRAL_MULTIPLIER": 60., #30., #20
+            "INTEGRAL_MULTIPLIER": 30., #30., #20
             # "INTEGRAL_MULTIPLIER": 10.,
             "pivot_params": pivot_params,
             "guarded_move_params": guarded_move_params,

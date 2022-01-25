@@ -15,7 +15,7 @@ delta_rotate_left = {
     "name": "delta_rotate_left",
     "command_flag" : 1,
     "mode" : -1,
-    "delta_theta" : np.pi/6,
+    "delta_theta" : np.pi/8,
     "delta_x_pivot" : 0.0,
     "delta_s" : 0.0,
 }
@@ -24,7 +24,7 @@ delta_rotate_right = {
     "name": "delta_rotate_right",
     "command_flag" : 1,
     "mode" : -1,
-    "delta_theta" : -np.pi/6,
+    "delta_theta" : -np.pi/8,
     "delta_x_pivot" : 0.0,
     "delta_s" : 0.0,
 }
