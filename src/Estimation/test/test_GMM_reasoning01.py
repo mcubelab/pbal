@@ -54,8 +54,10 @@ def Kalman_update(x_prev,P_prev,z_current,H,Q,R):
 	M2 = R+np.dot(H,np.dot(P_predicted,np.transpose(H)))
 	kalman_gain = np.transpose(np.linalg.solve(np.transpose(M2),np.transpose(M1)))
 	x_updated = x_predicted + np.dot(kalman_gain,measurement_residual)
-	P_updated = np.dot(np.identity(4)-np.dot(kalman_gain,H),P_predicted)
+	P_updated = np.dot(np.identity(len(x_prev))-np.dot(kalman_gain,H),P_predicted)
 	return x_updated,P_updated
+
+
 
 
 if __name__ == '__main__':
@@ -89,19 +91,35 @@ if __name__ == '__main__':
 	april_tag_pose_marker_frame_homog =  pose_list_to_matrix([-apriltag_pos[0], -apriltag_pos[1], 0,0.0,0.0,0.0,1.0])
 	vertex_array_marker_frame = np.dot(april_tag_pose_marker_frame_homog,object_vertex_array)
 
-
+	
 
 
 	data_dict = pickle.load(open(my_path+fname, 'rb'))
 
+	update1 = True
 
 
-	d0 = .18
-	s0 = -.06
+	d0 = .15
+	s0 = 0.0
 
-	R=.0001 
-	Q=50000.0*np.identity(4)
-	P=5000.0*np.identity(4)
+	 
+
+	if update1:
+		Q=np.identity(3)
+		P=np.identity(3)
+	else:
+		Q=np.identity(4)
+		P=np.identity(4)
+
+
+	R= 1.0
+	Q = .05*Q
+	P = 1000000.0*P
+
+	Pleft = P 
+	Pright = P 
+	Pboth = P
+
 
 	ee_pose_world =  data_dict['ee_pose_in_world_from_franka_publisher'][0]['msg']
 	contact_pose_homog = pose_list_to_matrix(ee_pose_world)
@@ -113,11 +131,18 @@ if __name__ == '__main__':
 
 	pivot_guess0 = np.transpose(hand_normal_world)*d0+hand_midpoint_world +s0*np.transpose(hand_tangent_world)
 
-	X = np.array([pivot_guess0[0][0],pivot_guess0[0][2],d0,s0])
+	if update1:
+		X = np.array([pivot_guess0[0][0],pivot_guess0[0][2],d0])
+	else:
+		X = np.array([pivot_guess0[0][0],pivot_guess0[0][2],d0,s0])
 
+	Xleft = X 
+	Xright = X 
+	Xboth = X 
 
-
-	pivot_array = []
+	pivot_array_left = []
+	pivot_array_right = []
+	pivot_array_both = []
 
 	x_scatter_array = []
 	y_scatter_array = []
@@ -148,18 +173,29 @@ if __name__ == '__main__':
 
 		z1 = np.dot(np.array([[hand_midpoint_world[0],hand_midpoint_world[2]]]),-hand_2D_normal_world)[0][0]
 		z2 = np.dot(np.array([[hand_midpoint_world[0],hand_midpoint_world[2]]]),-hand_2D_tangent_world)[0][0]
+		
 
-		z=np.array([z1,z2])
+		if update1:
+			z = z1
+			H = np.transpose(np.vstack([-hand_2D_normal_world,1.0]))
+		else:
+			z=np.array([z1,z2])
 
-		H1 = np.transpose(np.vstack([-hand_2D_normal_world,1.0,0.0]))
-		H2 = np.transpose(np.vstack([-hand_2D_tangent_world,0.0,1.0]))
+			H1 = np.transpose(np.vstack([-hand_2D_normal_world,1.0,0.0]))
+			H2 = np.transpose(np.vstack([-hand_2D_tangent_world,0.0,1.0]))
 
-		H=np.vstack([H1,H2])
+			H=np.vstack([H1,H2])
 
-		X,P = Kalman_update(X,P,z,H,Q,R)
+		Xboth,Pboth = Kalman_update(Xboth,Pboth,z,H,Q,R)
+		if hand_2D_normal_world[0]<-.06:
+			Xleft,Pleft = Kalman_update(Xleft,Pleft,z,H,Q,R)
+		if hand_2D_normal_world[0]>.06:
+			Xright,Pright = Kalman_update(Xright,Pright,z,H,Q,R)
 		# print 'X', X 
 		# print 'P', P
-		pivot_array.append(X)
+		pivot_array_left.append(Xleft)
+		pivot_array_right.append(Xright)
+		pivot_array_both.append(Xboth)
 
 
 
@@ -227,13 +263,15 @@ if __name__ == '__main__':
 		axs.plot(hand_points_world[0,:],hand_points_world[2,:],color = 'red')
 		axs.plot([hand_midpoint_world[0],hand_midpoint_world[0]+hand_frame_length*hand_normal_world[0]],
 				 [hand_midpoint_world[2],hand_midpoint_world[2]+hand_frame_length*hand_normal_world[2]],color = 'green')
-		axs.scatter(pivot_array[count_hand][0],pivot_array[count_hand][1],color = 'red')
+		axs.scatter(pivot_array_left[count_hand][0],pivot_array_left[count_hand][1],color = 'red')
+		axs.scatter(pivot_array_right[count_hand][0],pivot_array_right[count_hand][1],color = 'red')
+		axs.scatter(pivot_array_both[count_hand][0],pivot_array_both[count_hand][1],color = 'red')
 		axs.scatter(pivot1_info[0],pivot1_info[1],color = 'green')
 		axs.scatter(pivot2_info[0],pivot2_info[1],color = 'green')
 		
 		
 		
-		axs.set_ylim([-.2, .3])
+		axs.set_ylim([-.5, .3])
 		axs.set_xlim([.25, .75])
 
 
