@@ -7,6 +7,7 @@ from scipy.spatial.transform import Rotation as Rotation_class
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from matplotlib import cm
+import copy
 
 def load_shape_data(name_in):
     curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -28,7 +29,8 @@ def load_shape_data(name_in):
 def pose_list_to_matrix(pose_in):
 	r = Rotation_class.from_quat(pose_in[3:7])
 	# np.horzcat[r.as_dcm()
-	rotation_matrix =  r.as_dcm()
+	# rotation_matrix =  r.as_dcm()
+	rotation_matrix =  r.as_matrix()
 	translation_vector = np.array([pose_in[0:3]])
 	return np.vstack([
 		np.hstack([rotation_matrix,np.transpose(translation_vector)]),
@@ -57,6 +59,40 @@ def Kalman_update(x_prev,P_prev,z_current,H,Q,R):
 	P_updated = np.dot(np.identity(len(x_prev))-np.dot(kalman_gain,H),P_predicted)
 	return x_updated,P_updated
 
+def synchronize_messages(data_dict,dt):
+
+
+	new_data_dict = {}
+	index_list = {}
+	min_time_list = []
+	max_time_list = []
+
+	for message_type in data_dict.keys():
+		min_time_list.append(data_dict[message_type][0]['time'])
+		max_time_list.append(data_dict[message_type][-1]['time'])
+		new_data_dict[message_type] = []
+		index_list[message_type] = 0
+
+	min_time = np.max(min_time_list)
+	max_time = np.min(max_time_list)
+
+	current_time = min_time
+
+	while current_time<=max_time:
+		for message_type in data_dict.keys():
+
+			while data_dict[message_type][index_list[message_type]]['time']<current_time:
+				index_list[message_type]+=1
+				
+			if data_dict[message_type][index_list[message_type]]['time']>current_time:
+				new_data_dict[message_type].append(copy.deepcopy(data_dict[message_type][index_list[message_type]-1]))
+			else:
+				new_data_dict[message_type].append(copy.deepcopy(data_dict[message_type][index_list[message_type]]))
+
+			new_data_dict[message_type][-1]['time']=current_time
+
+		current_time+=dt 
+	return new_data_dict	
 
 
 
@@ -65,6 +101,9 @@ if __name__ == '__main__':
 	fname = '2022-01-21-17-16-17-experiment012-rectangle-no-mass.pickle'
 	# fname = '2022-01-21-17-17-32-experiment013-rectangle-no-mass.pickle'
 	
+	l_contact = .1 
+	force_scale = .015
+
 	fig = plt.figure()
 	# axs = fig.add_subplot(111,projection = '3d')
 	axs = fig.add_subplot(111)
@@ -80,11 +119,12 @@ if __name__ == '__main__':
 
 	object_vertex_array = np.hstack([object_vertex_array,np.transpose(np.array([object_vertex_array[:,0]]))])
 
-	hand_normal_offset = -.01
-	hand_points = np.array([[hand_normal_offset]*2,
+
+	hand_points = np.array([[0.0,0.0],
 	                        [.0505,-.0505],
 	                        [0.0375,0.0375],
 	                        [1.0,1.0]])
+	hand_midpoint = np.array([0.0,0.0,.0375,1.0])
 	hand_tangent = np.array([[0.0],[1.0],[0.0],[0.0]])
 	hand_normal = np.array([[1.0],[0.0],[0.0],[0.0]])
 
@@ -96,25 +136,60 @@ if __name__ == '__main__':
 
 	data_dict = pickle.load(open(my_path+fname, 'rb'))
 
-	update1 = True
+	data_dict = synchronize_messages(data_dict,dt=.03)
+
+	temp_sum1a = np.zeros([3,3])
+	temp_sum2a = np.zeros(3)
+	temp_sum1b = np.zeros([3,3])
+	temp_sum2b = np.zeros(3)
 
 
-	d0 = .15
+	for i in range(len(data_dict['ee_pose_in_world_from_franka_publisher'])):
+		ee_pose_world =  data_dict['ee_pose_in_world_from_franka_publisher'][i]['msg']
+		contact_pose_homog = pose_list_to_matrix(ee_pose_world)
+		hand_points_world = np.dot(contact_pose_homog,hand_points)	
+		hand_midpoint_world = np.dot(contact_pose_homog,hand_midpoint)
+
+		hand_normal_world = np.dot(contact_pose_homog,hand_normal)
+		hand_2D_normal_world = np.array([hand_normal_world[0],hand_normal_world[2]])
+		hand_2D_normal_world = hand_2D_normal_world/np.sqrt(np.sum(hand_2D_normal_world ** 2))
+
+		hand_tangent_world = np.dot(contact_pose_homog,hand_tangent)
+		hand_2D_tangent_world = np.array([hand_tangent_world[0],hand_tangent_world[2]])
+		hand_2D_tangent_world = hand_2D_tangent_world/np.sqrt(np.sum(hand_2D_tangent_world ** 2))		
+
+		z = np.dot(np.array([[hand_midpoint_world[0],hand_midpoint_world[2]]],dtype=np.float_),-hand_2D_normal_world)[0][0]
+
+		temp_mat = np.array([[-hand_2D_normal_world[0,0],-hand_2D_normal_world[1,0],1.0]],dtype=np.float_)
+		temp_vec = z*np.array([-hand_2D_normal_world[0,0],-hand_2D_normal_world[1,0],1.0],dtype=np.float_)
+
+		temp_mat =  np.dot(np.transpose(temp_mat),temp_mat)
+
+		if hand_2D_normal_world[0]>.06:
+			temp_sum1a = temp_sum1a+temp_mat
+			temp_sum2a = temp_sum2a+temp_vec
+		if hand_2D_normal_world[0]<-.06:
+			temp_sum1b = temp_sum1b+temp_mat
+			temp_sum2b = temp_sum2b+temp_vec
+
+	pivot1_info = np.linalg.solve(temp_sum1a,temp_sum2a)
+	pivot2_info = np.linalg.solve(temp_sum1b,temp_sum2b)
+
+
+
+
+	d0 = .01
 	s0 = 0.0
 
-	 
+	
+	Q=np.identity(3)
+	P=np.identity(3)
 
-	if update1:
-		Q=np.identity(3)
-		P=np.identity(3)
-	else:
-		Q=np.identity(4)
-		P=np.identity(4)
 
 
 	R= 1.0
-	Q = .05*Q
-	P = 1000000.0*P
+	Q = .01*Q
+	P = 100.0*P
 
 	Pleft = P 
 	Pright = P 
@@ -131,150 +206,100 @@ if __name__ == '__main__':
 
 	pivot_guess0 = np.transpose(hand_normal_world)*d0+hand_midpoint_world +s0*np.transpose(hand_tangent_world)
 
-	if update1:
-		X = np.array([pivot_guess0[0][0],pivot_guess0[0][2],d0])
-	else:
-		X = np.array([pivot_guess0[0][0],pivot_guess0[0][2],d0,s0])
+
+	X = np.array([pivot_guess0[0][0],pivot_guess0[0][2],d0])
+
 
 	Xleft = X 
 	Xright = X 
 	Xboth = X 
 
-	pivot_array_left = []
-	pivot_array_right = []
-	pivot_array_both = []
-
-	x_scatter_array = []
-	y_scatter_array = []
-	z_scatter_array = []
 
 
-	temp_sum1a = np.zeros([3,3])
-	temp_sum2a = np.zeros(3)
-	temp_sum1b = np.zeros([3,3])
-	temp_sum2b = np.zeros(3)
 
 
-	num_data1 = 0
-	num_data2 = 0
-	for i in range(len(data_dict['ee_pose_in_world_from_franka_publisher'])):
-		ee_pose_world =  data_dict['ee_pose_in_world_from_franka_publisher'][i]['msg']
+	plot_increment = 10
+	count = 0
+	while  count <len(data_dict['tag_detections']):
+		ee_pose_world =  data_dict['ee_pose_in_world_from_franka_publisher'][count]['msg']
+		measured_base_wrench_6D = -np.array(data_dict['end_effector_sensor_in_base_frame'][count]['msg'])
+		measured_contact_wrench_6D = -np.array(data_dict['end_effector_sensor_in_end_effector_frame'][count]['msg'])
+
 		contact_pose_homog = pose_list_to_matrix(ee_pose_world)
-		hand_points_world = np.dot(contact_pose_homog,hand_points)	
-		hand_midpoint_world = np.dot(hand_points_world,np.array([.5,.5]))
 
+		hand_points_world = np.dot(contact_pose_homog,hand_points)
+		hand_midpoint_world = np.dot(contact_pose_homog,hand_midpoint)
+		
 		hand_normal_world = np.dot(contact_pose_homog,hand_normal)
 		hand_2D_normal_world = np.array([hand_normal_world[0],hand_normal_world[2]])
 		hand_2D_normal_world = hand_2D_normal_world/np.sqrt(np.sum(hand_2D_normal_world ** 2))
 
 		hand_tangent_world = np.dot(contact_pose_homog,hand_tangent)
 		hand_2D_tangent_world = np.array([hand_tangent_world[0],hand_tangent_world[2]])
-		hand_2D_tangent_world = hand_2D_tangent_world/np.sqrt(np.sum(hand_2D_tangent_world ** 2))		
-
-		z1 = np.dot(np.array([[hand_midpoint_world[0],hand_midpoint_world[2]]]),-hand_2D_normal_world)[0][0]
-		z2 = np.dot(np.array([[hand_midpoint_world[0],hand_midpoint_world[2]]]),-hand_2D_tangent_world)[0][0]
+		hand_2D_tangent_world = hand_2D_tangent_world/np.sqrt(np.sum(hand_2D_tangent_world ** 2))	
 		
-
-		if update1:
-			z = z1
-			H = np.transpose(np.vstack([-hand_2D_normal_world,1.0]))
-		else:
-			z=np.array([z1,z2])
-
-			H1 = np.transpose(np.vstack([-hand_2D_normal_world,1.0,0.0]))
-			H2 = np.transpose(np.vstack([-hand_2D_tangent_world,0.0,1.0]))
-
-			H=np.vstack([H1,H2])
-
-		Xboth,Pboth = Kalman_update(Xboth,Pboth,z,H,Q,R)
-		if hand_2D_normal_world[0]<-.06:
-			Xleft,Pleft = Kalman_update(Xleft,Pleft,z,H,Q,R)
-		if hand_2D_normal_world[0]>.06:
-			Xright,Pright = Kalman_update(Xright,Pright,z,H,Q,R)
-		# print 'X', X 
-		# print 'P', P
-		pivot_array_left.append(Xleft)
-		pivot_array_right.append(Xright)
-		pivot_array_both.append(Xboth)
-
-
-
-		x_scatter_array.append(-hand_2D_normal_world[0,0])
-		y_scatter_array.append(-hand_2D_normal_world[1,0])
-		z_scatter_array.append(z1)
-
-		temp_mat = np.array([[-hand_2D_normal_world[0,0],-hand_2D_normal_world[1,0],1.0]])
-		temp_vec = z1*np.array([-hand_2D_normal_world[0,0],-hand_2D_normal_world[1,0],1.0])
-
-		temp_mat =  np.dot(np.transpose(temp_mat),temp_mat)
-
-		if hand_2D_normal_world[0]>.06:
-			temp_sum1a = temp_sum1a+temp_mat
-			temp_sum2a = temp_sum2a+temp_vec
-			num_data1+=1
-		if hand_2D_normal_world[0]<-.06:
-			temp_sum1b = temp_sum1b+temp_mat
-			temp_sum2b = temp_sum2b+temp_vec
-			num_data2+=1
-
-	pivot1_info = np.linalg.solve(temp_sum1a,temp_sum2a)
-	pivot2_info = np.linalg.solve(temp_sum1b,temp_sum2b)
-
-	print temp_sum1a
-	print temp_sum1b
-	print temp_sum2a
-	print temp_sum2b
-	print pivot1_info
-	print pivot2_info
-	print num_data1,num_data2
-
-	# axs.scatter(x_scatter_array,y_scatter_array,z_scatter_array)
-	# axs.scatter(x_scatter_array,z_scatter_array)
-	# plt.show()
-
-	plot_increment = 10
-
-	count_camera = 0
-	count_hand = 0
-	while  count_camera <len(data_dict['tag_detections']):
-
-		while data_dict['ee_pose_in_world_from_franka_publisher'][count_hand]['time'] < data_dict['tag_detections'][count_camera]['time']:
-			count_hand+=1
-
-		ee_pose_world =  data_dict['ee_pose_in_world_from_franka_publisher'][count_hand]['msg']
-		contact_pose_homog = pose_list_to_matrix(ee_pose_world)
-
-		hand_points_world = np.dot(contact_pose_homog,hand_points)
-		hand_midpoint_world = np.dot(hand_points_world,np.array([.5,.5]))
-		hand_normal_world = np.dot(contact_pose_homog,hand_normal)
-		hand_tangent_world = np.dot(contact_pose_homog,hand_tangent)
-
-		tag_camera_frame_homog = pose_list_to_matrix(data_dict['tag_detections'][count_camera]['msg']['position']+data_dict['tag_detections'][count_camera]['msg']['orientation'])
+		tag_camera_frame_homog = pose_list_to_matrix(data_dict['tag_detections'][count]['msg']['position']+data_dict['tag_detections'][count]['msg']['orientation'])
 		vertex_array_world_frame = np.dot(camera_to_world_homog,np.dot(tag_camera_frame_homog,vertex_array_marker_frame))
+		
 		# print vertex_array_world_frame[1,:]
 		obj_x_coords = vertex_array_world_frame[0,:]
 		obj_y_coords = vertex_array_world_frame[2,:]
 
-		axs.clear()
 
-		hand_frame_length = .03
-		axs.plot([-1,1],[0,0])
-		axs.plot(obj_x_coords, obj_y_coords,color = 'blue')
-		axs.plot(hand_points_world[0,:],hand_points_world[2,:],color = 'red')
-		axs.plot([hand_midpoint_world[0],hand_midpoint_world[0]+hand_frame_length*hand_normal_world[0]],
-				 [hand_midpoint_world[2],hand_midpoint_world[2]+hand_frame_length*hand_normal_world[2]],color = 'green')
-		axs.scatter(pivot_array_left[count_hand][0],pivot_array_left[count_hand][1],color = 'red')
-		axs.scatter(pivot_array_right[count_hand][0],pivot_array_right[count_hand][1],color = 'red')
-		axs.scatter(pivot_array_both[count_hand][0],pivot_array_both[count_hand][1],color = 'red')
-		axs.scatter(pivot1_info[0],pivot1_info[1],color = 'green')
-		axs.scatter(pivot2_info[0],pivot2_info[1],color = 'green')
+		contact_point = measured_contact_wrench_6D[-1]/measured_contact_wrench_6D[0]
+		contact_point = np.max([np.min([contact_point,l_contact/2]),-l_contact/2])
+		alpha_2 = (contact_point+l_contact/2)/(l_contact)
+		alpha_1 = 1-alpha_2
+		hand_cop = np.dot(hand_points_world,np.array([alpha_1,alpha_2]))
+
+
+
+		z1 = np.dot(np.array([[hand_midpoint_world[0],hand_midpoint_world[2]]],dtype=np.float_),-hand_2D_normal_world)[0][0]
+		H1 = np.transpose(np.vstack([-hand_2D_normal_world,1.0]))
+
+		alpha_z2 = .01
+		z2 = alpha_z2*((hand_cop[0]*measured_base_wrench_6D[2])-(hand_cop[2]*measured_base_wrench_6D[0]))
+		H2 = alpha_z2*np.array([[measured_base_wrench_6D[2],-measured_base_wrench_6D[0],0.0]])
+
+		z = np.array([z1,z2])
+		H = np.vstack([H1,H2])
+
+		Xboth,Pboth = Kalman_update(Xboth,Pboth,z,H,Q,R)
+		if hand_2D_normal_world[0]<-.03:
+			Xleft,Pleft = Kalman_update(Xleft,Pleft,z,H,Q,R)
+		if hand_2D_normal_world[0]>.00:
+			Xright,Pright = Kalman_update(Xright,Pright,z,H,Q,R)
+
+
+
+
+		if count%plot_increment==0:
+			axs.clear()
 		
-		
-		
-		axs.set_ylim([-.5, .3])
-		axs.set_xlim([.25, .75])
+			hand_frame_length = .03
+			axs.plot([-1,1],[0,0])
+			axs.plot(obj_x_coords, obj_y_coords,color = 'blue')
+			axs.plot(hand_points_world[0,:],hand_points_world[2,:],color = 'red')
+
+			# axs.plot([hand_midpoint_world[0],hand_midpoint_world[0]+hand_frame_length*hand_normal_world[0,0]],
+			# 		 [hand_midpoint_world[2],hand_midpoint_world[2]+hand_frame_length*hand_normal_world[2,0]],color = 'green')
+			
+			axs.scatter(Xleft[0],Xleft[1],color = 'red')
+			axs.scatter(Xright[0],Xright[1],color = 'red')
+			axs.scatter(Xboth[0],Xboth[1],color = 'red')
+			axs.scatter(pivot1_info[0],pivot1_info[1],color = 'green')
+			axs.scatter(pivot2_info[0],pivot2_info[1],color = 'green')
 
 
-		plt.pause(0.01)
+			axs.plot([hand_cop[0],hand_cop[0]+force_scale*measured_base_wrench_6D[0]],
+					[hand_cop[2],hand_cop[2]+force_scale*measured_base_wrench_6D[2]],color = 'green')
+			axs.scatter(hand_cop[0],hand_cop[2],color = 'blue')
+			
+			axs.axis('equal')
+			axs.set_ylim([-.5, .3])
+			axs.set_xlim([.25, .75])
 
-		count_camera+=plot_increment
+
+			plt.pause(0.01)
+
+		count+=1
