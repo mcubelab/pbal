@@ -39,7 +39,6 @@ class ModularBarrierController(object):
         # previous solution
         # self.prev_sol = None
 
-
     def solve_for_delta_wrench(self):
         P, q, proj_vec_list, error_list = \
             self.build_quadratic_program_cost()
@@ -56,7 +55,7 @@ class ModularBarrierController(object):
            print(e.message)
            delta_wrench = np.array([0,0,0])
         tsol = time.time() - t0;
-        print("QP Solve Time WS [ms]: ", 1000. * tsol)
+        # print("QP Solve Time WS [ms]: ", 1000. * tsol)
   
         #delta_wrench =  self.solve_quadratic_program(P, q, Aiq, slacks)
         delta_wrench_unconstrained = np.linalg.solve(2*P, -q) 
@@ -69,6 +68,7 @@ class ModularBarrierController(object):
     def build_debug_string(self, delta_wrench, delta_wrench_unconstrained,
         proj_vec_list, error_list, Aiq, biq, slacks, label_list_cnstr, solve_time, 
         quadratic_cost_term, linear_cost_term):
+
 
         debug_dict = {
             "mode" : self.mode,

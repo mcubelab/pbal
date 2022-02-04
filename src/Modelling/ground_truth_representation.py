@@ -24,7 +24,7 @@ from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from std_msgs.msg import Float32MultiArray, Float32, Bool, String
 import time
 
-import Modelling.ros_helper as ros_helper
+import Helpers.ros_helper as ros_helper
 from Modelling.system_params import SystemParams
 from polygon_representation import PolygonRepresentation
 

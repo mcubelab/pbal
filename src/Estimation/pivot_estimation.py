@@ -23,9 +23,12 @@ import tf.transformations as tfm
 import tf2_ros
 
 from geometry_msgs.msg import PoseStamped, TransformStamped
+from pbal.msg import SlidingStateStamped 
 from std_msgs.msg import Bool, String
 from visualization_msgs.msg import Marker
 
+
+import Helpers.pbal_msg_helper as pmh
 import Helpers.ros_helper as rh
 import Helpers.timing_helper as th
 from Modelling.system_params import SystemParams
@@ -184,9 +187,11 @@ def pivot_sliding_commanded_flag_callback(data):
 
 def sliding_state_callback(data):
     global sliding_measured_boolean
-    if data.data != '':
-        sliding_state_dict = json.loads(data.data) 
-        sliding_measured_boolean = sliding_state_dict['psf']
+    sliding_dict = pmh.sliding_stamped_to_sliding_dict(
+        sliding_msg=data)
+    # if data.data != '':
+        # sliding_state_dict = json.loads(data.data) 
+    sliding_measured_boolean = sliding_dict['psf']
 
 def ee_pose_callback(data):
     global panda_hand_in_base_pose
@@ -195,23 +200,25 @@ def ee_pose_callback(data):
 if __name__ == '__main__':
 
     node_name = "pivot_estimator"
-    rospy.init_node(node_name, anonymous=True)
+    rospy.init_node(node_name)
     sys_params = SystemParams()
     rate = rospy.Rate(sys_params.estimator_params["RATE"])
 
     # set up torque cone boundary subscriber
     torque_boundary_boolean = None
-    torque_cone_boundary_test_sub = rospy.Subscriber("/torque_cone_boundary_test", 
+    torque_cone_boundary_test_sub = rospy.Subscriber(
+        "/torque_cone_boundary_test", 
         Bool,  torque_cone_boundary_test_callback)
 
     # set up sliding state subscriber
     sliding_measured_boolean = None
-    sliding_state_sub = rospy.Subscriber("/sliding_state", String, 
-        sliding_state_callback)
+    sliding_state_sub = rospy.Subscriber(
+        "/sliding_state", SlidingStateStamped, sliding_state_callback)
 
     # set up pivot sliding flag subscriber
     pivot_sliding_commanded_boolean = None
-    pivot_sliding_commanded_flag_sub = rospy.Subscriber("/pivot_sliding_commanded_flag", 
+    pivot_sliding_commanded_flag_sub = rospy.Subscriber(
+        "/pivot_sliding_commanded_flag", 
         Bool,  pivot_sliding_commanded_flag_callback)
 
     # subscribe to ee pose data
@@ -222,7 +229,7 @@ if __name__ == '__main__':
 
     # set up pivot Point publisher
     frame_message = initialize_frame()
-    pivot_xyz_pub = rospy.Publisher('/pivot_frame', TransformStamped, queue_size=10)      
+    pivot_xyz_pub = rospy.Publisher('/pivot_frame_estimated', TransformStamped, queue_size=10)      
 
     # set up pivot marker publisher
     marker_message = initialize_marker()
@@ -273,6 +280,7 @@ if __name__ == '__main__':
 
     print('starting pivot estimation loop')
     while not rospy.is_shutdown():
+        # print (num_data_points)
 
         t0 = time.time()
 
@@ -393,6 +401,8 @@ if __name__ == '__main__':
                 pivot_xyz_pub.publish(frame_message)
                 pivot_frame_broadcaster.sendTransform(frame_message)
                 pivot_marker_pub.publish(marker_message)
+
+                #print(pivot_xyz)
 
         # update time deque
         time_deque.append(1000 * (time.time() - t0))   

@@ -127,6 +127,17 @@ def pose_stamped2list(msg):
             float(msg.pose.orientation.w),
             ]
 
+def transform_stamped2list(msg):
+    return [float(msg.transform.translation.x),
+            float(msg.transform.translation.y),
+            float(msg.transform.translation.z),
+            float(msg.transform.rotation.x),
+            float(msg.transform.rotation.y),
+            float(msg.transform.rotation.z),
+            float(msg.transform.rotation.w),
+            ]
+
+
 def list2pose_twod(pose):
     msg = Pose2D()
     msg.x = pose[0]
@@ -192,6 +203,14 @@ def matrix_from_pose(pose):
     pose_list = pose_stamped2list(pose)
     trans = pose_list[0:3]
     quat = pose_list[3:7]
+    T = tf.transformations.quaternion_matrix(quat)
+    T[0:3,3] = trans
+    return T
+
+def matrix_from_transform(transform):
+    transform_list = transform_stamped2list(transform)
+    trans = transform_list[0:3]
+    quat = transform_list[3:7]
     T = tf.transformations.quaternion_matrix(quat)
     T[0:3,3] = trans
     return T

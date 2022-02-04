@@ -10,7 +10,7 @@ import pdb
 import numpy as np
 import json
 import time
-import Modelling.ros_helper as ros_helper
+import Helpers.ros_helper as ros_helper
 
 from std_msgs.msg import String
 from Modelling.system_params import SystemParams
@@ -28,7 +28,8 @@ if __name__ == '__main__':
     #     "/camera/color/image_raw/compressed",
     #     "/ground_truth_message",
     #     "/gravity_torque", 
-    #     "/pivot_frame", 
+    #     "/pivot_frame_realsense",
+    #     "/pivot_frame_estimated", 
     #     "/generalized_positions", 
     #     '/barrier_func_control_command', 
     #     '/qp_debug_message',
@@ -37,25 +38,26 @@ if __name__ == '__main__':
     #     '/friction_parameters', 
     #     '/sliding_state'
     # ]
-    # rostopic_list = [
-    #     "/processed_image"
-    # ]
-
     rostopic_list = [
-        # "/camera/color/image_raw/compressed",
-        "/ground_truth_message",
-        # "/gravity_torque", 
-        # "/pivot_frame", 
-        # "/generalized_positions", 
-        '/barrier_func_control_command',
-        '/qp_debug_message',
-        '/ee_pose_in_world_from_franka_publisher',
-        "/end_effector_sensor_in_end_effector_frame", 
-        "/end_effector_sensor_in_base_frame", 
-        '/friction_parameters', 
-        # '/sliding_state',
-        '/tag_detections',
+        "/processed_image"
     ]
+
+    # rostopic_list = [
+    #     # "/camera/color/image_raw/compressed",
+    #     "/ground_truth_message",
+    #     # "/gravity_torque", 
+    #     # "/pivot_frame_realsense",
+    #     # "/pivot_frame_estimated", 
+    #     # "/generalized_positions", 
+    #     '/barrier_func_control_command',
+    #     '/qp_debug_message',
+    #     '/ee_pose_in_world_from_franka_publisher',
+    #     "/end_effector_sensor_in_end_effector_frame", 
+    #     "/end_effector_sensor_in_base_frame", 
+    #     '/friction_parameters', 
+    #     # '/sliding_state',
+    #     '/tag_detections',
+    # ]
 
 
     # find shape name

@@ -27,19 +27,24 @@ import time
 import tf
 
 
-from franka_interface import ArmInterface 
-import franka_helper
+# from franka_interface import ArmInterface 
+# import franka_helper
 from ground_truth_representation import GroundTruthRepresentation
-import Modelling.ros_helper as ros_helper
+import Helpers.ros_helper as ros_helper
 from Modelling.system_params import SystemParams
 from polygon_representation import PolygonRepresentation
 
 
+def ee_pose_callback(data):
+    global panda_hand_in_base_pose
+    panda_hand_in_base_pose = data
 
 def apriltag_message_callback(apriltag_array):
     global object_theta,object_position,hand_theta,hand_position, apriltag_id
     global obj_apriltag_in_camera_pose, base_in_base_pose, cam_in_base_pose, marker_pose_apriltag_frame
     global object_detected
+    global panda_hand_in_base_pose
+
 
     obj_apriltag_list = [detection for detection in apriltag_array.detections if detection.id == (apriltag_id,)]
  
@@ -66,14 +71,13 @@ def apriltag_message_callback(apriltag_array):
         object_detected = False
 
 
-    # face_center franka pose
-    endpoint_pose_franka = arm.endpoint_pose()
+    # # face_center franka pose
+    # endpoint_pose_franka = arm.endpoint_pose()
 
-    # face_center list
-    endpoint_pose_list = franka_helper.franka_pose2list(endpoint_pose_franka)
+    # # face_center list
+    endpoint_pose_list = ros_helper.pose_stamped2list(panda_hand_in_base_pose)
 
-    contact_pose_stamped = ros_helper.list2pose_stamped(endpoint_pose_list)
-    contact_pose_homog = ros_helper.matrix_from_pose(contact_pose_stamped)
+    contact_pose_homog = ros_helper.matrix_from_pose(panda_hand_in_base_pose)
 
     hand_theta = -get_orientation_in_base(contact_pose_homog)
     hand_position = np.array([endpoint_pose_list[0],endpoint_pose_list[2]])
@@ -132,13 +136,15 @@ if __name__ == '__main__':
     marker_quat_apriltag_frame = tf.transformations.quaternion_from_euler(0, 0, 0)
     marker_pose_apriltag_frame = ros_helper.list2pose_stamped([-apriltag_pos[0], -apriltag_pos[1], 0] + marker_quat_apriltag_frame.tolist())
 
-    arm = ArmInterface()
-    #pdb.set_trace()
-
     apriltag_message_sub = rospy.Subscriber(
-   '/tag_detections',
-    AprilTagDetectionArray,
-    apriltag_message_callback)
+        '/tag_detections',
+        AprilTagDetectionArray,
+        apriltag_message_callback)
+
+    panda_hand_in_base_pose = None
+    panda_hand_in_base_pose_sub = rospy.Subscriber(
+        '/ee_pose_in_world_from_franka_publisher', PoseStamped, 
+        ee_pose_callback, queue_size=1)
 
     # publisher for qp debug message
     ground_truth_pub = rospy.Publisher('/ground_truth_message', String,
@@ -178,8 +184,6 @@ if __name__ == '__main__':
         my_ground_truth.update_object_pose(position = object_pose[[0,1]], theta = object_pose[2])
         my_ground_truth.update_contacts()
 
-
-
         output_dict = {
             "hp": hand_pose.tolist(),
             "op": object_pose.tolist(),
@@ -195,6 +199,7 @@ if __name__ == '__main__':
         }
 
         ground_truth_msg.data = json.dumps(output_dict)
+        pdb.set_trace()
         ground_truth_pub.publish(ground_truth_msg)
 
         rate.sleep()

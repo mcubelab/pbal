@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
     # initialize node
     node_name = 'obj_apriltag_pose_in_world_from_camera'
-    rospy.init_node(node_name, anonymous=True)
+    rospy.init_node(node_name)
     sys_params = SystemParams()
     rate = rospy.Rate(sys_params.hal_params["CAMERA_RATE"])      
 

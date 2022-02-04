@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     # initialize node
     node_name = 'ft_sensor_in_base_frame'
-    rospy.init_node(node_name, anonymous=True)
+    rospy.init_node(node_name)
     sys_params = SystemParams()
     rate = rospy.Rate(sys_params.hal_params["RATE"])     
 

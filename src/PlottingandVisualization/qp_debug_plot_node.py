@@ -4,15 +4,17 @@ import rospy
 import pdb
 import json
 import numpy as np
-from std_msgs.msg import String
+from pbal.msg import QPDebugStamped
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
 def qp_debug_message_callback(data):
     global qp_debug_dict
-    if data.data != '':
-        qp_debug_dict = json.loads(data.data) 
+      if data.qp_debug != '':
+        # qp_debug_dict = json.loads(data.data)
+        qp_debug_dict = pmh.qp_debug_stamped_to_qp_debug_dict(
+            data)
 
 if __name__ == '__main__':
 
@@ -23,7 +25,7 @@ if __name__ == '__main__':
 
     qp_debug_message_sub = rospy.Subscriber(
        '/qp_debug_message',
-        String,
+        QPDebugStamped,
         qp_debug_message_callback)
 
     print("Waiting for qp debug message")

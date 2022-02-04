@@ -12,26 +12,70 @@ import rospy
 import time
 import tf
 
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, TransformStamped
 
 from franka_interface import ArmInterface 
+from franka_tools import CollisionBehaviourInterface
 
 import Helpers.franka_helper as fh
 import Helpers.ros_helper as rh
 import Helpers.timing_helper as th
 from Modelling.system_params import SystemParams
 
+def impedance_target_callback(data):
+    global arm, IMPEDANCE_STIFFNESS_LIST
+    impedance_target_list = [
+        data.transform.translation.x,
+        data.transform.translation.y,
+        data.transform.translation.z,
+        data.transform.rotation.x,
+        data.transform.rotation.y,
+        data.transform.rotation.z,
+        data.transform.rotation.w,
+    ]
+
+    impedance_target_pose = fh.list2franka_pose(
+        impedance_target_list)
+
+    arm.set_cart_impedance_pose(impedance_target_pose,
+                stiffness=IMPEDANCE_STIFFNESS_LIST)
 
 if __name__ == '__main__':
 
     # initialize node
     node_name = 'ee_pose_in_world_from_franka'
-    rospy.init_node(node_name, anonymous=True)
+    rospy.init_node(node_name)
     sys_params = SystemParams()
     rate = rospy.Rate(sys_params.hal_params["RATE"])             
 
+    # controller params
+    IMPEDANCE_STIFFNESS_LIST = sys_params.controller_params[
+        "IMPEDANCE_STIFFNESS_LIST"]
+    
     # initialize arm
     arm = ArmInterface()
+    rospy.sleep(0.5)
+
+    # setting collision parameters
+    # print("Setting collision behaviour")
+    # collision = CollisionBehaviourInterface()
+    # rospy.sleep(0.5)
+    # torque_upper = sys_params.controller_params["TORQUE_UPPER"] 
+    # force_upper = sys_params.controller_params["FORCE_UPPER"]
+    # collision.set_ft_contact_collision_behaviour(torque_upper=torque_upper, 
+    #     force_upper=force_upper)
+    # rospy.sleep(1.0)
+
+    # cartesian impedance mode
+    # arm.initialize_cartesian_impedance_mode()
+    # arm.set_cart_impedance_pose(arm.endpoint_pose(),
+    #             stiffness=IMPEDANCE_STIFFNESS_LIST)
+    # rospy.sleep(1.0)
+
+    # define subscriber
+    impedance_target_subscriber = rospy.Subscriber(
+        "/target_frame", TransformStamped,
+        impedance_target_callback)
 
     # define publishers
     ee_pose_in_world_from_franka_pub = rospy.Publisher(

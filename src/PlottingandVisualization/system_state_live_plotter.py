@@ -7,25 +7,33 @@ parentdir = os.path.dirname(currentdir)
 gparentdir = os.path.dirname(parentdir)
 sys.path.insert(0,parentdir) 
 sys.path.insert(0,gparentdir)
-import rospy
-import pdb
+
+
+import copy
 import json
 import numpy as np
-from std_msgs.msg import Float32MultiArray, Float32, Bool, String
+import pdb
+import rospy
+import time
+
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
+from pbal.msg import (SlidingStateStamped, FrictionParamsStamped, 
+    ControlCommandStamped, QPDebugStamped)
+from std_msgs.msg import Float32MultiArray, Float32, Bool, String
+
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 
-import time
-import Modelling.ros_helper as ros_helper
+import Helpers.ros_helper as ros_helper
+import Helpers.pbal_msg_helper as pmh
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.lines as lines
 from livestats import livestats
-from models.system_params import SystemParams
-from franka_interface import ArmInterface 
-import franka_helper
-import copy
+from Modelling.system_params import SystemParams
+import Helpers.pbal_msg_helper as pmh
+from franka_interface import ArmInterface
+import Helpers.franka_helper
 
 from cvxopt import matrix, solvers
 from polygon_representation import PolygonRepresentation
@@ -62,14 +70,21 @@ def generalized_positions_callback(data):
 
 def barrier_func_control_command_callback(data):
     global command_msg_list
-    command_msg_list.append(json.loads(data.data))
+    command_msg_dict = pmh.command_stamped_to_command_dict(
+        data)
+    command_msg_queue.append(command_msg_dict)
     if len(command_msg_list) > 100:
         command_msg_list.pop(0)
 
 def qp_debug_message_callback(data):
     global qp_debug_list
     if data.data != '':
-        qp_debug_list.append([json.loads(data.data),time.time()]) 
+        if data.qp_debug != '':
+        # qp_debug_dict = json.loads(data.data)
+        qp_debug_dict = pmh.qp_debug_stamped_to_qp_debug_dict(
+            data)
+        qp_debug_list.append([qp_debug_dict, time.time()])
+        # qp_debug_list.append([json.loads(data.data),time.time()]) 
 
 def end_effector_wrench_callback(data):
     global measured_contact_wrench_list
@@ -101,13 +116,18 @@ def end_effector_wrench_base_frame_callback(data):
 
 def friction_parameter_callback(data):
     global friction_parameter_list
-    friction_parameter_list.append([json.loads(data.data),time.time()])
+    # friction_dict = pmh.friction_stamped_to_friction_dict(
+    #     data)
+    # friction_parameter_list.append(friction_dict)
+    # # friction_parameter_list.append([json.loads(data.data),time.time()])
     if len(friction_parameter_list) > 100:
        friction_parameter_list.pop(0)
 
 def sliding_state_callback(data):
     global sliding_state_list
-    sliding_state_list.append([json.loads(data.data),time.time()])
+    sliding_dict = pmh.sliding_stamped_to_sliding_dict(
+        sliding_msg=data)
+    sliding_state_list.append([sliding_dict ,time.time()])
     if len(sliding_state_list) > 100:
         sliding_state_list.pop(0)
 
@@ -164,9 +184,18 @@ if __name__ == '__main__':
         String,
         barrier_func_control_command_callback)
 
+    control_command_sub = rospy.Subscriber(
+        '/barrier_func_control_command', 
+        ControlCommandStamped,
+        barrier_func_control_command_callback)
+
     qp_debug_message_sub = rospy.Subscriber(
        '/qp_debug_message',
         String,
+        qp_debug_message_callback)
+     qp_debug_message_sub = rospy.Subscriber(
+       '/qp_debug_message',
+        QPDebugStamped,
         qp_debug_message_callback)
 
     end_effector_wrench_sub = rospy.Subscriber(
@@ -179,14 +208,18 @@ if __name__ == '__main__':
         WrenchStamped,  
         end_effector_wrench_base_frame_callback)
 
+    # friction_parameter_sub = rospy.Subscriber(
+    #     '/friction_parameters', 
+    #     String, 
+    #     friction_parameter_callback)
     friction_parameter_sub = rospy.Subscriber(
         '/friction_parameters', 
-        String, 
+        FrictionParamsStamped, 
         friction_parameter_callback)
 
     sliding_state_pub = rospy.Subscriber(
         '/sliding_state', 
-        String,
+        SlidingStateStamped,
         sliding_state_callback)
 
     rospy.sleep(1.0)

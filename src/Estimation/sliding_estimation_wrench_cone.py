@@ -9,27 +9,27 @@ gparentdir = os.path.dirname(parentdir)
 sys.path.insert(0, parentdir)
 sys.path.insert(0, gparentdir)
 
-import rospy
-import pdb
+import collections
 import json
 import numpy as np
-from std_msgs.msg import Float32MultiArray, Float32, Bool, String
-from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
-from scipy.spatial import ConvexHull, convex_hull_plot_2d
-
+import pdb
+import rospy
 import time
-import Modelling.ros_helper as ros_helper
 
-import matplotlib.pyplot as plt
-from matplotlib import cm
-import matplotlib.lines as lines
-from livestats import livestats
+from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
+from std_msgs.msg import Float32MultiArray, Float32, Bool, String
+from pbal.msg import SlidingStateStamped, FrictionParamsStamped
+
+import Helpers.pbal_msg_helper as pmh
+import Helpers.ros_helper as rh
+import Helpers.timing_helper as th
 from Modelling.system_params import SystemParams
+
 
 def end_effector_wrench_callback(data):
     global measured_contact_wrench_list
     end_effector_wrench = data
-    measured_contact_wrench_6D = ros_helper.wrench_stamped2list(
+    measured_contact_wrench_6D = rh.wrench_stamped2list(
             end_effector_wrench)
     measured_contact_wrench = -np.array([
             measured_contact_wrench_6D[0], 
@@ -43,7 +43,7 @@ def end_effector_wrench_callback(data):
 def end_effector_wrench_base_frame_callback(data):
     global measured_base_wrench_list
     base_wrench = data
-    measured_base_wrench_6D = ros_helper.wrench_stamped2list(
+    measured_base_wrench_6D = rh.wrench_stamped2list(
             base_wrench)
     measured_base_wrench = -np.array([
             measured_base_wrench_6D[0], 
@@ -56,39 +56,52 @@ def end_effector_wrench_base_frame_callback(data):
 
 def friction_parameter_callback(data):
     global friction_parameter_list
-    friction_parameter_list.append(json.loads(data.data))
+    friction_dict = pmh.friction_stamped_to_friction_dict(
+        data)
+    friction_parameter_list.append(friction_dict)
+    # friction_parameter_list.append(json.loads(data.data))
     if len(friction_parameter_list) > 3:
        friction_parameter_list.pop(0)
 
 
 
 if __name__ == '__main__':
-    measured_contact_wrench_list = []
-    measured_base_wrench_list = []
-    friction_parameter_list = []
 
+    node_name = 'sliding_estimation_wrench_cone'
+    rospy.init_node(node_name)
     sys_params = SystemParams()
+    rate = rospy.Rate(sys_params.estimator_params["RATE"])
 
-    theta_min_contact = np.arctan(sys_params.controller_params["pivot_params"]["mu_contact"])
-    theta_min_external = np.arctan(sys_params.controller_params["pivot_params"]["mu_ground"])
+    theta_min_contact = np.arctan(
+        sys_params.controller_params["pivot_params"]["mu_contact"])
+    theta_min_external = np.arctan(
+        sys_params.controller_params["pivot_params"]["mu_ground"])
 
     rospy.init_node("sliding_estimation_wrench_cone")
     rospy.sleep(1.0)
 
-    end_effector_wrench_sub = rospy.Subscriber("/end_effector_sensor_in_end_effector_frame", 
+    # subscribers
+    measured_contact_wrench_list = []
+    end_effector_wrench_sub = rospy.Subscriber(
+        "/end_effector_sensor_in_end_effector_frame", 
         WrenchStamped,  end_effector_wrench_callback)
-    end_effector_wrench_base_frame_sub = rospy.Subscriber("/end_effector_sensor_in_base_frame", 
-        WrenchStamped,  end_effector_wrench_base_frame_callback)
-    friction_parameter_sub = rospy.Subscriber('/friction_parameters', String, friction_parameter_callback)
 
+    measured_base_wrench_list = []
+    end_effector_wrench_base_frame_sub = rospy.Subscriber(
+        "/end_effector_sensor_in_base_frame", 
+        WrenchStamped,  end_effector_wrench_base_frame_callback)
+    
+    friction_parameter_list = []
+    # friction_parameter_sub = rospy.Subscriber(
+    #     '/friction_parameters', String, friction_parameter_callback)
+    friction_parameter_sub = rospy.Subscriber('/friction_parameters', 
+        FrictionParamsStamped, friction_parameter_callback)
+
+    # publishers
     sliding_state_pub = rospy.Publisher(
         '/sliding_state', 
-        String,
+        SlidingStateStamped,
         queue_size=10)
-
-    sliding_state_msg = String()
-
-
 
     A_contact_right = np.zeros([1,3])
     B_contact_right = 0
@@ -101,7 +114,8 @@ if __name__ == '__main__':
     B_external_left = np.zeros(0)
     
 
-    #parameters describing how close to the friction cone boundary you need to be
+    #parameters describing how close to the friction 
+    #cone boundary you need to be
     #to be considered sliding
     contact_friction_cone_boundary_margin = 2
     external_friction_cone_boundary_margin = 2
@@ -131,10 +145,15 @@ if __name__ == '__main__':
         "cslf": contact_sliding_left_wrench_measured_flag,
         "csrf": contact_sliding_right_wrench_measured_flag
     }
+
+    # queue for computing frequnecy
+    time_deque = collections.deque(
+        maxlen=sys_params.debug_params['QUEUE_LEN'])
    
     print("Starting sliding state estimation from wrench cone")
-
     while not rospy.is_shutdown():
+
+        t0 = time.time()
 
         update_and_publish = False
 
@@ -241,9 +260,24 @@ if __name__ == '__main__':
             sliding_state_dict["cslf"]= contact_sliding_left_wrench_measured_flag
             sliding_state_dict["csrf"]= contact_sliding_right_wrench_measured_flag
 
-            sliding_state_msg.data = json.dumps(sliding_state_dict)
+            # sliding_state_msg.data = json.dumps(sliding_state_dict)
+            sliding_state_msg = pmh.sliding_dict_to_sliding_stamped(
+                sliding_dict=sliding_state_dict)
 
             sliding_state_pub.publish(sliding_state_msg)
+
+        # update time deque
+        time_deque.append(1000 * (time.time() - t0))   
+
+        # log timing info
+        if len(time_deque) == sys_params.debug_params['QUEUE_LEN']:
+            rospy.loginfo_throttle(sys_params.debug_params["LOG_TIME"], 
+                (node_name + " runtime: {mean:.3f} +/- {std:.3f} [ms]")
+                .format(mean=sum(time_deque)/len(time_deque), 
+                std=th.compute_std_dev(my_deque=time_deque, 
+                    mean_val=sum(time_deque)/len(time_deque))))
+
+        rate.sleep()
 
 
 

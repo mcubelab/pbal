@@ -157,11 +157,37 @@ def calc_generalized_coordinates(x0, z0, contact_pose,
 
     return ee_pos_contact_frame
         
-def pivot_xyz_callback(data):
+def pivot_xyz_realsense_callback(data):
     global pivot_xyz
-    pivot_xyz =  [data.transform.translation.x,
+    global pivot_xyz_realsense
+    global pivot_xyz_estimated
+    global pivot_message_realsense_time
+    global pivot_message_estimated_time
+
+    pivot_message_realsense_time = time.time()
+    pivot_xyz_realsense =  [data.transform.translation.x,
         data.transform.translation.y,
         data.transform.translation.z]
+
+    pivot_xyz = pivot_xyz_realsense
+
+def pivot_xyz_estimated_callback(data):
+    global pivot_xyz
+    global pivot_xyz_realsense
+    global pivot_xyz_estimated
+    global pivot_message_realsense_time
+    global pivot_message_estimated_time
+
+    pivot_message_estimated_time = time.time()
+    pivot_xyz_estimated =  [data.transform.translation.x,
+        data.transform.translation.y,
+        data.transform.translation.z]
+    
+
+    #if there has been no message from the realsense
+
+    if (pivot_xyz_realsense is None) or (time.time()-pivot_message_realsense_time>1.0):
+        pivot_xyz = pivot_xyz_estimated
 
 def ee_pose_callback(data):
     global panda_hand_in_base_pose
@@ -179,16 +205,23 @@ def torque_cone_boundary_flag_callback(data):
 if __name__ == '__main__':
 
     node_name = 'gen_coord_estimator'
-    rospy.init_node(node_name, anonymous=True)
+    rospy.init_node(node_name)
     sys_params = SystemParams()
     rate = rospy.Rate(sys_params.estimator_params["RATE"])
 
     LCONTACT = sys_params.object_params["L_CONTACT_MAX"] # in yaml
 
     # setting up subscribers
-    pivot_xyz = None
-    pivot_xyz_sub = rospy.Subscriber(
-        "/pivot_frame", TransformStamped, pivot_xyz_callback)
+    pivot_xyz, pivot_xyz_realsense, pivot_xyz_estimated = None,None,None
+    pivot_message_realsense_time = None
+    pivot_message_estimated_time = None
+
+    # subscribers
+    pivot_xyz_realsense_sub = rospy.Subscriber("/pivot_frame_realsense", 
+        TransformStamped, pivot_xyz_realsense_callback)
+
+    pivot_xyz_estimated_sub = rospy.Subscriber("/pivot_frame_estimated", 
+        TransformStamped, pivot_xyz_estimated_callback)
 
     torque_boundary_boolean = None
     torque_cone_boundary_test_sub = rospy.Subscriber(

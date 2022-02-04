@@ -4,6 +4,8 @@ import json
 import numpy as np
 from std_msgs.msg import Float32MultiArray, Float32, Bool, String, Int32
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
+from pbal.msg import SlidingStateStamped
+
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 
 import time
@@ -15,9 +17,11 @@ from matplotlib import cm
 import matplotlib.lines as lines
 from livestats import livestats
 from franka_interface import ArmInterface 
-from models.system_params import SystemParams
 from convex_hull_estimator import ConvexHullEstimator
 from robot_friction_cone_estimator import RobotFrictionConeEstimator
+
+import Helpers.pbal_msg_helper as pmh
+from models.system_params import SystemParams
 
 from cvxopt import matrix, solvers
 solvers.options['show_progress'] = False
@@ -49,7 +53,9 @@ def torque_cone_boundary_flag_callback(data):
 
 def sliding_state_callback(data):
     global sliding_state_list
-    sliding_state_list.append(json.loads(data.data))
+    sliding_dict = pmh.sliding_stamped_to_sliding_dict(
+        sliding_msg=data)
+    sliding_state_list.append(sliding_dict)
     if len(sliding_state_list) > 3:
        sliding_state_list.pop(0)
 
@@ -97,7 +103,8 @@ if __name__ == '__main__':
 
     l_contact = sys_params.object_params["L_CONTACT_MAX"]
 
-    sliding_state_sub = rospy.Subscriber('/sliding_state', String, sliding_state_callback)
+    sliding_state_sub = rospy.Subscriber(
+        '/sliding_state', SlidingStateStamped, sliding_state_callback)
 
     end_effector_wrench_sub = rospy.Subscriber("/end_effector_sensor_in_end_effector_frame", 
         WrenchStamped,  end_effector_wrench_callback)

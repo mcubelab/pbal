@@ -1,21 +1,37 @@
 #!/usr/bin/env python
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
+
+import Helpers.pbal_msg_helper as pmh
+import numpy as np
 import rospy
 import pdb
-import numpy as np
-import json
-from std_msgs.msg import String
-import time
 from pynput import keyboard
+import time
 
+from pbal.msg import ControlCommandStamped
 
-
-
+command_pause = {
+    "name": "pause",
+    "command_flag" : 1,
+    "mode" : -1,
+    "delta_theta" : 0.0,
+    "delta_x_pivot" : 0.0,
+    "delta_s" : 0.0,
+}
 
 delta_rotate_left = {
     "name": "delta_rotate_left",
     "command_flag" : 1,
     "mode" : -1,
-    "delta_theta" : np.pi/8,
+    "delta_theta" : np.pi/12,
     "delta_x_pivot" : 0.0,
     "delta_s" : 0.0,
 }
@@ -24,7 +40,7 @@ delta_rotate_right = {
     "name": "delta_rotate_right",
     "command_flag" : 1,
     "mode" : -1,
-    "delta_theta" : -np.pi/8,
+    "delta_theta" : -np.pi/12,
     "delta_x_pivot" : 0.0,
     "delta_s" : 0.0,
 }
@@ -98,15 +114,17 @@ def on_press(key):
 
     global control_command_pub, command_msg
 
+    command_msg_dict = None
+    
     if key == keyboard.Key.esc:
         return False  # stop listener
+    if key == keyboard.Key.space:
+        command_msg_dict = command_pause
+        print("pausing motion!")
     try:
         k = key.char  # single-char keys
     except:
         k = key.name  # other keys
-
-    command_msg_dict = None
-
 
     if k == 'c':  # center
         command_msg_dict = absolute_rotate_center
@@ -138,13 +156,17 @@ def on_press(key):
 
 
     if command_msg_dict is not None:
-        command_msg_string = json.dumps(command_msg_dict)
+        # command_msg_string = json.dumps(command_msg_dict)
+        command_msg = pmh.command_dict_to_command_stamped(
+            command_msg_dict)
     else: 
-        command_msg_string = None
+        command_msg = None
 
-
-    if command_msg_string is not None:
-        command_msg.data = command_msg_string
+    # pdb.set_trace()
+    if command_msg is not None:
+        # command_msg.data = command_msg_string
+        # pdb.set_trace()
+        # print(command_msg)
         control_command_pub.publish(command_msg)
         # published = False
         # while (not published) and (not rospy.is_shutdown()):
@@ -164,12 +186,14 @@ if __name__ == '__main__':
     rospy.init_node("barrier_func_commands")
     rospy.sleep(1.0)
 
-    command_msg = String()
+    command_msg = ControlCommandStamped()
 
-    control_command_pub = rospy.Publisher(
-        '/barrier_func_control_command', 
-        String,
-        queue_size=10)
+    # control_command_pub = rospy.Publisher(
+    #     '/barrier_func_control_command', 
+    #     String,
+    #     queue_size=10)
+    control_command_pub = rospy.Publisher('/barrier_func_control_command', 
+        ControlCommandStamped, queue_size=10)
 
 
     # published = False
