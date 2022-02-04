@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+
+<launch>
+
+<!-- Start rViz -->
+<node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find pbal)/rviz/pbal_settings.rviz"/>
+
+</launch>
+
