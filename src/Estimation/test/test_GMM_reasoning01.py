@@ -97,12 +97,18 @@ def synchronize_messages(data_dict,dt):
 
 
 if __name__ == '__main__':
-	my_path = 'C:/Users/taylorott/Dropbox (MIT)/pbal_assets/Experiments\InitialEstimatorDataPlusQPDebug-Jan-2022/'
+	my_path = 'C:/Users/taylorott/Dropbox (MIT)/pbal_assets/Experiments/InitialEstimatorDataPlusQPDebug-Jan-2022/'
 	fname = '2022-01-21-17-16-17-experiment012-rectangle-no-mass.pickle'
 	# fname = '2022-01-21-17-17-32-experiment013-rectangle-no-mass.pickle'
 	
 	l_contact = .1 
 	force_scale = .015
+
+	dt_plot = .3
+	dt_resolution = .005 
+
+	plot_time_ratio = np.floor(dt_plot/dt_resolution)
+
 
 	fig = plt.figure()
 	# axs = fig.add_subplot(111,projection = '3d')
@@ -125,8 +131,11 @@ if __name__ == '__main__':
 	                        [0.0375,0.0375],
 	                        [1.0,1.0]])
 	hand_midpoint = np.array([0.0,0.0,.0375,1.0])
-	hand_tangent = np.array([[0.0],[1.0],[0.0],[0.0]])
-	hand_normal = np.array([[1.0],[0.0],[0.0],[0.0]])
+	hand_tangent = np.array([0.0,1.0,0.0,0.0])
+	hand_normal = np.array([1.0,0.0,0.0,0.0])
+
+	# hand_tangent = np.array([[0.0],[1.0],[0.0],[0.0]])
+	# hand_normal = np.array([[1.0],[0.0],[0.0],[0.0]])
 
 	april_tag_pose_marker_frame_homog =  pose_list_to_matrix([-apriltag_pos[0], -apriltag_pos[1], 0,0.0,0.0,0.0,1.0])
 	vertex_array_marker_frame = np.dot(april_tag_pose_marker_frame_homog,object_vertex_array)
@@ -134,46 +143,10 @@ if __name__ == '__main__':
 	
 
 
-	data_dict = pickle.load(open(my_path+fname, 'rb'))
+	data_dict = synchronize_messages(pickle.load(open(my_path+fname, 'rb')),dt=dt_resolution)
 
-	data_dict = synchronize_messages(data_dict,dt=.03)
+	print(data_dict.keys())
 
-	temp_sum1a = np.zeros([3,3])
-	temp_sum2a = np.zeros(3)
-	temp_sum1b = np.zeros([3,3])
-	temp_sum2b = np.zeros(3)
-
-
-	for i in range(len(data_dict['ee_pose_in_world_from_franka_publisher'])):
-		ee_pose_world =  data_dict['ee_pose_in_world_from_franka_publisher'][i]['msg']
-		contact_pose_homog = pose_list_to_matrix(ee_pose_world)
-		hand_points_world = np.dot(contact_pose_homog,hand_points)	
-		hand_midpoint_world = np.dot(contact_pose_homog,hand_midpoint)
-
-		hand_normal_world = np.dot(contact_pose_homog,hand_normal)
-		hand_2D_normal_world = np.array([hand_normal_world[0],hand_normal_world[2]])
-		hand_2D_normal_world = hand_2D_normal_world/np.sqrt(np.sum(hand_2D_normal_world ** 2))
-
-		hand_tangent_world = np.dot(contact_pose_homog,hand_tangent)
-		hand_2D_tangent_world = np.array([hand_tangent_world[0],hand_tangent_world[2]])
-		hand_2D_tangent_world = hand_2D_tangent_world/np.sqrt(np.sum(hand_2D_tangent_world ** 2))		
-
-		z = np.dot(np.array([[hand_midpoint_world[0],hand_midpoint_world[2]]],dtype=np.float_),-hand_2D_normal_world)[0][0]
-
-		temp_mat = np.array([[-hand_2D_normal_world[0,0],-hand_2D_normal_world[1,0],1.0]],dtype=np.float_)
-		temp_vec = z*np.array([-hand_2D_normal_world[0,0],-hand_2D_normal_world[1,0],1.0],dtype=np.float_)
-
-		temp_mat =  np.dot(np.transpose(temp_mat),temp_mat)
-
-		if hand_2D_normal_world[0]>.06:
-			temp_sum1a = temp_sum1a+temp_mat
-			temp_sum2a = temp_sum2a+temp_vec
-		if hand_2D_normal_world[0]<-.06:
-			temp_sum1b = temp_sum1b+temp_mat
-			temp_sum2b = temp_sum2b+temp_vec
-
-	pivot1_info = np.linalg.solve(temp_sum1a,temp_sum2a)
-	pivot2_info = np.linalg.solve(temp_sum1b,temp_sum2b)
 
 
 
@@ -181,44 +154,52 @@ if __name__ == '__main__':
 	d0 = .01
 	s0 = 0.0
 
-	
-	Q=np.identity(3)
-	P=np.identity(3)
+	alpha_z2 = .00001
+
+	Q=np.identity(5)
+	P=np.identity(5)
 
 
 
-	R= 1.0
-	Q = .01*Q
-	P = 100.0*P
+	R= np.identity(2)
+	R[1,1]= alpha_z2
 
-	Pleft = P 
-	Pright = P 
-	Pboth = P
+	Q = .1*Q
+	P0 = 10000.0*P
+
+	Pleft = copy.copy(P)
+	Pright = copy.copy(P) 
+	Pboth = copy.copy(P)
 
 
 	ee_pose_world =  data_dict['ee_pose_in_world_from_franka_publisher'][0]['msg']
 	contact_pose_homog = pose_list_to_matrix(ee_pose_world)
 	hand_points_world = np.dot(contact_pose_homog,hand_points)	
-	hand_midpoint_world = np.dot(hand_points_world,np.array([.5,.5]))
+	hand_midpoint_world = np.dot(contact_pose_homog,hand_midpoint)
 	hand_normal_world = np.dot(contact_pose_homog,hand_normal)
 	hand_tangent_world = np.dot(contact_pose_homog,hand_tangent)
 
 
-	pivot_guess0 = np.transpose(hand_normal_world)*d0+hand_midpoint_world +s0*np.transpose(hand_tangent_world)
-
-
-	X = np.array([pivot_guess0[0][0],pivot_guess0[0][2],d0])
-
-
-	Xleft = X 
-	Xright = X 
-	Xboth = X 
 
 
 
+	g = 9.81
+	m_approx = .2
+
+	delta_theta = .05
+
+	measurement_threshold = 500
 
 
-	plot_increment = 10
+	theta_list = []
+	X_plus_list = []
+	P_plus_list = []
+	X_minus_list = []
+	P_minus_list = []
+
+	measurement_count_list_plus = []
+	measurement_count_list_minus = []
+
 	count = 0
 	while  count <len(data_dict['tag_detections']):
 		ee_pose_world =  data_dict['ee_pose_in_world_from_franka_publisher'][count]['msg']
@@ -254,26 +235,70 @@ if __name__ == '__main__':
 
 
 
-		z1 = np.dot(np.array([[hand_midpoint_world[0],hand_midpoint_world[2]]],dtype=np.float_),-hand_2D_normal_world)[0][0]
-		H1 = np.transpose(np.vstack([-hand_2D_normal_world,1.0]))
+		pivot_guess0 = hand_normal_world*d0+hand_midpoint_world +s0*hand_tangent_world
+		Xstart = np.array([pivot_guess0[0],pivot_guess0[2],d0,0.0,0.0])
 
-		alpha_z2 = .01
+		theta_hand = np.arctan2(hand_2D_normal_world[0],-hand_2D_normal_world[1])
+		if len(theta_list)==0:
+			theta_list.append(theta_hand)
+
+			X_plus_list.append(copy.copy(Xstart))
+			P_plus_list.append(copy.copy(P0))
+			measurement_count_list_plus.append(0)
+
+			X_minus_list.append(copy.copy(Xstart))
+			P_minus_list.append(copy.copy(P0))
+			measurement_count_list_minus.append(0)
+
+		while theta_list[-1]+delta_theta<theta_hand:
+			theta_list.append(theta_list[-1]+delta_theta)
+
+			X_plus_list.append(copy.copy(Xstart))
+			P_plus_list.append(copy.copy(P0))
+			measurement_count_list_plus.append(0)
+
+			X_minus_list.append(copy.copy(Xstart))
+			P_minus_list.append(copy.copy(P0))
+			measurement_count_list_minus.append(0)
+
+		while theta_list[0]-delta_theta>theta_hand:
+			theta_list.insert(0,theta_list[0]-delta_theta)
+
+			X_plus_list.insert(0,copy.copy(Xstart))
+			P_plus_list.insert(0,copy.copy(P0))
+			measurement_count_list_plus.insert(0,0)
+
+			X_minus_list.insert(0,copy.copy(Xstart))
+			P_minus_list.insert(0,copy.copy(P0))
+			measurement_count_list_minus.insert(0,0)
+
+
+
+		z1 = np.dot(np.array([hand_midpoint_world[0],hand_midpoint_world[2]]),-hand_2D_normal_world)
+		H1 = np.hstack([-hand_2D_normal_world,np.array([1.0,0.0,0.0])])
+
+		
 		z2 = alpha_z2*((hand_cop[0]*measured_base_wrench_6D[2])-(hand_cop[2]*measured_base_wrench_6D[0]))
-		H2 = alpha_z2*np.array([[measured_base_wrench_6D[2],-measured_base_wrench_6D[0],0.0]])
+		H2 = alpha_z2*np.array([[measured_base_wrench_6D[2],-measured_base_wrench_6D[0],0.0,m_approx*g*hand_2D_normal_world[0],m_approx*g*hand_2D_normal_world[1]]])
+
 
 		z = np.array([z1,z2])
 		H = np.vstack([H1,H2])
 
-		Xboth,Pboth = Kalman_update(Xboth,Pboth,z,H,Q,R)
-		if hand_2D_normal_world[0]<-.03:
-			Xleft,Pleft = Kalman_update(Xleft,Pleft,z,H,Q,R)
-		if hand_2D_normal_world[0]>.00:
-			Xright,Pright = Kalman_update(Xright,Pright,z,H,Q,R)
+		for theta_index in range(len(theta_list)):
+			if theta_hand > theta_list[theta_index]:
+				Xplus,Pplus = Kalman_update(X_plus_list[theta_index],P_plus_list[theta_index],z,H,Q,R)
+				X_plus_list[theta_index] = Xplus
+				P_plus_list[theta_index] = Pplus
+				measurement_count_list_plus[theta_index]+=1
+			if theta_hand < theta_list[theta_index]:
+				Xminus,Pminus = Kalman_update(X_minus_list[theta_index],P_minus_list[theta_index],z,H,Q,R)
+				X_minus_list[theta_index] = Xminus
+				P_minus_list[theta_index] = Pminus
+				measurement_count_list_minus[theta_index]+=1
+	
 
-
-
-
-		if count%plot_increment==0:
+		if count%plot_time_ratio==0:
 			axs.clear()
 		
 			hand_frame_length = .03
@@ -281,19 +306,16 @@ if __name__ == '__main__':
 			axs.plot(obj_x_coords, obj_y_coords,color = 'blue')
 			axs.plot(hand_points_world[0,:],hand_points_world[2,:],color = 'red')
 
-			# axs.plot([hand_midpoint_world[0],hand_midpoint_world[0]+hand_frame_length*hand_normal_world[0,0]],
-			# 		 [hand_midpoint_world[2],hand_midpoint_world[2]+hand_frame_length*hand_normal_world[2,0]],color = 'green')
-			
-			axs.scatter(Xleft[0],Xleft[1],color = 'red')
-			axs.scatter(Xright[0],Xright[1],color = 'red')
-			axs.scatter(Xboth[0],Xboth[1],color = 'red')
-			axs.scatter(pivot1_info[0],pivot1_info[1],color = 'green')
-			axs.scatter(pivot2_info[0],pivot2_info[1],color = 'green')
 
+			for theta_index in range(len(theta_list)):
+				if measurement_count_list_plus[theta_index]>=measurement_threshold:
+					axs.scatter(X_plus_list[theta_index][0],X_plus_list[theta_index][1],color = 'red')
+				if measurement_count_list_minus[theta_index]>=measurement_threshold:
+					axs.scatter(X_minus_list[theta_index][0],X_minus_list[theta_index][1],color = 'blue')
 
 			axs.plot([hand_cop[0],hand_cop[0]+force_scale*measured_base_wrench_6D[0]],
 					[hand_cop[2],hand_cop[2]+force_scale*measured_base_wrench_6D[2]],color = 'green')
-			axs.scatter(hand_cop[0],hand_cop[2],color = 'blue')
+
 			
 			axs.axis('equal')
 			axs.set_ylim([-.5, .3])
