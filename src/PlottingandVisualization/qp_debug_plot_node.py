@@ -1,9 +1,16 @@
 #!/usr/bin/env python
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0,parentdir) 
+sys.path.insert(0,gparentdir)
 
 import rospy
 import pdb
 import json
 import numpy as np
+import Helpers.pbal_msg_helper as pmh
 from pbal.msg import QPDebugStamped
 
 import matplotlib.pyplot as plt
@@ -11,7 +18,7 @@ from matplotlib import cm
 
 def qp_debug_message_callback(data):
     global qp_debug_dict
-      if data.qp_debug != '':
+    if data.qp_debug != '':
         # qp_debug_dict = json.loads(data.data)
         qp_debug_dict = pmh.qp_debug_stamped_to_qp_debug_dict(
             data)

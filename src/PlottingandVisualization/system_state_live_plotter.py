@@ -18,7 +18,7 @@ import time
 
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
 from pbal.msg import (SlidingStateStamped, FrictionParamsStamped, 
-    ControlCommandStamped, QPDebugStamped)
+    ControlCommandStamped, QPDebugStamped, GroundTruthStamped)
 from std_msgs.msg import Float32MultiArray, Float32, Bool, String
 
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
@@ -32,18 +32,19 @@ import matplotlib.lines as lines
 from livestats import livestats
 from Modelling.system_params import SystemParams
 import Helpers.pbal_msg_helper as pmh
-from franka_interface import ArmInterface
 import Helpers.franka_helper
 
 from cvxopt import matrix, solvers
-from polygon_representation import PolygonRepresentation
-from ground_truth_representation import GroundTruthRepresentation
+from Modelling.polygon_representation import PolygonRepresentation
+from Modelling.ground_truth_representation import GroundTruthRepresentation
 from apriltag_ros.msg import AprilTagDetectionArray
 import tf
 
 def ground_truth_representation_callback(data):
     global ground_truth_list
-    ground_truth_list.append([json.loads(data.data),time.time()])
+    ground_truth_dict = pmh.ground_truth_stamped_to_ground_truth_dict(
+            data)
+    ground_truth_list.append([ground_truth_dict,time.time()])
     if len(ground_truth_list) > 100:
         ground_truth_list.pop(0)
 
@@ -78,8 +79,8 @@ def barrier_func_control_command_callback(data):
 
 def qp_debug_message_callback(data):
     global qp_debug_list
-    if data.data != '':
-        if data.qp_debug != '':
+    # if data.data != '':
+    if data.qp_debug != '':
         # qp_debug_dict = json.loads(data.data)
         qp_debug_dict = pmh.qp_debug_stamped_to_qp_debug_dict(
             data)
@@ -161,7 +162,7 @@ if __name__ == '__main__':
     # subscribers
     ground_truth_sub = rospy.Subscriber(
         "/ground_truth_message",
-        String,
+        GroundTruthStamped,
         ground_truth_representation_callback)
 
     gravity_torque_sub = rospy.Subscriber(
@@ -181,19 +182,10 @@ if __name__ == '__main__':
 
     control_command_sub = rospy.Subscriber(
         '/barrier_func_control_command', 
-        String,
-        barrier_func_control_command_callback)
-
-    control_command_sub = rospy.Subscriber(
-        '/barrier_func_control_command', 
         ControlCommandStamped,
         barrier_func_control_command_callback)
 
     qp_debug_message_sub = rospy.Subscriber(
-       '/qp_debug_message',
-        String,
-        qp_debug_message_callback)
-     qp_debug_message_sub = rospy.Subscriber(
        '/qp_debug_message',
         QPDebugStamped,
         qp_debug_message_callback)

@@ -3,7 +3,8 @@ import numpy as np
 from pbal.msg import (SlidingStateStamped, 
     FrictionParamsStamped, 
     ControlCommandStamped,
-    QPDebugStamped)
+    QPDebugStamped, 
+    GroundTruthStamped)
 
 
 def sliding_dict_to_sliding_stamped(sliding_dict):
@@ -240,3 +241,58 @@ def qp_debug_stamped_to_qp_debug_dict(qp_debug_msg):
     qp_dict['delta_wrench_unconstrained'] = qp_debug_msg.qp_debug.delta_wrench_unconstrained
 
     return qp_dict
+
+
+def ground_truth_stamped_to_ground_truth_dict(ground_truth_msg):
+
+    ground_truth_dict = {}
+
+    # robot kinematics
+    ground_truth_dict['tht_h'] = ground_truth_msg.ground_truth.hand_angle
+    ground_truth_dict['hp'] = ground_truth_msg.ground_truth.hand_pose
+    ground_truth_dict['sq'] = ground_truth_msg.ground_truth.hand_sliding
+
+    # object kinematics
+    ground_truth_dict['tht_o'] = ground_truth_msg.ground_truth.object_angle
+    ground_truth_dict['op'] = ground_truth_msg.ground_truth.object_pose
+    ground_truth_dict['sg'] = ground_truth_msg.ground_truth.object_sliding
+    ground_truth_dict['pivs'] = np.reshape(np.array(
+        ground_truth_msg.ground_truth.pivot_locations), 
+        newshape=(-1, 2)).tolist() 
+
+    # ground 
+    ground_truth_dict['tht_g'] = ground_truth_msg.ground_truth.ground_angle
+
+    # perception 
+    ground_truth_dict['sn'] = ground_truth_msg.ground_truth.shape_name
+    ground_truth_dict['atid'] = ground_truth_msg.ground_truth.apriltag_id
+    ground_truth_dict['od'] = ground_truth_msg.ground_truth.object_dectected
+
+    return ground_truth_dict
+
+
+def ground_truth_dict_to_ground_truth_stamped(ground_truth_dict):
+
+    ground_truth_msg = GroundTruthStamped()
+
+    # robot kinematics
+    ground_truth_msg.ground_truth.hand_angle = ground_truth_dict['tht_h']
+    ground_truth_msg.ground_truth.hand_pose = ground_truth_dict['hp']
+    ground_truth_msg.ground_truth.hand_sliding = ground_truth_dict['sq']
+
+    # object kinematics
+    ground_truth_msg.ground_truth.object_angle = ground_truth_dict['tht_o']
+    ground_truth_msg.ground_truth.object_pose = ground_truth_dict['op']
+    ground_truth_msg.ground_truth.object_sliding = ground_truth_dict['sg']
+    ground_truth_msg.ground_truth.pivot_locations = [
+        item for row in ground_truth_dict['pivs'] for item in row]
+
+    # ground 
+    ground_truth_msg.ground_truth.ground_angle = ground_truth_dict['tht_g']
+
+    # perception 
+    ground_truth_msg.ground_truth.shape_name = ground_truth_dict['sn']
+    ground_truth_msg.ground_truth.apriltag_id = ground_truth_dict['atid']
+    ground_truth_msg.ground_truth.object_dectected = ground_truth_dict['od']
+
+    return ground_truth_msg

@@ -13,6 +13,7 @@ from apriltag_ros.msg import AprilTagDetectionArray
 import copy
 from cvxopt import matrix, solvers
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
+from pbal.msg import GroundTruthStamped
 import json
 from livestats import livestats
 from matplotlib import cm
@@ -31,6 +32,7 @@ import tf
 # import franka_helper
 from ground_truth_representation import GroundTruthRepresentation
 import Helpers.ros_helper as ros_helper
+import Helpers.pbal_msg_helper as pmh
 from Modelling.system_params import SystemParams
 from polygon_representation import PolygonRepresentation
 
@@ -147,9 +149,8 @@ if __name__ == '__main__':
         ee_pose_callback, queue_size=1)
 
     # publisher for qp debug message
-    ground_truth_pub = rospy.Publisher('/ground_truth_message', String,
-        queue_size=10)
-    ground_truth_msg = String()
+    ground_truth_pub = rospy.Publisher('/ground_truth_message', 
+        GroundTruthStamped, queue_size=10)
 
     l_contact = sys_params.object_params["L_CONTACT_MAX"]
 
@@ -198,8 +199,9 @@ if __name__ == '__main__':
             "pivs": my_ground_truth.compute_pivot_positions().tolist()
         }
 
-        ground_truth_msg.data = json.dumps(output_dict)
-        pdb.set_trace()
+        # ground_truth_msg.data = json.dumps(output_dict)
+        ground_truth_msg = pmh.ground_truth_dict_to_ground_truth_stamped(
+            output_dict)
         ground_truth_pub.publish(ground_truth_msg)
 
         rate.sleep()

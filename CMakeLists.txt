@@ -54,6 +54,8 @@ add_message_files(
   ControlCommandStamped.msg
   FrictionParams.msg
   FrictionParamsStamped.msg
+  GroundTruth.msg
+  GroundTruthStamped.msg
   QPDebug.msg
   QPDebugStamped.msg
   SlidingState.msg
