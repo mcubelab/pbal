@@ -1,13 +1,24 @@
+import os,sys,inspect
+
+currentdir = os.path.dirname(os.path.abspath(
+inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
+
+
 import json
 import pickle
 import numpy as np
 import scipy
-import os,sys,inspect
+
 from scipy.spatial.transform import Rotation as Rotation_class
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import copy
+import friction_reasoning
 
 def load_shape_data(name_in):
     curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -100,7 +111,7 @@ if __name__ == '__main__':
 	my_path = 'C:/Users/taylorott/Dropbox (MIT)/pbal_assets/Experiments/InitialEstimatorDataPlusQPDebug-Jan-2022/'
 	fname = '2022-01-21-17-16-17-experiment012-rectangle-no-mass.pickle'
 	# fname = '2022-01-21-17-17-32-experiment013-rectangle-no-mass.pickle'
-	
+
 	l_contact = .1 
 	force_scale = .015
 
@@ -145,9 +156,14 @@ if __name__ == '__main__':
 
 	data_dict = synchronize_messages(pickle.load(open(my_path+fname, 'rb')),dt=dt_resolution)
 
-	print(data_dict.keys())
+	
 
 
+	friction_parameter_dict,last_slide_time_dict,sliding_state_dict = friction_reasoning.initialize_friciton_dictionaries()
+
+	contact_friction_cone_boundary_margin = 2
+	external_friction_cone_boundary_margin = 2
+	reset_time_length = .25
 
 
 
@@ -202,10 +218,31 @@ if __name__ == '__main__':
 
 	count = 0
 	while  count <len(data_dict['tag_detections']):
+		t0 = data_dict['friction_parameters'][count]['time']
 		ee_pose_world =  data_dict['ee_pose_in_world_from_franka_publisher'][count]['msg']
-		measured_base_wrench_6D = -np.array(data_dict['end_effector_sensor_in_base_frame'][count]['msg'])
-		measured_contact_wrench_6D = -np.array(data_dict['end_effector_sensor_in_end_effector_frame'][count]['msg'])
+		measured_base_wrench_6D = np.array(data_dict['end_effector_sensor_in_base_frame'][count]['msg'])
+		measured_contact_wrench_6D = np.array(data_dict['end_effector_sensor_in_end_effector_frame'][count]['msg'])
+		friction_parameter_dict = data_dict['friction_parameters'][count]['msg']
 
+
+		measured_base_wrench = -np.array([
+            measured_base_wrench_6D[0], 
+            measured_base_wrench_6D[2],
+            measured_base_wrench_6D[-1]])
+
+		measured_contact_wrench = -np.array([
+            measured_contact_wrench_6D[0], 
+            measured_contact_wrench_6D[1],
+            measured_contact_wrench_6D[-1]])
+
+		friction_reasoning.convert_friction_param_dict_to_array(friction_parameter_dict)
+		friction_reasoning.compute_sliding_state_contact(
+            sliding_state_dict,friction_parameter_dict,last_slide_time_dict,
+            t0,measured_contact_wrench,contact_friction_cone_boundary_margin,reset_time_length)
+		friction_reasoning.compute_sliding_state_base(
+            sliding_state_dict,friction_parameter_dict,last_slide_time_dict,
+            t0,measured_base_wrench,external_friction_cone_boundary_margin,reset_time_length)
+                                
 		contact_pose_homog = pose_list_to_matrix(ee_pose_world)
 
 		hand_points_world = np.dot(contact_pose_homog,hand_points)
@@ -227,7 +264,7 @@ if __name__ == '__main__':
 		obj_y_coords = vertex_array_world_frame[2,:]
 
 
-		contact_point = measured_contact_wrench_6D[-1]/measured_contact_wrench_6D[0]
+		contact_point = measured_contact_wrench[2]/measured_contact_wrench[0]
 		contact_point = np.max([np.min([contact_point,l_contact/2]),-l_contact/2])
 		alpha_2 = (contact_point+l_contact/2)/(l_contact)
 		alpha_1 = 1-alpha_2
@@ -257,16 +294,16 @@ if __name__ == '__main__':
 			P_plus_list.append(copy.copy(P0))
 			measurement_count_list_plus.append(0)
 
-			X_minus_list.append(copy.copy(Xstart))
-			P_minus_list.append(copy.copy(P0))
-			measurement_count_list_minus.append(0)
+			X_minus_list.append(copy.copy(X_minus_list[-1]))
+			P_minus_list.append(copy.copy(P_minus_list[-1]))
+			measurement_count_list_minus.append(measurement_count_list_minus[-1])
 
 		while theta_list[0]-delta_theta>theta_hand:
 			theta_list.insert(0,theta_list[0]-delta_theta)
 
-			X_plus_list.insert(0,copy.copy(Xstart))
-			P_plus_list.insert(0,copy.copy(P0))
-			measurement_count_list_plus.insert(0,0)
+			X_plus_list.insert(0,copy.copy(X_plus_list[0]))
+			P_plus_list.insert(0,copy.copy(P_plus_list[0]))
+			measurement_count_list_plus.insert(0,measurement_count_list_plus[0])
 
 			X_minus_list.insert(0,copy.copy(Xstart))
 			P_minus_list.insert(0,copy.copy(P0))
@@ -278,8 +315,8 @@ if __name__ == '__main__':
 		H1 = np.hstack([-hand_2D_normal_world,np.array([1.0,0.0,0.0])])
 
 		
-		z2 = alpha_z2*((hand_cop[0]*measured_base_wrench_6D[2])-(hand_cop[2]*measured_base_wrench_6D[0]))
-		H2 = alpha_z2*np.array([[measured_base_wrench_6D[2],-measured_base_wrench_6D[0],0.0,m_approx*g*hand_2D_normal_world[0],m_approx*g*hand_2D_normal_world[1]]])
+		z2 = alpha_z2*((hand_cop[0]*measured_base_wrench[1])-(hand_cop[2]*measured_base_wrench[0]))
+		H2 = alpha_z2*np.array([[measured_base_wrench[1],-measured_base_wrench[0],0.0,m_approx*g*hand_2D_normal_world[0],m_approx*g*hand_2D_normal_world[1]]])
 
 
 		z = np.array([z1,z2])
@@ -296,6 +333,8 @@ if __name__ == '__main__':
 				X_minus_list[theta_index] = Xminus
 				P_minus_list[theta_index] = Pminus
 				measurement_count_list_minus[theta_index]+=1
+
+
 	
 
 		if count%plot_time_ratio==0:
@@ -313,14 +352,13 @@ if __name__ == '__main__':
 				if measurement_count_list_minus[theta_index]>=measurement_threshold:
 					axs.scatter(X_minus_list[theta_index][0],X_minus_list[theta_index][1],color = 'blue')
 
-			axs.plot([hand_cop[0],hand_cop[0]+force_scale*measured_base_wrench_6D[0]],
-					[hand_cop[2],hand_cop[2]+force_scale*measured_base_wrench_6D[2]],color = 'green')
+			axs.plot([hand_cop[0],hand_cop[0]+force_scale*measured_base_wrench[0]],
+					[hand_cop[2],hand_cop[2]+force_scale*measured_base_wrench[1]],color = 'green')
 
 			
 			axs.axis('equal')
 			axs.set_ylim([-.5, .3])
 			axs.set_xlim([.25, .75])
-
 
 			plt.pause(0.01)
 
