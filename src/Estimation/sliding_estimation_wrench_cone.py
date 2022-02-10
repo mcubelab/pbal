@@ -24,6 +24,7 @@ import Helpers.pbal_msg_helper as pmh
 import Helpers.ros_helper as rh
 import Helpers.timing_helper as th
 from Modelling.system_params import SystemParams
+import friction_reasoning
 
 def end_effector_wrench_callback(data):
     global measured_contact_wrench_list
@@ -133,6 +134,7 @@ if __name__ == '__main__':
         if friction_parameter_list:
             while friction_parameter_list:
                 friction_parameter_dict = friction_parameter_list.pop(0)
+            friction_reasoning.convert_friction_param_dict_to_array(friction_parameter_dict)
 
         if update_and_publish:
             sliding_state_pub.publish(

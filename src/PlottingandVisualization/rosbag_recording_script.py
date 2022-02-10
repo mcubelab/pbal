@@ -5,6 +5,7 @@ gparentdir = os.path.dirname(parentdir)
 sys.path.insert(0,parentdir) 
 sys.path.insert(0,gparentdir)
 
+import argparse
 import rospy
 import pdb
 import numpy as np
@@ -15,7 +16,13 @@ import Helpers.ros_helper as ros_helper
 from std_msgs.msg import String
 from Modelling.system_params import SystemParams
 
+def parse_args()
 
+    parser = argparse.ArgumentParser(description='')
+
+    # experiment setup
+    parser.add_argument('--exp_name', default='', type=str,
+                        help='experiment name')
 
 
 if __name__ == '__main__':
@@ -38,27 +45,30 @@ if __name__ == '__main__':
     #     '/friction_parameters', 
     #     '/sliding_state'
     # ]
-    rostopic_list = [
-        "/processed_image"
-    ]
 
     # rostopic_list = [
-    #     # "/camera/color/image_raw/compressed",
-    #     "/ground_truth_message",
-    #     # "/gravity_torque", 
-    #     # "/pivot_frame_realsense",
-    #     # "/pivot_frame_estimated", 
-    #     # "/generalized_positions", 
-    #     '/barrier_func_control_command',
-    #     '/qp_debug_message',
-    #     '/ee_pose_in_world_from_franka_publisher',
-    #     "/end_effector_sensor_in_end_effector_frame", 
-    #     "/end_effector_sensor_in_base_frame", 
-    #     '/friction_parameters', 
-    #     # '/sliding_state',
-    #     '/tag_detections',
+    #     "/processed_image"
     # ]
 
+    rostopic_list = [
+        "/camera/color/image_raw",
+        "/ground_truth_message",
+        # "/gravity_torque", 
+        "/pivot_frame_realsense",
+        "/pivot_frame_estimated", 
+        "/generalized_positions", 
+        '/barrier_func_control_command',
+        '/qp_debug_message',
+        '/ee_pose_in_world_from_franka_publisher',
+        "/end_effector_sensor_in_end_effector_frame", 
+        "/end_effector_sensor_in_base_frame", 
+        '/friction_parameters',
+        '/target_frame', 
+        '/sliding_state',
+        '/tag_detections',
+    ]
+
+    args = parse_args()
 
     # find shape name
     sys_params = SystemParams()
@@ -86,6 +96,8 @@ if __name__ == '__main__':
 
     # experiment name
     exp_name = "experiment{:03d}-".format(new_experiment_num) + shape_name 
+    if args.exp_name != '':
+        exp_name = args.exp_name+'-'+exp_name    
 
     print("Starting rosbag recording...")
     ros_helper.initialize_rosbag(rostopic_list, exp_name=exp_name)

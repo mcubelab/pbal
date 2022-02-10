@@ -21,7 +21,7 @@ import tf2_ros
 
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
 from pbal.msg import FrictionParamsStamped, ControlCommandStamped, QPDebugStamped
-from std_msgs.msg import Float32MultiArray, Float32, Bool, String
+from std_msgs.msg import Float32MultiArray, Float32, Bool
 
 # import Helpers.franka_helper as fh
 import Helpers.ros_helper as rh
@@ -191,7 +191,7 @@ def friction_parameter_callback(data):
 
 def torque_bound_callback(data):
     global torque_bound_list
-    torque_bound_list.append(json.loads(data.data))
+    torque_bound_list.append(json.loads(data.data).tolist())
     if len(torque_bound_list) > 3:
         torque_bound_list.pop(0)
 
@@ -285,7 +285,7 @@ if __name__ == '__main__':
     #     String, friction_parameter_callback)
 
     torque_bound_sub = rospy.Subscriber("/torque_bound_message", 
-        String,  torque_bound_callback)
+        Float32MultiArray,  torque_bound_callback)
 
     # subscribe to ee pose data
     panda_hand_in_base_pose = None
