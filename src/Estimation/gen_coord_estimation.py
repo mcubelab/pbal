@@ -55,6 +55,8 @@ def calc_generalized_coordinates(x0, z0, contact_pose,
     # xc and zc (with pivot at 0,0)
     xc, zc = contact_pose[0] - x0, contact_pose[2] - z0
 
+    # print x0,z0
+
     if torque_boundary_flag == -1:
 
         # find normal and tangential displacment
@@ -67,6 +69,7 @@ def calc_generalized_coordinates(x0, z0, contact_pose,
 
         # generalized position
         ee_pos_contact_frame = np.array([d, s, tht])
+
 
     elif torque_boundary_flag == 0:
         print("Not in contact")
@@ -294,7 +297,7 @@ if __name__ == '__main__':
             # calculate generalized coordinates
             ee_pos_contact_frame = calc_generalized_coordinates(
                 x0 = pivot_xyz[0], 
-                z0 = pivot_xyz[1], 
+                z0 = pivot_xyz[2], 
                 contact_pose = endpoint_pose_list,
                 ee_pose_contact_frame_old = ee_pos_contact_frame_old,
                 torque_boundary_flag=torque_cone_boundary_flag,

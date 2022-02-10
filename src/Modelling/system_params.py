@@ -43,7 +43,7 @@ class SystemParams(object):
         }
 
         self.debug_params = {
-            "LOG_TIME": 30,                          # time between when log messages are printed in seconds
+            "LOG_TIME": 10,                          # time between when log messages are printed in seconds
             "QUEUE_LEN": 100                         # length of queue for computing average timing
         }
 
@@ -260,7 +260,7 @@ class SystemParams(object):
             "FORCE_UPPER": [100, 100, 100, 25, 25, 25],                    # default [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]
             "RATE": 200,                                                    # hz (control rate)
             # "INTEGRAL_MULTIPLIER": 20., #30., #20
-            "INTEGRAL_MULTIPLIER": 30.,
+            "INTEGRAL_MULTIPLIER": 25.,
             "pivot_params": pivot_params,
             "guarded_move_params": guarded_move_params,
             "static_object_flush_move_params": static_object_flush_move_params,

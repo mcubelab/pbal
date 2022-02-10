@@ -354,11 +354,36 @@ def pivot_xyz_estimated_callback(data):
         data.transform.translation.z
     ]
 
-
 def target_frame_callback(data):
     global target_pose
     target_pose = data
 
+
+# def estimate_pivot_candidates_from_realsense():
+
+#def estimate_ground_COP():
+
+#def estimate_hand_COP():
+
+#def plot_hand_wrench_cone():
+
+#def plot_ground_wrench_cone():
+
+#def plot_force():
+
+#def plot_hand_slide_arrow():
+
+#def plot_rotation_arrow():
+
+#def plot_ground_slide_arrow():
+
+def plot_impedance_target(cv_image,hand_points,target_pose_homog,camera_transformation_matrix):
+    x_coord, y_coord = get_pix_easier(
+        np.dot(target_pose_homog, hand_points),
+        camera_transformation_matrix)
+    cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T],
+                  True, (0, 128, 255),
+                  thickness=2)
 
 if __name__ == '__main__':
     image_list = []
@@ -586,12 +611,13 @@ if __name__ == '__main__':
                 target_pose_homog = ros_helper.matrix_from_transform(
                     target_pose)
 
-                x_coord, y_coord = get_pix_easier(
-                    np.dot(target_pose_homog, hand_points),
-                    transformation_matrix)
-                cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T],
-                              True, (0, 128, 255),
-                              thickness=2)
+                # x_coord, y_coord = get_pix_easier(
+                #     np.dot(target_pose_homog, hand_points),
+                #     transformation_matrix)
+                # cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T],
+                #               True, (0, 128, 255),
+                #               thickness=2)
+                plot_impedance_target(cv_image,hand_points,target_pose_homog,transformation_matrix)
 
             hand_front_center_world = np.dot(contact_pose_homog,
                                              hand_front_center)
