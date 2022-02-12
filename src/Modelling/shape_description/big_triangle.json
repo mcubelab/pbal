@@ -1,0 +1,8 @@
+{
+    "apriltag_id" : 5,     
+    "centroid_to_apriltag" : [0, 0.0265, 0],
+    "winding" : 1, 
+    "x_vert" : [6.500,0.000,-6.500],
+    "y_vert" : [0.000,11.258,0.000],
+    "base_mass": 0.216
+}
