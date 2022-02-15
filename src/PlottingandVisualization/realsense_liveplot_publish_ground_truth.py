@@ -108,7 +108,7 @@ def apriltag_message_callback(apriltag_array):
     global base_in_base_pose
     global cam_in_base_pose
     global marker_pose_apriltag_frame
-    global obj_orientation_matrix
+    global obj_pose_homog
     global object_detected
 
     obj_apriltag_list = [
@@ -133,7 +133,7 @@ def apriltag_message_callback(apriltag_array):
             obj_apriltag_in_world_pose,
             frame_id="base")
 
-        obj_orientation_matrix = ros_helper.matrix_from_pose(
+        obj_pose_homog = ros_helper.matrix_from_pose(
             marker_apriltag_in_world_pose)
 
     else:
@@ -390,7 +390,7 @@ def plot_hand_friction_cone(cv_image,COP_point_hand_frame,friction_parameter_dic
 
     x_coord, y_coord = get_pix_easier(
         np.dot(contact_pose_homog, left_boundary_list),
-        transformation_matrix)
+        camera_transformation_matrix)
     cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T],
                   True, (0, 255, 0),
                   thickness=2)
@@ -410,7 +410,7 @@ def plot_hand_friction_cone(cv_image,COP_point_hand_frame,friction_parameter_dic
 
     x_coord, y_coord = get_pix_easier(
         np.dot(contact_pose_homog, right_boundary_list),
-        transformation_matrix)
+        camera_transformation_matrix)
     cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T],
                   True, (0, 255, 0),
                   thickness=2)
@@ -449,12 +449,21 @@ def plot_ground_friction_cone(cv_image,COP_ground,friction_parameter_dict,camera
     ])
 
     x_coord, y_coord = get_pix_easier(
-        BoundaryPts, transformation_matrix)
+        BoundaryPts, camera_transformation_matrix)
     cv2.polylines(cv_image,
                   [np.vstack([x_coord, y_coord]).T],
                   False, (0, 255, 0),
                   thickness=2)
 
+def shape_overlay(cv_image,obj_pose_homog,object_vertex_array,camera_transformation_matrix):
+    vertex_positions_world = np.dot(obj_pose_homog,object_vertex_array)
+    x_coord, y_coord = get_pix_easier(
+        vertex_positions_world, camera_transformation_matrix)
+    cv2.polylines(cv_image,
+                  [np.vstack([x_coord, y_coord]).T],
+                  True, (0, 255, 0),
+                  thickness=2)
+    
 #def plot_force():
 
 #def plot_hand_slide_arrow():
@@ -482,7 +491,7 @@ if __name__ == '__main__':
     base_in_base_pose = None
     cam_in_base_pose = None
     marker_pose_apriltag_frame = None
-    obj_orientation_matrix = None
+    obj_pose_homog = None
     object_detected = False
 
     measured_contact_wrench_list = []
@@ -521,7 +530,7 @@ if __name__ == '__main__':
     l_contact = sys_params.object_params["L_CONTACT_MAX"]
 
     object_vertex_array, apriltag_id, apriltag_pos = load_shape_data(
-        'triangle')
+        'big_hexagon')
 
     object_vertex_array = np.vstack([
         object_vertex_array,
@@ -818,7 +827,9 @@ if __name__ == '__main__':
                 x_coord = int(np.round(pix_x[0]))
                 y_coord = int(np.round(pix_y[0]))
 
-                current_dot_positions = np.dot(obj_orientation_matrix,
+                shape_overlay(cv_image,obj_pose_homog,object_vertex_array,transformation_matrix)
+
+                current_dot_positions = np.dot(obj_pose_homog,
                                                object_vertex_array)
 
                 hand_tangent_world = np.dot(contact_pose_homog, hand_tangent)
@@ -879,7 +890,7 @@ if __name__ == '__main__':
                         [0., 0., 0., 1.],
                     ])
                     desired_dot_positions = np.dot(
-                        obj_orientation_matrix,
+                        obj_pose_homog,
                         np.dot(my_rotation, temp_vertex_array))
 
                 if qp_debug_dict is not None and 'err_x_pivot' in qp_debug_dict[
@@ -930,13 +941,13 @@ if __name__ == '__main__':
                         Tau_a = np.dot(
                             np.cross(P_a[0:3] - P_e[0:3],
                                      measured_base_wrench_6D[0:3]),
-                            obj_orientation_matrix[0:3, 2])
+                            obj_pose_homog[0:3, 2])
                         Tau_b = np.dot(
                             np.cross(P_b[0:3] - P_e[0:3],
                                      measured_base_wrench_6D[0:3]),
-                            obj_orientation_matrix[0:3, 2])
+                            obj_pose_homog[0:3, 2])
                         Tau_net = np.dot(measured_base_wrench_6D[3:6],
-                                         obj_orientation_matrix[0:3, 2])
+                                         obj_pose_homog[0:3, 2])
 
                         epsilon1 = (Tau_net - Tau_b) / (Tau_a - Tau_b)
                         epsilon1 = np.max([np.min([epsilon1, 1]), 0])
