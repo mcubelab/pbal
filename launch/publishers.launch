@@ -29,6 +29,10 @@
    base /camera_color_optical_frame 100" />
   
   <!--- face center in april tag -->
-  <node pkg="tf" type="static_transform_publisher" name="panda_hand_in_apriltag_frame" args=" 0 -0.0128 0 1.5708 -1.5708 0 /ee_apriltag_in_world /panda_hand_from_camera 100" />
+<!--   <node pkg="tf" type="static_transform_publisher" name="panda_hand_in_apriltag_frame" args=" 0 -0.0128 0 1.5708 -1.5708 0 /ee_apriltag_in_world /panda_hand_from_camera 100" /> -->
+
+  <node pkg="tf" type="static_transform_publisher" name="ft_sensor_frame" args="0.0 0.0 0.0569 0.0 0.0 0.0 /panda_link8 /ft_sensor 100" />
+
+  <node pkg="tf" type="static_transform_publisher" name="apriltag_in_link8_frame" args="-.04207285348 .04207285348 .073 0.0 0.0 .38268343 .9238795325 /panda_link8 /panda_april_tag 100" />
 
 </launch>

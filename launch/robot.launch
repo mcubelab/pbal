@@ -64,7 +64,13 @@
  -->
 <!--   <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find pbal)/rviz/pbal_settings.rviz"/> -->
 
-  <node pkg="tf" type="static_transform_publisher" name="base_to_link0" args="0 0 0 0 0 0 1 base panda_link0 100" />                                                                   <node pkg="tf" type="static_transform_publisher" name="world_to_base" args="0 0 0 0 0 0 1 world base 100" />                                                                      
+  <node pkg="tf" type="static_transform_publisher" name="base_to_link0" args="0 0 0 0 0 0 1 base panda_link0 100" />
+  <node pkg="tf" type="static_transform_publisher" name="world_to_base" args="0 0 0 0 0 0 1 world base 100" />
+  <node pkg="tf" type="static_transform_publisher" name="world_to_pbal_origin" args=".5 -.25 0.0 0.70710678 0 0 0.70710678 world pbal_origin 100" />
+
+
+
+                                                                        
     
 </launch>
 

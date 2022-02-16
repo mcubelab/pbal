@@ -13,7 +13,11 @@ Panels:
         - /RobotWrench1
         - /ExternalWrench1
         - /gravity_params1
+        - /TF1
         - /TF1/Frames1
+        - /Axes1
+        - /Axes2
+        - /Axes3
       Splitter Ratio: 0.488469601
     Tree Height: 410
   - Class: rviz/Selection
@@ -156,7 +160,7 @@ Visualization Manager:
       Shaft Length: 1
       Shaft Radius: 0.0500000007
       Shape: Axes
-      Topic: /face_contact_center_pose_in_world_frame_publisher
+      Topic: /ee_pose_in_world_from_franka_publisher
       Unreliable: false
       Value: false
     - Alpha: 1
@@ -235,7 +239,7 @@ Visualization Manager:
       Frames:
         All Enabled: false
         base:
-          Value: true
+          Value: false
         camera_color_optical_frame:
           Value: false
         ee_apriltag_in_world:
@@ -246,6 +250,8 @@ Visualization Manager:
           Value: false
         panda_K:
           Value: false
+        panda_april_tag:
+          Value: true
         panda_hand:
           Value: false
         panda_hand_from_camera:
@@ -267,6 +273,8 @@ Visualization Manager:
         panda_link7:
           Value: false
         panda_link8:
+          Value: false
+        pbal_origin:
           Value: false
         world:
           Value: false
@@ -294,9 +302,34 @@ Visualization Manager:
                               panda_EE:
                                 panda_K:
                                   {}
+                              panda_april_tag:
+                                {}
                               panda_hand:
                                 {}
+          pbal_origin:
+            {}
       Update Interval: 0
+      Value: true
+    - Class: rviz/Axes
+      Enabled: false
+      Length: 0.100000001
+      Name: Axes
+      Radius: 0.00999999978
+      Reference Frame: world
+      Value: false
+    - Class: rviz/Axes
+      Enabled: false
+      Length: 0.300000012
+      Name: Axes
+      Radius: 0.00999999978
+      Reference Frame: base
+      Value: false
+    - Class: rviz/Axes
+      Enabled: true
+      Length: 0.100000001
+      Name: Axes
+      Radius: 0.00999999978
+      Reference Frame: <Fixed Frame>
       Value: true
   Enabled: true
   Global Options:
@@ -323,7 +356,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.203879
+      Distance: 1.16289568
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -338,10 +371,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.139797434
+      Pitch: 0.0197977386
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.20722151
+      Yaw: 1.62041187
     Saved: ~
 Window Geometry:
   Displays:
