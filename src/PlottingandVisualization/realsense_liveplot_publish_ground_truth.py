@@ -517,6 +517,13 @@ if __name__ == '__main__':
     hand_normal = np.array([[1.0], [0.0], [0.0], [0.0]])
     hand_front_center = np.array([0.0, 0.0, .0375, 1.0])
 
+    # hand_normal_offset = -.01
+    # hand_points = np.array([[0.0, 0.0], [.0505, -.0505],
+    #                         [0.0375, 0.0375], [1.0, 1.0]])
+    # hand_tangent = np.array([[1.0], [0.0], [0.0], [0.0]])
+    # hand_normal = np.array([[0.0], [1.0], [0.0], [0.0]])
+    # hand_front_center = np.array([0.0, 0.0, .0375, 1.0])
+
     force_scale = .001
 
     rospy.init_node("realsense_liveplot_test")
@@ -530,7 +537,7 @@ if __name__ == '__main__':
     l_contact = sys_params.object_params["L_CONTACT_MAX"]
 
     object_vertex_array, apriltag_id, apriltag_pos = load_shape_data(
-        'big_hexagon')
+        'big_triangle')
 
     object_vertex_array = np.vstack([
         object_vertex_array,
@@ -574,10 +581,10 @@ if __name__ == '__main__':
     friction_parameter_sub = rospy.Subscriber('/friction_parameters', 
         FrictionParamsStamped, friction_parameter_callback)
 
-    image_message_sub = rospy.Subscriber('/camera/color/image_raw', Image,
+    image_message_sub = rospy.Subscriber('/far_cam/color/image_raw', Image,
                                          image_message_callback)
 
-    camera_info_sub = rospy.Subscriber('/camera/color/camera_info', CameraInfo,
+    camera_info_sub = rospy.Subscriber('/far_cam/color/camera_info', CameraInfo,
                                        camera_info_callback)
 
     apriltag_message_sub = rospy.Subscriber('/tag_detections',

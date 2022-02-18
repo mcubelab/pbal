@@ -199,6 +199,18 @@ def get_transform(pose_frame_target, pose_frame_source):
     pose_relative_world = pose_from_matrix(T_relative_world, frame_id=pose_frame_source.header.frame_id)
     return pose_relative_world
 
+def matrix_from_trans_and_quat(trans,quat):
+    T = tf.transformations.quaternion_matrix(quat)
+    T[0:3,3] = trans
+    return T
+    
+def matrix_from_pose_list(pose_list):
+    trans = pose_list[0:3]
+    quat = pose_list[3:7]
+    T = tf.transformations.quaternion_matrix(quat)
+    T[0:3,3] = trans
+    return T
+
 def matrix_from_pose(pose):
     pose_list = pose_stamped2list(pose)
     trans = pose_list[0:3]
@@ -225,17 +237,6 @@ def initialize_rosbag(topics, exp_name='test'):
 
 def terminate_rosbag():
     terminate_ros_node('/record')
-
-def terminate_ros_node(s):
-    import subprocess
-    list_cmd = subprocess.Popen("rosnode list", shell=True, stdout=subprocess.PIPE)
-    list_output = list_cmd.stdout.read()
-    retcode = list_cmd.wait()
-    assert retcode == 0, "List command returned %d" % retcode
-    for term in list_output.split("\n"):
-        if (term.startswith(s)):
-            os.system("rosnode kill " + term)
-            print "rosnode kill " + term
 
 
 def compute_tip2tcp_offset(listener, pose_tip_push_start, tip_name='/apriltag_tip'):
