@@ -16,13 +16,12 @@ import Helpers.ros_helper as ros_helper
 from std_msgs.msg import String
 from Modelling.system_params import SystemParams
 
-def parse_args()
+def parse_args():
 
-    parser = argparse.ArgumentParser(description='')
-
-    # experiment setup
-    parser.add_argument('--exp_name', default='', type=str,
-                        help='experiment name')
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument('exp_name', type=str, help='experiment name')
+    args = parser.parse_args()
+    return args
 
 
 if __name__ == '__main__':
@@ -71,21 +70,21 @@ if __name__ == '__main__':
     args = parse_args()
 
     # find shape name
-    sys_params = SystemParams()
-    shape_name = sys_params.ground_truth_params["SHAPE_NAME"]
+    # sys_params = SystemParams()
+    # shape_name = sys_params.ground_truth_params["SHAPE_NAME"]
 
     # find previous experiment number
-    dir_save_bagfile = os.environ['CODE_BASE'] + '/data/rosbag_data/'
+    dir_save_bagfile = "/home/robot2/Documents/pbal/data"
 
     experiment_nums = []
     for file in os.listdir(dir_save_bagfile):
         if file.endswith(".bag"):
-            fname_tokens = file.split('-')
+            fname = os.path.splitext(file)
+            fname_tokens = fname[0].split('-')
             experiment_token = [token for token in fname_tokens if "experiment" in token ]
 
             if not experiment_token:
                 continue
-
             experiment_nums.append(int(experiment_token[0][-3:]))
 
     # new experiment number
@@ -95,7 +94,7 @@ if __name__ == '__main__':
         new_experiment_num = np.amax(np.array(experiment_nums, dtype=int)) + 1
 
     # experiment name
-    exp_name = "experiment{:03d}-".format(new_experiment_num) + shape_name 
+    exp_name = "experiment{:03d}".format(new_experiment_num) 
     if args.exp_name != '':
         exp_name = args.exp_name+'-'+exp_name    
 
