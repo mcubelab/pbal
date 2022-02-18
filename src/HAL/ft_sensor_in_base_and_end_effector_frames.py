@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     # ft sensor in the hand frame
     (ft_sensor_in_end_effector_trans, ft_sensor_in_end_effector_rot) = \
-        rh.lookupTransform('/ft_sensor', '/panda_hand', listener)
+        rh.lookupTransform('/ft_sensor', '/panda_EE', listener)
 
     # Subscribe to ft data
     ft_wrench_in_ft_sensor = None
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     # panda hand pose in base frame WHEN TARING
     (panda_hand_in_base_trans0, panda_hand_in_base_rot0) = \
-        rh.lookupTransform('/panda_hand', 'base', listener)
+        rh.lookupTransform('/panda_EE', 'base', listener)
     panda_hand_in_base_pose0 = rh.list2pose_stamped(panda_hand_in_base_trans0 
         + panda_hand_in_base_rot0, frame_id="base")
     base_z_in_panda_hand0 = rh.matrix_from_pose(
@@ -106,9 +106,9 @@ if __name__ == '__main__':
 
     # ft sensor pose in end effector frame
     (ft_sensor_in_end_effector_trans, ft_sensor_end_effector_in_base_rot) = \
-        rh.lookupTransform('/ft_sensor', '/panda_hand', listener)
+        rh.lookupTransform('/ft_sensor', '/panda_EE', listener)
     ft_sensor_in_end_effector_pose = rh.list2pose_stamped(ft_sensor_in_end_effector_trans 
-        + ft_sensor_end_effector_in_base_rot, frame_id="/panda_hand")
+        + ft_sensor_end_effector_in_base_rot, frame_id="/panda_EE")
     T_ft_sensor_in_panda_hand = rh.matrix_from_pose(
         ft_sensor_in_end_effector_pose)
 
@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
         # panda hand pose in base frame
         # (panda_hand_in_base_trans, panda_hand_in_base_rot) = \
-        #     rh.lookupTransform('/panda_hand', 'base', listener)
+        #     rh.lookupTransform('/panda_EE', 'base', listener)
         # panda_hand_in_base_pose = rh.list2pose_stamped(panda_hand_in_base_trans 
         #     + panda_hand_in_base_rot, frame_id="base")
         # base_z_in_panda_hand = rh.matrix_from_pose(panda_hand_in_base_pose)[2, :3]
@@ -172,7 +172,7 @@ if __name__ == '__main__':
         ft_wrench_in_end_effector_list[1] += correction[1]
         ft_wrench_in_end_effector_list[2] += correction[2]
         ft_wrench_in_end_effector = rh.list2wrench_stamped(ft_wrench_in_end_effector_list)
-        ft_wrench_in_end_effector.header.frame_id = "/panda_hand"
+        ft_wrench_in_end_effector.header.frame_id = "/panda_EE"
 
         # ft wrench in base frame
         ft_wrench_in_base = rh.rotate_wrench(ft_wrench_in_end_effector, 
@@ -182,7 +182,7 @@ if __name__ == '__main__':
         # end effector wrench in end effector frame
         end_effector_wrench_in_end_effector = rh.wrench_reference_point_change(
             ft_wrench_in_end_effector, ft_sensor_in_end_effector_trans)
-        end_effector_wrench_in_end_effector.header.frame_id = "/panda_hand"
+        end_effector_wrench_in_end_effector.header.frame_id = "/panda_EE"
 
         # end effector wrench in base frame
         end_effector_wrench_in_base = rh.rotate_wrench(end_effector_wrench_in_end_effector, 
