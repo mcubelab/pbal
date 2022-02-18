@@ -238,6 +238,16 @@ def initialize_rosbag(topics, exp_name='test'):
 def terminate_rosbag():
     terminate_ros_node('/record')
 
+def terminate_ros_node(s):
+    import subprocess
+    list_cmd = subprocess.Popen("rosnode list", shell=True, stdout=subprocess.PIPE)
+    list_output = list_cmd.stdout.read()
+    retcode = list_cmd.wait()
+    assert retcode == 0, "List command returned %d" % retcode
+    for term in list_output.split("\n"):
+        if (term.startswith(s)):
+            os.system("rosnode kill " + term)
+            print "rosnode kill " + term
 
 def compute_tip2tcp_offset(listener, pose_tip_push_start, tip_name='/apriltag_tip'):
     # pose_tip_start = list2pose_stamped(pose_list, frame_id='push_start')
