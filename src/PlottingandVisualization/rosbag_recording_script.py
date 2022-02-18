@@ -50,7 +50,7 @@ if __name__ == '__main__':
     # ]
 
     rostopic_list = [
-        "/camera/color/image_raw",
+        "/far_cam/color/image_raw",
         "/ground_truth_message",
         # "/gravity_torque", 
         "/pivot_frame_realsense",
