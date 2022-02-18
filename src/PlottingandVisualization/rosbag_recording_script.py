@@ -94,7 +94,7 @@ if __name__ == '__main__':
         new_experiment_num = np.amax(np.array(experiment_nums, dtype=int)) + 1
 
     # experiment name
-    exp_name = "experiment{:03d}".format(new_experiment_num) 
+    exp_name = "experiment{:04d}".format(new_experiment_num) 
     if args.exp_name != '':
         exp_name = args.exp_name+'-'+exp_name    
 
