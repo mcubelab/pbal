@@ -74,7 +74,7 @@ if __name__ == '__main__':
     # shape_name = sys_params.ground_truth_params["SHAPE_NAME"]
 
     # find previous experiment number
-    dir_save_bagfile = "/home/robot2/Documents/pbal/data"
+    dir_save_bagfile = os.path.join(os.environ["CODE_BASE"], "data")
 
     experiment_nums = []
     for file in os.listdir(dir_save_bagfile):
