@@ -25,8 +25,13 @@
   <node name="ee_pose_in_world_from_franka" pkg="pbal" type="ee_pose_in_world_from_franka.py" respawn="true" >
   </node>
 
-  <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="5.06423387e-01 6.15130675e-01 1.47602280e-01 -7.77802963e-03 -7.01780459e-01 7.12291922e-01 9.16006536e-03
+ <!--  <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="5.06423387e-01 6.15130675e-01 1.47602280e-01 -7.77802963e-03 -7.01780459e-01 7.12291922e-01 9.16006536e-03
+   base /camera_color_optical_frame 100" /> -->
+
+ <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="0.4980355178911215, 0.6018168729441976, 0.1394853205379789, 0.0034037964297700574, -0.6987986850579011, 0.7152145472836245, 0.011703131422520828
    base /camera_color_optical_frame 100" />
+   
+   
   
   <!--- face center in april tag -->
 <!--   <node pkg="tf" type="static_transform_publisher" name="panda_hand_in_apriltag_frame" args=" 0 -0.0128 0 1.5708 -1.5708 0 /ee_apriltag_in_world /panda_hand_from_camera 100" /> -->

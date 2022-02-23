@@ -815,7 +815,6 @@ if __name__ == '__main__':
 
         contact_pose_homog = ros_helper.matrix_from_pose(panda_hand_in_base_pose)
         hand_front_center_world = np.dot(contact_pose_homog,hand_front_center)
-
    
         if current_image is not None:
 

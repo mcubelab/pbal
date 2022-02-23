@@ -29,7 +29,7 @@ import Helpers.timing_helper as th
 import Helpers.pbal_msg_helper as pmh
 from Modelling.system_params import SystemParams
 from Modelling.modular_barrier_controller import ModularBarrierController
-
+import Helpers.impedance_mode_helper as IMH
 # from franka_interface import ArmInterface 
 
 
@@ -310,6 +310,10 @@ if __name__ == '__main__':
     frame_message = initialize_frame()
     target_frame_pub = rospy.Publisher('/target_frame', 
         TransformStamped, queue_size=10) 
+
+    my_impedance_mode_helper = IMH.impedance_mode_helper()
+
+
     
     # set up transform broadcaster
     target_frame_broadcaster = tf2_ros.TransformBroadcaster()
@@ -339,6 +343,8 @@ if __name__ == '__main__':
     # impedance parameters
     IMPEDANCE_STIFFNESS_LIST = controller_params["IMPEDANCE_STIFFNESS_LIST"]
     INTEGRAL_MULTIPLIER = controller_params["INTEGRAL_MULTIPLIER"]
+
+    my_impedance_mode_helper.set_cart_impedance_stiffness(IMPEDANCE_STIFFNESS_LIST)
 
     # controller parameters
     param_dict = copy.deepcopy(controller_params)
@@ -608,6 +614,8 @@ if __name__ == '__main__':
         # make pose to send to franka
         waypoint_pose_list = robot2_pose_list(impedance_target[:3].tolist(),
             impedance_target[3])
+
+        my_impedance_mode_helper.set_cart_impedance_pose(waypoint_pose_list)
 
         # waypoint_franka_pose = fh.list2franka_pose(
         #     waypoint_pose_list)

@@ -237,42 +237,42 @@ if __name__ == '__main__':
         "filter_params_": filter_params_,
     }
 
-    data_str = json.dumps(data_dict)
+    # data_str = json.dumps(data_dict)
 
 
-    dir_path = os.path.dirname(os.path.abspath(__file__))
-    save_path = os.path.join(dir_path, '..', '..', '..', 'data', move_type)
+    # dir_path = os.path.dirname(os.path.abspath(__file__))
+    # save_path = os.path.join(dir_path, '..', '..', '..', 'data', move_type)
 
-    with open(os.path.join(save_path, fname_in), 'w') as f:
-        f.write(data_str)
+    # with open(os.path.join(save_path, fname_in), 'w') as f:
+    #     f.write(data_str)
 
-    fig, axs = plt.subplots(1, 3)
-    axs[0].plot(tlist, impedance_target_horizontal_pose_list,
-                marker='o', color='b', label='target')
-    axs[0].plot(tlist, measured_horizontal_pose_list,
-                marker='o', color='r', label='measured')
+    # fig, axs = plt.subplots(1, 3)
+    # axs[0].plot(tlist, impedance_target_horizontal_pose_list,
+    #             marker='o', color='b', label='target')
+    # axs[0].plot(tlist, measured_horizontal_pose_list,
+    #             marker='o', color='r', label='measured')
 
-    axs[1].plot(tlist, impedance_target_vertical_pose_list,
-                marker='o', color='b', label='target')
-    axs[1].plot(tlist, measured_vertical_pose_list,
-                marker='o', color='r', label='measured')
+    # axs[1].plot(tlist, impedance_target_vertical_pose_list,
+    #             marker='o', color='b', label='target')
+    # axs[1].plot(tlist, measured_vertical_pose_list,
+    #             marker='o', color='r', label='measured')
 
-    axs[0].set_xlabel('time (s)')
-    axs[1].set_xlabel('time (s)')
+    # axs[0].set_xlabel('time (s)')
+    # axs[1].set_xlabel('time (s)')
 
-    axs[0].set_ylabel('position (m)')
-    axs[1].set_ylabel('position (m)')
+    # axs[0].set_ylabel('position (m)')
+    # axs[1].set_ylabel('position (m)')
 
-    axs[0].legend()
-    axs[1].legend()
+    # axs[0].legend()
+    # axs[1].legend()
 
-    axs[0].set_title('Horizontal')
-    axs[1].set_title('Vertical')
+    # axs[0].set_title('Horizontal')
+    # axs[1].set_title('Vertical')
 
-    axs[2].plot(tlist, measured_horiztonal_force_list, color='b')
-    axs[2].plot(tlist, measured_vertical_force_list, color='r')
+    # axs[2].plot(tlist, measured_horiztonal_force_list, color='b')
+    # axs[2].plot(tlist, measured_vertical_force_list, color='r')
 
-    plt.show()
+    # plt.show()
 
     # terminate rosbags
     # ros_helper.terminate_rosbag()
