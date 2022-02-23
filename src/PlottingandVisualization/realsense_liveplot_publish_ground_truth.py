@@ -27,7 +27,7 @@ from sensor_msgs.msg import CameraInfo, Image
 from std_msgs.msg import Float32MultiArray
 
 from Modelling.system_params import SystemParams
-import Helpers.ros_helper as ros_helper
+import Helpers.ros_helper as rh
 import Helpers.pbal_msg_helper as pmh
 import Estimation.friction_reasoning as friction_reasoning
 
@@ -80,14 +80,13 @@ def load_shape_data(name_in):
 
 
 def get_tranf_matrix():
-
     # Make listener to get camera transform
     listener = tf.TransformListener()
     rospy.sleep(.5)
 
     # panda hand pose in base frame WHEN TARING
     (translate, quaternion) = \
-        ros_helper.lookupTransform('/camera_color_optical_frame', 'base', listener)
+        rh.lookupTransform('/camera_color_optical_frame', 'base', listener)
 
     # Matrix for extrinsics
     extrinsics_matrix = np.linalg.inv(
@@ -121,19 +120,19 @@ def apriltag_message_callback(apriltag_array):
 
         obj_apriltag_in_camera_pose = obj_apriltag_list[0].pose.pose
 
-        obj_apriltag_in_world_pose = ros_helper.convert_reference_frame(
+        obj_apriltag_in_world_pose = rh.convert_reference_frame(
             obj_apriltag_in_camera_pose,
             base_in_base_pose,
             cam_in_base_pose,
             frame_id="base")
 
-        marker_apriltag_in_world_pose = ros_helper.convert_reference_frame(
+        marker_apriltag_in_world_pose = rh.convert_reference_frame(
             marker_pose_apriltag_frame,
             base_in_base_pose,
             obj_apriltag_in_world_pose,
             frame_id="base")
 
-        obj_pose_homog = ros_helper.matrix_from_pose(marker_apriltag_in_world_pose)
+        obj_pose_homog = rh.matrix_from_pose(marker_apriltag_in_world_pose)
 
     else:
         object_detected = False
@@ -145,7 +144,7 @@ def end_effector_wrench_callback(data):
 
     end_effector_wrench = data
     measured_contact_wrench_6D = -np.array(
-        ros_helper.wrench_stamped2list(end_effector_wrench))
+        rh.wrench_stamped2list(end_effector_wrench))
     measured_contact_wrench = np.array([
         measured_contact_wrench_6D[0], measured_contact_wrench_6D[1],
         measured_contact_wrench_6D[-1]
@@ -166,7 +165,7 @@ def end_effector_wrench_base_frame_callback(data):
 
     base_wrench = data
     measured_base_wrench_6D = -np.array(
-        ros_helper.wrench_stamped2list(base_wrench))
+        rh.wrench_stamped2list(base_wrench))
     measured_base_wrench = np.array([
         measured_base_wrench_6D[0], measured_base_wrench_6D[2],
         measured_base_wrench_6D[-1]
@@ -192,20 +191,20 @@ def friction_parameter_callback(data):
         friction_parameter_list.pop(0)
 
 
-def get_pix(xyz, transformation_matrix):
+def get_pix(xyz, camera_transformation_matrix):
     # xyz should be n x 3
 
     # Project trajectories into pixel space
     vector = np.hstack([xyz, np.ones([xyz.shape[0], 1])])
-    pixels = np.dot(transformation_matrix, vector.T)
+    pixels = np.dot(camera_transformation_matrix, vector.T)
     pix_x = np.divide(pixels[0], pixels[2])
     pix_y = np.divide(pixels[1], pixels[2])
 
     return pix_x, pix_y
 
 
-def get_pix_easier(xyz, transformation_matrix):
-    pixels = np.dot(transformation_matrix, xyz)
+def get_pix_easier(xyz, camera_transformation_matrix):
+    pixels = np.dot(camera_transformation_matrix, xyz)
     pix_x = np.divide(pixels[0], pixels[2])
     pix_y = np.divide(pixels[1], pixels[2])
 
@@ -500,7 +499,7 @@ def plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0,ca
                 [.05 * np.sign(dx_pivot), 0, 0, 0])
             Arrow_End = my_centroid + np.array(
                 [.1 * np.sign(dx_pivot), 0, 0, 0])
-            x_coord, y_coord = get_pix_easier(np.vstack([Arrow_Start, Arrow_End]).T,transformation_matrix)
+            x_coord, y_coord = get_pix_easier(np.vstack([Arrow_Start, Arrow_End]).T,camera_transformation_matrix)
             cv2.arrowedLine(cv_image, (x_coord[0], y_coord[0]),(x_coord[1], y_coord[1]), (0, 0, 255), thickness=2)
 
 def plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0,camera_transformation_matrix):
@@ -643,6 +642,14 @@ if __name__ == '__main__':
     hand_normal = np.array([[1.0], [0.0], [0.0], [0.0]])
     hand_front_center = np.array([0.0, 0.0, .041, 1.0])
 
+    l_hand_tag = .042
+    x_tag_boundary = np.array([-l_hand_tag/2,l_hand_tag/2,l_hand_tag/2,-l_hand_tag/2])
+    y_tag_boundary = np.array([l_hand_tag/2,l_hand_tag/2,-l_hand_tag/2,-l_hand_tag/2])
+    z_tag_boundary = np.array([0.0]*4)
+    one_tag_boundary = np.array([1.0]*4)
+
+    hand_tag_boundary_pts = np.vstack([x_tag_boundary,y_tag_boundary,z_tag_boundary,one_tag_boundary])
+
 
     force_scale = .001
 
@@ -668,15 +675,15 @@ if __name__ == '__main__':
     ])
 
     listener = tf.TransformListener()
-    (cam_in_base_trans, cam_in_base_rot) = ros_helper.lookupTransform(
+    (cam_in_base_trans, cam_in_base_rot) = rh.lookupTransform(
         '/camera_color_optical_frame', 'base', listener)
-    cam_in_base_pose = ros_helper.list2pose_stamped(cam_in_base_trans +
+    cam_in_base_pose = rh.list2pose_stamped(cam_in_base_trans +
                                                     cam_in_base_rot,
                                                     frame_id="base")
-    base_in_base_pose = ros_helper.unit_pose()
+    base_in_base_pose = rh.unit_pose()
     marker_quat_apriltag_frame = tf.transformations.quaternion_from_euler(
         0, 0, 0)
-    marker_pose_apriltag_frame = ros_helper.list2pose_stamped(
+    marker_pose_apriltag_frame = rh.list2pose_stamped(
         [-apriltag_pos[0], -apriltag_pos[1], 0] +
         marker_quat_apriltag_frame.tolist())
 
@@ -772,7 +779,7 @@ if __name__ == '__main__':
     while camera_info is None:
         rospy.sleep(.1)
 
-    transformation_matrix = get_tranf_matrix()
+    camera_transformation_matrix = get_tranf_matrix()
     camera_info_sub.unregister()
 
 
@@ -809,32 +816,40 @@ if __name__ == '__main__':
             friction_reasoning.convert_friction_param_dict_to_array(friction_parameter_dict)
 
         if target_pose is not None:
-                target_pose_homog = ros_helper.matrix_from_transform(target_pose)
+                target_pose_homog = rh.matrix_from_transform(target_pose)
+
+        (panda_april_tag_robot_trans, panda_april_tag_robot_rot) = rh.lookupTransform('/panda_april_tag', 'base', listener)
+        robot_apriltag_pose_matrix = rh.matrix_from_trans_and_quat(panda_april_tag_robot_trans, panda_april_tag_robot_rot)
 
 
 
-        contact_pose_homog = ros_helper.matrix_from_pose(panda_hand_in_base_pose)
+        contact_pose_homog = rh.matrix_from_pose(panda_hand_in_base_pose)
         hand_front_center_world = np.dot(contact_pose_homog,hand_front_center)
+
+
+
    
         if current_image is not None:
 
             cv_image = bridge.imgmsg_to_cv2(current_image, "bgr8")
 
+            shape_overlay(cv_image,robot_apriltag_pose_matrix,hand_tag_boundary_pts,camera_transformation_matrix)
+
             if pivot_xyz_estimated is not None:
                 P0_estimated = [pivot_xyz_estimated[0], hand_front_center_world[1],pivot_xyz_estimated[2], 1.0]
 
-            plot_impedance_target(cv_image,hand_points,target_pose_homog,transformation_matrix)
-            plot_ground_friction_cone(cv_image,P0_estimated,friction_parameter_dict,transformation_matrix,force_scale)
-            plot_force_arrow(cv_image,P0_estimated,-measured_base_wrench_6D[0:3],force_scale,transformation_matrix)
+            plot_impedance_target(cv_image,hand_points,target_pose_homog,camera_transformation_matrix)
+            plot_ground_friction_cone(cv_image,P0_estimated,friction_parameter_dict,camera_transformation_matrix,force_scale)
+            plot_force_arrow(cv_image,P0_estimated,-measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
 
 
             if plot_estimated_pivot:
-                plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0_estimated,transformation_matrix)
-                plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0_estimated,transformation_matrix)
+                plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0_estimated,camera_transformation_matrix)
+                plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0_estimated,camera_transformation_matrix)
 
             if object_detected:
 
-                shape_overlay(cv_image,obj_pose_homog,object_vertex_array,transformation_matrix)
+                shape_overlay(cv_image,obj_pose_homog,object_vertex_array,camera_transformation_matrix)
 
                 current_dot_positions = np.dot(obj_pose_homog,object_vertex_array)
 
@@ -843,8 +858,8 @@ if __name__ == '__main__':
                 if should_publish:
                     torque_bound_pub.publish(torque_bound_msg)
 
-                # plot_desired_object_pose(cv_image,qp_debug_dict,object_vertex_array,obj_pose_homog, transformation_matrix)
-                plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,None,transformation_matrix,current_dot_positions,True)
+                # plot_desired_object_pose(cv_image,qp_debug_dict,object_vertex_array,obj_pose_homog, camera_transformation_matrix)
+                plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,None,camera_transformation_matrix,current_dot_positions,True)
                
 
                 if measured_contact_wrench_6D is not None and measured_base_wrench_6D is not None:
@@ -856,17 +871,17 @@ if __name__ == '__main__':
                         if should_publish:
                             pivot_xyz_pub.publish(frame_message)
 
-                        plot_ground_friction_cone(cv_image,P0,friction_parameter_dict,transformation_matrix,force_scale)
-                        plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0,transformation_matrix)
-                        plot_force_arrow(cv_image,P0,-measured_base_wrench_6D[0:3],force_scale,transformation_matrix)
+                        plot_ground_friction_cone(cv_image,P0,friction_parameter_dict,camera_transformation_matrix,force_scale)
+                        plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0,camera_transformation_matrix)
+                        plot_force_arrow(cv_image,P0,-measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
 
-            plot_hand_slide_arrow(cv_image,qp_debug_dict,hand_points,contact_pose_homog,transformation_matrix)
+            plot_hand_slide_arrow(cv_image,qp_debug_dict,hand_points,contact_pose_homog,camera_transformation_matrix)
   
         if measured_contact_wrench_6D is not None and measured_base_wrench_6D is not None:
             if np.abs(measured_contact_wrench_6D[0]) > .1:
                 hand_COP_hand_frame, hand_COP_world_frame = estimate_hand_COP(measured_contact_wrench_6D,hand_points,contact_pose_homog,l_contact)
-                plot_hand_friction_cone(cv_image,hand_COP_hand_frame,friction_parameter_dict,contact_pose_homog,transformation_matrix,force_scale)
-                plot_force_arrow(cv_image,hand_COP_world_frame,measured_base_wrench_6D[0:3],force_scale,transformation_matrix)
+                plot_hand_friction_cone(cv_image,hand_COP_hand_frame,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale)
+                plot_force_arrow(cv_image,hand_COP_world_frame,measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
 
 
 
