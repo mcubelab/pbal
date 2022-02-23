@@ -266,10 +266,37 @@ if __name__ == '__main__':
     camera_pose_mat = np.zeros([4,4])
     camera_pose_mat[3,3]=1.0
 
-    desired_pose_homog = np.array([ [ 0.0,-1.0, 0.0, 0.5],
-                                    [ 0.0, 0.0, 1.0, 0.25],
-                                    [-1.0, 0.0, 0.0, 0.15],
-                                    [ 0.0, 0.0, 0.0, 1.0]])
+    cam_to_calibrate = 'near'
+    # cam_to_calibrate = 'far'
+
+    if cam_to_calibrate == 'far':
+        desired_pose_homog = np.array([ [ 0.0,-1.0, 0.0, 0.5],
+                                        [ 0.0, 0.0, 1.0, 0.25],
+                                        [-1.0, 0.0, 0.0, 0.15],
+                                        [ 0.0, 0.0, 0.0, 1.0]])
+
+        min_X = .32
+        max_X = .62
+
+        min_Y = .05
+        max_Y = .3
+
+        min_Z = .07
+        max_Z = .17
+
+    if cam_to_calibrate == 'near':
+        desired_pose_homog = np.array([ [ 0.0, 1.0, 0.0, 0.5],
+                                        [ 0.0, 0.0,-1.0,-0.25],
+                                        [-1.0, 0.0, 0.0, 0.15],
+                                        [ 0.0, 0.0, 0.0, 1.0]])
+        min_X = .32
+        max_X = .62
+
+        min_Y = -.05
+        max_Y = -.3
+
+        min_Z = .07
+        max_Z = .17
 
     candidate_points_start =  np.array([
         [ 1.0,-1.0, 0.0, 0.0, 0.0, 0.0],
@@ -289,14 +316,7 @@ if __name__ == '__main__':
     winding_depth = 8
     num_waypoints = winding_height*winding_width
 
-    min_X = .32
-    max_X = .62
 
-    min_Y = .05
-    max_Y = .3
-
-    min_Z = .07
-    max_Z = .17
 
     X_range = np.linspace(min_X,max_X,winding_width)
     Y_range = np.linspace(max_Y,min_Y,winding_depth)

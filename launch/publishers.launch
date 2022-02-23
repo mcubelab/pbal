@@ -28,9 +28,13 @@
  <!--  <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="5.06423387e-01 6.15130675e-01 1.47602280e-01 -7.77802963e-03 -7.01780459e-01 7.12291922e-01 9.16006536e-03
    base /camera_color_optical_frame 100" /> -->
 
- <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args="0.4980355178911215, 0.6018168729441976, 0.1394853205379789, 0.0034037964297700574, -0.6987986850579011, 0.7152145472836245, 0.011703131422520828
-   base /camera_color_optical_frame 100" />
-   
+ <node pkg="tf" type="static_transform_publisher" name="world_to_far_cam" args="0.4980355178911215, 0.6018168729441976, 0.1394853205379789, 0.0034037964297700574, -0.6987986850579011, 0.7152145472836245, 0.011703131422520828
+   base /far_camera_color_optical_frame 100" />
+
+
+ <node pkg="tf" type="static_transform_publisher" name="world_to_near_cam" args="0.4384905809876356, -0.6034918747046369, 0.16814379761039527, -0.7017200051658107, 0.0036552740117039946, -0.0034100343559764624, 0.7124352917898473
+   base /near_camera_color_optical_frame 100" />
+
    
   
   <!--- face center in april tag -->
