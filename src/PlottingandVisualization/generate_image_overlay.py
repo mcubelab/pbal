@@ -14,51 +14,42 @@ from cv_bridge import CvBridge, CvBridgeError
 from cvxopt import matrix, solvers
 import json
 import numpy as np
-import pdb
-import rospy
-import time
-import tf
-import tf.transformations as tfm
-
-from apriltag_ros.msg import AprilTagDetectionArray
-from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
-from pbal.msg import FrictionParamsStamped, QPDebugStamped
-from sensor_msgs.msg import CameraInfo, Image
-from std_msgs.msg import Float32MultiArray
+import pickle
 
 from Modelling.system_params import SystemParams
-import Helpers.ros_helper as rh
-import Helpers.pbal_msg_helper as pmh
 import Estimation.friction_reasoning as friction_reasoning
 
-def qp_debug_message_callback(data):
-    global qp_debug_dict_list
-    if data.qp_debug != '':
-        # qp_debug_dict = json.loads(data.data)
-        qp_debug_dict = pmh.qp_debug_stamped_to_qp_debug_dict(
-            data)
-        qp_debug_dict_list.append(qp_debug_dict)
-    # if data.data != '':
-    #     qp_debug_dict = json.loads(data.data)
-    #     qp_debug_dict_list.append(qp_debug_dict)
 
-    if len(qp_debug_dict_list) > 10:
-        qp_debug_dict_list.pop(0)
+def pose_list_to_matrix(pose_in):
+    rotation_matrix = quat_to_mat(pose_in[3:7])
+    translation_vector = np.array([pose_in[0:3]])
+    return np.vstack([
+        np.hstack([rotation_matrix,np.transpose(translation_vector)]),
+        np.array([0.0,0.0,0.0,1.0])])
 
+#This function was copy-pasted from the Automatic Addison website
+def quat_to_mat(quat_in):
+    x = quat_in[0]
+    y = quat_in[1]
+    z = quat_in[2]
+    w = quat_in[3]
 
-def image_message_callback(data):
-    global image_list
+    r00 = 2*(w*w+x*x)-1
+    r01 = 2*(x*y-w*z)
+    r02 = 2*(x*z+w*y)
 
-    image_list.append(data)
-    if len(image_list) > 3:
-        image_list.pop(0)
-
-
-def camera_info_callback(data):
-    global camera_info
-
-    camera_info = data
-
+    r10 = 2*(x*y+w*z)
+    r11 = 2*(w*w+y*y)-1
+    r12 = 2*(y*z-w*x)
+     
+    r20 = 2*(x*z-w*y)
+    r21 = 2*(y*z+w*x)
+    r22 = 2*(w*w+z*z)-1
+     
+    return  np.array([[r00, r01, r02],
+                      [r10, r11, r12],
+                      [r20, r21, r22]])
+                            
 
 def load_shape_data(name_in):
     curr_dir = os.path.dirname(
@@ -78,125 +69,6 @@ def load_shape_data(name_in):
 
     return vertex_array, apriltag_id, apriltag_pos
 
-
-def get_tranf_matrix():
-    global cam_to_display
-    # Make listener to get camera transform
-    listener = tf.TransformListener()
-    rospy.sleep(.5)
-
-    # panda hand pose in base frame WHEN TARING
-    if cam_to_display == 'near':
-        (translate, quaternion) = \
-            rh.lookupTransform('/near_camera_color_optical_frame', 'base', listener)
-
-    if cam_to_display == 'far':
-        (translate, quaternion) = \
-            rh.lookupTransform('/far_camera_color_optical_frame', 'base', listener)
-
-    # Matrix for extrinsics
-    extrinsics_matrix = np.linalg.inv(
-        np.dot(tfm.compose_matrix(translate=translate),
-               tfm.quaternion_matrix(quaternion)))
-
-    # (3, 4) camera matrix
-    camera_matrix = np.reshape(camera_info.P, (3, 4))
-
-    # Transformation matrix
-    return np.dot(camera_matrix, extrinsics_matrix)
-
-
-def apriltag_message_callback(apriltag_array):
-    global apriltag_id
-    global obj_apriltag_in_camera_pose
-    global obj_apriltag_in_world_pose
-    global base_in_base_pose
-    global april_tag_cam_in_base_pose
-    global marker_pose_apriltag_frame
-    global obj_pose_homog
-    global object_detected
-
-    obj_apriltag_list = [
-        detection for detection in apriltag_array.detections
-        if detection.id == (apriltag_id, )
-    ]
-
-    if obj_apriltag_list:
-        object_detected = True
-
-        obj_apriltag_in_camera_pose = obj_apriltag_list[0].pose.pose
-
-        obj_apriltag_in_world_pose = rh.convert_reference_frame(
-            obj_apriltag_in_camera_pose,
-            base_in_base_pose,
-            april_tag_cam_in_base_pose,
-            frame_id="base")
-
-        marker_apriltag_in_world_pose = rh.convert_reference_frame(
-            marker_pose_apriltag_frame,
-            base_in_base_pose,
-            obj_apriltag_in_world_pose,
-            frame_id="base")
-
-        obj_pose_homog = rh.matrix_from_pose(marker_apriltag_in_world_pose)
-
-    else:
-        object_detected = False
-
-
-def end_effector_wrench_callback(data):
-    global measured_contact_wrench_list
-    global measured_contact_wrench_6D_list
-
-    end_effector_wrench = data
-    measured_contact_wrench_6D = -np.array(
-        rh.wrench_stamped2list(end_effector_wrench))
-    measured_contact_wrench = np.array([
-        measured_contact_wrench_6D[0], measured_contact_wrench_6D[1],
-        measured_contact_wrench_6D[-1]
-    ])
-
-    measured_contact_wrench_list.append(measured_contact_wrench)
-    measured_contact_wrench_6D_list.append(measured_contact_wrench_6D)
-
-    if len(measured_contact_wrench_list) > 100:
-        measured_contact_wrench_list.pop(0)
-    if len(measured_contact_wrench_6D_list) > 100:
-        measured_contact_wrench_6D_list.pop(0)
-
-
-def end_effector_wrench_base_frame_callback(data):
-    global measured_base_wrench_list
-    global measured_base_wrench_6D_list
-
-    base_wrench = data
-    measured_base_wrench_6D = -np.array(
-        rh.wrench_stamped2list(base_wrench))
-    measured_base_wrench = np.array([
-        measured_base_wrench_6D[0], measured_base_wrench_6D[2],
-        measured_base_wrench_6D[-1]
-    ])
-
-    measured_base_wrench_list.append(measured_base_wrench)
-    measured_base_wrench_6D_list.append(measured_base_wrench_6D)
-
-    if len(measured_base_wrench_list) > 100:
-        measured_base_wrench_list.pop(0)
-    if len(measured_base_wrench_6D_list) > 100:
-        measured_base_wrench_6D_list.pop(0)
-
-
-def friction_parameter_callback(data):
-    global friction_parameter_list
-    friction_dict = pmh.friction_stamped_to_friction_dict(
-        data)
-    # friction_dict = json.loads(data.data)
-    friction_parameter_list.append(friction_dict)
-    # friction_parameter_list.append(json.loads(data.data))
-    if len(friction_parameter_list) > 10:
-        friction_parameter_list.pop(0)
-
-
 def get_pix(xyz, camera_transformation_matrix):
     # xyz should be n x 3
 
@@ -208,37 +80,12 @@ def get_pix(xyz, camera_transformation_matrix):
 
     return pix_x, pix_y
 
-
 def get_pix_easier(xyz, camera_transformation_matrix):
     pixels = np.dot(camera_transformation_matrix, xyz)
     pix_x = np.divide(pixels[0], pixels[2])
     pix_y = np.divide(pixels[1], pixels[2])
 
     return np.round(pix_x).astype(int), np.round(pix_y).astype(int)
-
-
-def initialize_frame():
-    frame_message = TransformStamped()
-    frame_message.header.frame_id = "base"
-    frame_message.header.stamp = rospy.Time.now()
-    frame_message.child_frame_id = "pivot"
-    frame_message.transform.translation.x = 0.0
-    frame_message.transform.translation.y = 0.0
-    frame_message.transform.translation.z = 0.0
-
-    frame_message.transform.rotation.x = 0.0
-    frame_message.transform.rotation.y = 0.0
-    frame_message.transform.rotation.z = 0.0
-    frame_message.transform.rotation.w = 1.0
-    return frame_message
-
-
-def update_frame_translation(frame_origin, frame_message):
-    frame_message.header.stamp = rospy.Time.now()
-    frame_message.transform.translation.x = frame_origin[0]
-    frame_message.transform.translation.y = frame_origin[1]
-    frame_message.transform.translation.z = frame_origin[2]
-
 
 def enumerate_vertices_of_constraint_polygon(theta_list, b_list, closed=True):
 
@@ -344,23 +191,6 @@ def enumerate_vertices_of_constraint_polygon(theta_list, b_list, closed=True):
 
     return np.array(vertex_x_list), np.array(vertex_y_list)
 
-
-def ee_pose_callback(data):
-    global panda_hand_in_base_pose
-    panda_hand_in_base_pose = data
-
-
-def pivot_xyz_estimated_callback(data):
-    global pivot_xyz_estimated
-
-    pivot_xyz_estimated = [
-        data.transform.translation.x, data.transform.translation.y,
-        data.transform.translation.z
-    ]
-
-def target_frame_callback(data):
-    global target_pose
-    target_pose = data
 
 
 
@@ -610,74 +440,111 @@ def compute_torque_bounds(hand_front_center_world,hand_normal,hand_tangent,conta
     right_bound = np.min([l_contact / 2, new_tangent_list[1]])
     return np.array([left_bound, right_bound])
 
+
+def synchronize_messages(data_dict):
+    image_key = 'far_cam/color/image_raw'
+
+    new_data_dict = {}
+    index_list = {}
+    time_list = {}
+    index_list = {}
+    for message_type in data_dict.keys():
+        if message_type is not image_key and len(data_dict[message_type])>0:
+            time_list[message_type] = data_dict[message_type][0]['time']
+            new_data_dict[message_type] = []
+            index_list[message_type] = 0
+    
+    for i in range(len(data_dict[image_key])):
+        current_time = data_dict[image_key][i]['time']
+
+        for message_type in new_data_dict.keys():
+            while (index_list[message_type]<len(data_dict[message_type])-1 and 
+                   data_dict[message_type][index_list[message_type]+1]['time']<=current_time):
+                index_list[message_type]+=1
+            new_data_dict[message_type].append(copy.deepcopy(data_dict[message_type][index_list[message_type]]))
+
+    for message_type in new_data_dict.keys():
+        data_dict[message_type] = new_data_dict[message_type]
+
+    return new_data_dict
+
+def invert_RBT(RBT_in):
+    RBT_out = copy.deepcopy(RBT_in)
+
+    RBT_out[0:3,0:3]=np.transpose(RBT_out[0:3,0:3])
+    RBT_out[0:3,3]=-np.dot(RBT_out[0:3,0:3],RBT_out[0:3,3])
+    return RBT_out
+
 if __name__ == '__main__':
 
     cam_to_display = 'far'
     april_tag_cam = 'far'
 
 
-    image_list = []
-    camera_info = None
+    # my_path = 'C:/Users/taylorott/Dropbox (MIT)/pbal_assets/Experiments/InitialEstimatorDataPlusQPDebug-Jan-2022/'
+    # fname = '2022-01-21-17-16-17-experiment012-rectangle-no-mass.pickle'
+    my_path = '/home/robot2/Documents/panda/data/rosbag_data/'
+    # fname = '2022-02-21-16-17-19-dummy-test-01-experiment0001'
+    # fname = '2022-02-23-20-41-33-triange_hand_slide-experiment0001'
+    # fname = '2022-02-23-22-48-29-triangle_execution_video-experiment0001'
+    # fname = '2022-02-24-00-06-18-pentagon_execution_video-experiment0001'
+    # fname = '2022-02-24-01-01-22-square_execution_video-experiment0001'
+    # fname = '2022-02-24-01-39-36-hexagon_execution_video-experiment0001'
+    # fname = '2022-02-24-01-58-40-rectangle_execution_video-experiment0001'
+    # fname = '2022-02-24-02-07-56-expanding_cones_video-experiment0001'
+    # fname = '2022-02-24-02-11-53-pivot_estimation_video-experiment0001'
+    # fname = '2022-02-24-02-25-01-cup_video-experiment0001'
+    # fname = '2022-02-24-02-48-21-red_solo_cup_video-experiment0001'
+    # fname = '2022-02-24-03-02-42-big_box_video-experiment0001'
+    fname = '2022-02-24-03-13-28-small_box_video-experiment0001'
+    rotation_point_offset = .1
+    near_camera_to_world_homog = pose_list_to_matrix([0.4384905809876356, -0.6034918747046369, 0.16814379761039527, -0.7017200051658107, 0.0036552740117039946, -0.0034100343559764624, 0.7124352917898473])
+    far_camera_to_world_homog = pose_list_to_matrix([0.4980355178911215, 0.6018168729441976, 0.1394853205379789, 0.0034037964297700574, -0.6987986850579011, 0.7152145472836245, 0.011703131422520828])
+    
+    robot_apriltag_in_link8_homog = pose_list_to_matrix([-.04207285348, .04207285348, .073, 0.0, 0.0, .38268343, .9238795325])
 
-    target_pose = None
-    target_pose_homog = None
+    robot_ee_in_link8_homog = np.transpose(np.array(
+        [[0.70710678,-0.70710678,0,0],
+        [0.70710678,0.70710678,0,0],
+        [0,0,1,0],
+        [0.00707107,-0.00707107,0.116,1]]))
+    link8_in_ee_homog = invert_RBT(robot_ee_in_link8_homog)
 
-    obj_apriltag_in_camera_pose = None
-    obj_apriltag_in_world_pose = None
-    base_in_base_pose = None
-    april_tag_cam_in_base_pose = None
-    marker_pose_apriltag_frame = None
-    obj_pose_homog = None
-    object_detected = False
-
-    measured_contact_wrench_list = []
-    measured_base_wrench_list = []
-    friction_parameter_list = []
-    friction_parameter_dict = None
-    measured_contact_wrench_6D_list = []
-    measured_base_wrench_6D_list = []
-
-    measured_contact_wrench_6D = None
-    measured_base_wrench_6D = None
-
-    current_image = None
-
-    qp_debug_dict_list = []
-    # processed_image_list = []
-    qp_debug_dict = None
-
-
-    hand_points = np.array([[0.0, 0.0], [.05, -.05],
-                            [0.041, 0.041], [1.0, 1.0]])
-    hand_tangent = np.array([[0.0], [1.0], [0.0], [0.0]])
-    hand_normal = np.array([[1.0], [0.0], [0.0], [0.0]])
-    hand_front_center = np.array([0.0, 0.0, .041, 1.0])
-
-    l_hand_tag = .042
-    x_tag_boundary = np.array([-l_hand_tag/2,l_hand_tag/2,l_hand_tag/2,-l_hand_tag/2])
-    y_tag_boundary = np.array([l_hand_tag/2,l_hand_tag/2,-l_hand_tag/2,-l_hand_tag/2])
-    z_tag_boundary = np.array([0.0]*4)
-    one_tag_boundary = np.array([1.0]*4)
-
-    hand_tag_boundary_pts = np.vstack([x_tag_boundary,y_tag_boundary,z_tag_boundary,one_tag_boundary])
+    robot_apriltag_in_ee_frame_homog = np.dot(link8_in_ee_homog,robot_apriltag_in_link8_homog)
 
 
-    force_scale = .001
 
-    should_publish = False
-    plot_estimated_pivot = True
+    near_cam_transformation_matrix = np.array(
+        [[920.9903714153191, 636.1672897044152, 9.392394039491016, -21.503085558889392], 
+        [3.274304460321054, 366.19277918893073, -908.1154414222754, 372.2525941402742], 
+        [0.009994071065983151, 0.999835264050234, 0.015151346643987835, 0.5964625469056951]])
 
-    rospy.init_node("realsense_liveplot_test")
-    rate = rospy.Rate(5)
-    rospy.sleep(1.0)
+    far_cam_transformation_matrix = np.array(
+        [[-930.2832819054827, -604.5320201665304, 33.97255161021443, 822.3930138096654], 
+        [-24.038407776196475, -386.36655209865575, -914.0708433060383, 371.99335563330385], 
+        [-0.011487376253107511, -0.9996616405060643, 0.023337623862425626, 0.6040791079280076]])
 
-    # arm = ArmInterface()
-    bridge = CvBridge()
+    if cam_to_display == 'far':
+        camera_transformation_matrix = far_cam_transformation_matrix
+    if cam_to_display == 'near':
+        camera_transformation_matrix = near_cam_transformation_matrix
 
-    sys_params = SystemParams()
-    l_contact = sys_params.object_params["L_CONTACT_MAX"]
+    if april_tag_cam == 'far':
+        camera_to_world_homog = far_camera_to_world_homog
+    if april_tag_cam == 'near':
+        camera_to_world_homog = near_camera_to_world_homog
 
-    object_vertex_array, apriltag_id, apriltag_pos = load_shape_data('big_rectangle')
+
+    with open(my_path + fname + '.pickle', 'rb') as handle:
+        data_dict = pickle.load(handle)
+
+
+
+    synched_data_dict = synchronize_messages(data_dict)
+
+    object_vertex_array, apriltag_id, apriltag_pos = load_shape_data('triangle')
+
+
 
     if cam_to_display == april_tag_cam:
         object_vertex_array = np.vstack([
@@ -694,243 +561,156 @@ if __name__ == '__main__':
 
 
 
-    listener = tf.TransformListener()
+    # tag_camera_frame_homog = pose_list_to_matrix(data_dict['tag_detections'][count]['msg']['position']
+    #                                             +data_dict['tag_detections'][count]['msg']['orientation'])
+    # april_tag_pose_marker_frame_homog =  
+    marker_pose_april_tag_frame_homog =  pose_list_to_matrix([-apriltag_pos[0],-apriltag_pos[1], 0,0.0,0.0,0.0,1.0])
+    april_tag_pose_marker_frame_homog =  pose_list_to_matrix([ apriltag_pos[0], apriltag_pos[1], 0,0.0,0.0,0.0,1.0])
+    # vertex_array_marker_frame = np.dot(april_tag_pose_marker_frame_homog,object_vertex_array)
 
-    if april_tag_cam == 'near':
-        (cam_in_base_trans, cam_in_base_rot) = rh.lookupTransform(
-            '/near_camera_color_optical_frame', 'base', listener)
-    if april_tag_cam == 'far':
-        (cam_in_base_trans, cam_in_base_rot) = rh.lookupTransform(
-            '/far_camera_color_optical_frame', 'base', listener)
 
-    april_tag_cam_in_base_pose = rh.list2pose_stamped(cam_in_base_trans +
-                                                    cam_in_base_rot,
-                                                    frame_id="base")
-    base_in_base_pose = rh.unit_pose()
-    marker_quat_apriltag_frame = tf.transformations.quaternion_from_euler(
-        0, 0, 0)
-    marker_pose_apriltag_frame = rh.list2pose_stamped(
-        [-apriltag_pos[0], -apriltag_pos[1], 0] +
-        marker_quat_apriltag_frame.tolist())
 
+
+    hand_points = np.array([[0.0, 0.0], [.05, -.05],
+                            [0.041, 0.041], [1.0, 1.0]])
+    hand_tangent = np.array([[0.0], [1.0], [0.0], [0.0]])
+    hand_normal = np.array([[1.0], [0.0], [0.0], [0.0]])
+    hand_front_center = np.array([0.0, 0.0, .041, 1.0])
+    rotation_point_hand = np.array([rotation_point_offset, 0.0, .041, 1.0])
+
+    l_hand_tag = .042
+    x_tag_boundary = np.array([-l_hand_tag/2,l_hand_tag/2,l_hand_tag/2,-l_hand_tag/2])
+    y_tag_boundary = np.array([l_hand_tag/2,l_hand_tag/2,-l_hand_tag/2,-l_hand_tag/2])
+    z_tag_boundary = np.array([0.0]*4)
+    one_tag_boundary = np.array([1.0]*4)
+
+    hand_tag_boundary_pts = np.vstack([x_tag_boundary,y_tag_boundary,z_tag_boundary,one_tag_boundary])
+
+
+    force_scale = .001
+
+
+    plot_estimated_pivot = True
+
+
+    bridge = CvBridge()
+
+    sys_params = SystemParams()
+    l_contact = sys_params.object_params["L_CONTACT_MAX"]
+
+
+
+
+    ee_pose_world = None
+    measured_base_wrench_6D = None
+    measured_contact_wrench_6D = None
+    friction_parameter_dict = None
+    tag_camera_frame_homog = None
+    qp_debug_dict = None
     pivot_xyz_estimated = None
     P0_estimated = None
+    img_array = []
+    obj_pose_homog = None
 
-    # subscribe to ee pose data
-    panda_hand_in_base_pose = None
-
-
-    # subscribers
-    panda_hand_in_base_pose_sub         = rospy.Subscriber(
-        '/ee_pose_in_world_from_franka_publisher',
-        PoseStamped,
-        ee_pose_callback,
-        queue_size=1)
-
-    end_effector_wrench_sub             = rospy.Subscriber(
-        "/end_effector_sensor_in_end_effector_frame", 
-        WrenchStamped,
-        end_effector_wrench_callback)
-
-    end_effector_wrench_base_frame_sub  = rospy.Subscriber(
-        "/end_effector_sensor_in_base_frame", 
-        WrenchStamped,
-        end_effector_wrench_base_frame_callback)
-
-
-    friction_parameter_sub              = rospy.Subscriber(
-        '/friction_parameters', 
-        FrictionParamsStamped, 
-        friction_parameter_callback)
-
-
-
-    if cam_to_display == 'far':
-        image_message_sub                   = rospy.Subscriber(
-            '/far_cam/color/image_raw', 
-            Image,
-            image_message_callback)
-
-        camera_info_sub                     = rospy.Subscriber(
-            '/far_cam/color/camera_info', 
-            CameraInfo,
-            camera_info_callback)
-    if cam_to_display == 'near':
-        image_message_sub                   = rospy.Subscriber(
-            '/near_cam/color/image_raw', 
-            Image,
-            image_message_callback)
-
-        camera_info_sub                     = rospy.Subscriber(
-            '/near_cam/color/camera_info', 
-            CameraInfo,
-            camera_info_callback)
-
-
-    apriltag_message_sub                = rospy.Subscriber(
-        '/tag_detections',
-        AprilTagDetectionArray,
-        apriltag_message_callback)
-
-    pivot_xyz_sub                       = rospy.Subscriber(
-        "/pivot_frame_estimated",
-        TransformStamped,
-        pivot_xyz_estimated_callback)
-
-    target_frame_sub                    = rospy.Subscriber(
-        '/target_frame', TransformStamped,
-        target_frame_callback)
-
-    qp_debug_message_sub                = rospy.Subscriber(
-        '/qp_debug_message', 
-        QPDebugStamped, 
-        qp_debug_message_callback)
-
-    
-
-    # set up pivot Point publisher
-    pivot_xyz_pub = rospy.Publisher('/pivot_frame_realsense',
-                                    TransformStamped,
-                                    queue_size=10)
-    frame_message = initialize_frame()
-
-
-    torque_bound_pub = rospy.Publisher('/torque_bound_message',
-                                       Float32MultiArray,
-                                       queue_size=10)
-    torque_bound_msg = Float32MultiArray()
-
-
-    image_message_pub = rospy.Publisher('/processed_image',
-                                        Image,
-                                        queue_size=1)
-    image_msg = Image()
-
-    # wait for robot pose data
-    print("Waiting for robot data")
-    while panda_hand_in_base_pose is None:
-        pass
-
-    print("Waiting for image message")
-    while len(image_list) == 0:
-        rospy.sleep(0.1)
-
-    print("Waiting for camera info")
-    while camera_info is None:
-        rospy.sleep(.1)
-
-    camera_transformation_matrix = get_tranf_matrix()
-
-    print camera_transformation_matrix.tolist()
-    camera_info_sub.unregister()
-
-
-    while not rospy.is_shutdown():
-
-        if qp_debug_dict_list:
-            while qp_debug_dict_list:
-                qp_debug_dict = qp_debug_dict_list.pop(0)
-
-        if image_list:
-            while image_list:
-                current_image = image_list.pop(0)
-
-        if measured_contact_wrench_list:
-            while measured_contact_wrench_list:
-                measured_contact_wrench = measured_contact_wrench_list.pop(0)
-
-        if measured_base_wrench_list:
-            while measured_base_wrench_list:
-                measured_base_wrench = measured_base_wrench_list.pop(0)
-
-        if measured_contact_wrench_6D_list:
-            while measured_contact_wrench_6D_list:
-                measured_contact_wrench_6D = measured_contact_wrench_6D_list.pop(0)
-
-        if measured_base_wrench_6D_list:
-            while measured_base_wrench_6D_list:
-                measured_base_wrench_6D = measured_base_wrench_6D_list.pop(0)
-
-        if friction_parameter_list:
-            while friction_parameter_list:
-                friction_parameter_dict = friction_parameter_list.pop(0)
-
-            friction_reasoning.convert_friction_param_dict_to_array(friction_parameter_dict)
-
-        if target_pose is not None:
-                target_pose_homog = rh.matrix_from_transform(target_pose)
-
-        (panda_april_tag_robot_trans, panda_april_tag_robot_rot) = rh.lookupTransform('/panda_april_tag', 'base', listener)
-        robot_apriltag_pose_matrix = rh.matrix_from_trans_and_quat(panda_april_tag_robot_trans, panda_april_tag_robot_rot)
-
-
-
-        contact_pose_homog = rh.matrix_from_pose(panda_hand_in_base_pose)
-        hand_front_center_world = np.dot(contact_pose_homog,hand_front_center)
-
-
-
-   
-        if current_image is not None:
-
-            cv_image = bridge.imgmsg_to_cv2(current_image, "bgr8")
-
-            # shape_overlay(cv_image,robot_apriltag_pose_matrix,hand_tag_boundary_pts,camera_transformation_matrix)
-
-            if pivot_xyz_estimated is not None:
-                P0_estimated = [pivot_xyz_estimated[0], hand_front_center_world[1],pivot_xyz_estimated[2], 1.0]
-
-            # plot_impedance_target(cv_image,hand_points,target_pose_homog,camera_transformation_matrix)
-            plot_ground_friction_cone(cv_image,P0_estimated,friction_parameter_dict,camera_transformation_matrix,force_scale)
-            plot_force_arrow(cv_image,P0_estimated,-measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
-
-
-            if plot_estimated_pivot:
-                plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0_estimated,camera_transformation_matrix)
-                # plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0_estimated,camera_transformation_matrix)
-
-            # if object_detected:
-
-            #     shape_overlay(cv_image,obj_pose_homog,object_vertex_array,camera_transformation_matrix)
-
-            #     current_dot_positions = np.dot(obj_pose_homog,object_vertex_array)
-
-            #     torque_bound_msg.data = compute_torque_bounds(hand_front_center_world,hand_normal,hand_tangent,contact_pose_homog,current_dot_positions)
- 
-            #     if should_publish:
-            #         torque_bound_pub.publish(torque_bound_msg)
-
-            #     # plot_desired_object_pose(cv_image,qp_debug_dict,object_vertex_array,obj_pose_homog, camera_transformation_matrix)
-            #     plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,None,camera_transformation_matrix,current_dot_positions,True)
-               
-
-            #     if measured_contact_wrench_6D is not None and measured_base_wrench_6D is not None:
-                    
-            #         P0 = estimate_ground_COP(current_dot_positions,measured_base_wrench_6D)
-                    
-            #         if P0 is not None:
-            #             update_frame_translation(P0, frame_message)
-            #             if should_publish:
-            #                 pivot_xyz_pub.publish(frame_message)
-
-            #             plot_ground_friction_cone(cv_image,P0,friction_parameter_dict,camera_transformation_matrix,force_scale)
-            #             plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0,camera_transformation_matrix)
-            #             plot_force_arrow(cv_image,P0,-measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
-
-            # plot_hand_slide_arrow(cv_image,qp_debug_dict,hand_points,contact_pose_homog,camera_transformation_matrix)
+    dt_overall = data_dict['far_cam/color/image_raw'][-1]['time']-data_dict['far_cam/color/image_raw'][0]['time']
+    num_frames = len(data_dict['far_cam/color/image_raw'])
+    my_fps = np.round((num_frames-1)/dt_overall)
   
+
+    for count in range(len(data_dict['far_cam/color/image_raw'])):
+        cv_image = data_dict['far_cam/color/image_raw'][count]['msg']
+
+        height, width, layers = cv_image.shape
+        size = (width,height)
+
+
+        if 'ee_pose_in_world_from_franka_publisher' in synched_data_dict.keys():
+            ee_pose_world =  data_dict['ee_pose_in_world_from_franka_publisher'][count]['msg']
+            contact_pose_homog = pose_list_to_matrix(ee_pose_world)
+            hand_front_center_world = np.dot(contact_pose_homog,hand_front_center)
+            robot_apriltag_pose_matrix = np.dot(contact_pose_homog,robot_apriltag_in_ee_frame_homog)
+            rotation_point_hand_world_frame = np.dot(contact_pose_homog,rotation_point_hand)
+        if 'end_effector_sensor_in_base_frame' in synched_data_dict.keys(): 
+            measured_base_wrench_6D = np.array(data_dict['end_effector_sensor_in_base_frame'][count]['msg'])
+
+        if 'end_effector_sensor_in_end_effector_frame' in synched_data_dict.keys():
+            measured_contact_wrench_6D = np.array(data_dict['end_effector_sensor_in_end_effector_frame'][count]['msg'])
+
+        if 'friction_parameters' in synched_data_dict.keys():
+            friction_parameter_dict = data_dict['friction_parameters'][count]['msg']
+
+        if 'tag_detections' in synched_data_dict.keys() and data_dict['tag_detections'][count]['msg'] is not None:
+            tag_camera_frame_homog = pose_list_to_matrix(data_dict['tag_detections'][count]['msg']['position']+data_dict['tag_detections'][count]['msg']['orientation'])
+            obj_pose_homog = np.dot(camera_to_world_homog,np.dot(tag_camera_frame_homog,marker_pose_april_tag_frame_homog))
+        else:
+            obj_pose_homog = None
+
+        if 'qp_debug_message' in synched_data_dict.keys():
+            qp_debug_dict = data_dict['qp_debug_message'][count]['msg']
+
+        if 'target_frame' in synched_data_dict.keys():
+            target_pose_homog = pose_list_to_matrix(data_dict['target_frame'][count]['msg'])
+
+        if 'pivot_frame_estimated' in synched_data_dict.keys():
+            pivot_frame_estimated = data_dict['pivot_frame_estimated'][count]['msg']
+            pivot_xyz_estimated = pivot_frame_estimated[0:3]
+
+        if pivot_xyz_estimated is not None and hand_front_center_world is not None:
+            P0_estimated = [pivot_xyz_estimated[0], hand_front_center_world[1],pivot_xyz_estimated[2], 1.0]
+            
+
+        # if target_pose_homog is not None:
+        #     plot_impedance_target(cv_image,hand_points,target_pose_homog,camera_transformation_matrix)
+
+
+        if plot_estimated_pivot and P0_estimated is not None:
+            plot_ground_friction_cone(cv_image,P0_estimated,friction_parameter_dict,camera_transformation_matrix,force_scale)
+            if measured_base_wrench_6D is not None:
+                plot_force_arrow(cv_image,P0_estimated,measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
+            plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0_estimated,camera_transformation_matrix)
+            plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0_estimated,camera_transformation_matrix)
+        else:
+            plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,rotation_point_hand_world_frame,camera_transformation_matrix)
+            plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,rotation_point_hand_world_frame,camera_transformation_matrix)
+            
+
         if measured_contact_wrench_6D is not None and measured_base_wrench_6D is not None:
             if np.abs(measured_contact_wrench_6D[0]) > .1:
                 hand_COP_hand_frame, hand_COP_world_frame = estimate_hand_COP(measured_contact_wrench_6D,hand_points,contact_pose_homog,l_contact)
                 plot_hand_friction_cone(cv_image,hand_COP_hand_frame,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale)
-                plot_force_arrow(cv_image,hand_COP_world_frame,measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
+                plot_force_arrow(cv_image,hand_COP_world_frame,-measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
+
+        plot_hand_slide_arrow(cv_image,qp_debug_dict,hand_points,contact_pose_homog,camera_transformation_matrix)
+
+        # shape_overlay(cv_image,robot_apriltag_pose_matrix,hand_tag_boundary_pts,camera_transformation_matrix)
 
 
 
 
+        # if tag_camera_frame_homog is not None:
+        #     # shape_overlay(cv_image,obj_pose_homog,object_vertex_array,camera_transformation_matrix)
+        #     current_dot_positions = np.dot(obj_pose_homog,object_vertex_array)
+        #     # plot_desired_object_pose(cv_image,qp_debug_dict,object_vertex_array,obj_pose_homog, camera_transformation_matrix)
+        #     plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,None,camera_transformation_matrix,current_dot_positions,True)
+        #     if measured_contact_wrench_6D is not None and measured_base_wrench_6D is not None:
+        #         P0 = estimate_ground_COP(current_dot_positions,measured_base_wrench_6D)
+        #         if P0 is not None:
+        #             plot_ground_friction_cone(cv_image,P0,friction_parameter_dict,camera_transformation_matrix,force_scale)
+        #             plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0,camera_transformation_matrix)
+        #             plot_force_arrow(cv_image,P0,measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
+
+        img_array.append(cv_image)
         cv2.imshow("Image window", cv_image)
-        image_msg = bridge.cv2_to_imgmsg(cv_image, encoding="passthrough")
-        image_message_pub.publish(image_msg)
-
         cv2.waitKey(3)
-        rate.sleep()
+
+    video_out = cv2.VideoWriter(my_path + fname+'.avi',cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
+
+    for i in range(len(img_array)):
+        video_out.write(img_array[i])
+    video_out.release() 
+ 
+  
+
+
+
+

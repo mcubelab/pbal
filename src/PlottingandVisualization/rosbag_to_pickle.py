@@ -49,34 +49,38 @@ def parse_transform_stamped(msg):
 
 def parse_custom_pbal_message(msg):
 
-	if 'SlidingStateStamped' in msg._type:
-		msg = pmh.sliding_stamped_to_sliding_dict(msg)
+    if 'SlidingStateStamped' in msg._type:
+        msg = pmh.sliding_stamped_to_sliding_dict(msg)
 
-	elif 'QPDepmhbugStamped' in msg._type:
-		msg = pmh.qp_debug_stamped_to_qp_debug_dict(msg)
+    elif 'QPDebugStamped' in msg._type:
+        msg = pmh.qp_debug_stamped_to_qp_debug_dict(msg)
 
-	elif 'FrictionParamsStamped' in msg._type:
-		msg = pmh.friction_stamped_to_friction_dict(msg)
+    elif 'FrictionParamsStamped' in msg._type:
+        msg = pmh.friction_stamped_to_friction_dict(msg)
 
-	elif 'ControlCommandStamped' in msg._type:
-		msg = pmh.command_stamped_to_command_dict(msg)
+    elif 'ControlCommandStamped' in msg._type:
+        msg = pmh.command_stamped_to_command_dict(msg)
+    else:
+        msg = None
 
-	return msg
+    return msg
 
     
 def parse_apriltag_detection_array(msg):
 
-    msg = msg.detections[0]
-    
-    return {
-    'id': msg.id[0],
-    'size': msg.size[0],
-    'position': [msg.pose.pose.pose.position.x, msg.pose.pose.pose.position.y, 
-        msg.pose.pose.pose.position.z],
-    'orientation': [msg.pose.pose.pose.orientation.x, msg.pose.pose.pose.orientation.y, 
-        msg.pose.pose.pose.orientation.z, msg.pose.pose.pose.orientation.w]
-    }
-
+    if len(msg.detections)>0:
+        msg = msg.detections[0]
+        
+        return {
+        'id': msg.id[0],
+        'size': msg.size[0],
+        'position': [msg.pose.pose.pose.position.x, msg.pose.pose.pose.position.y, 
+            msg.pose.pose.pose.position.z],
+        'orientation': [msg.pose.pose.pose.orientation.x, msg.pose.pose.pose.orientation.y, 
+            msg.pose.pose.pose.orientation.z, msg.pose.pose.pose.orientation.w]
+        }
+    else:
+        return None
 msg_types = []
 if __name__ == "__main__":
 
@@ -112,13 +116,15 @@ if __name__ == "__main__":
             	msg = msg.data
             
             elif msg._type == 'sensor_msgs/Image':
-            	    msg = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+                msg = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
                        
             elif msg._type == 'apriltag_ros/AprilTagDetectionArray':
                 msg = parse_apriltag_detection_array(msg)
 
             elif 'pbal/' in msg._type:
             	msg = parse_custom_pbal_message(msg)
+                if msg is None:
+                    continue
 
             # add to data
             if not (topic[1:] in data):
@@ -140,4 +146,4 @@ if __name__ == "__main__":
     with open(spath + '.pickle', 'rb') as handle:
         b = pickle.load(handle)
 
-    pdb.set_trace()
+    # pdb.set_trace()
