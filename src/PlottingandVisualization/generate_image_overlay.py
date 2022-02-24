@@ -662,8 +662,8 @@ if __name__ == '__main__':
         # if target_pose_homog is not None:
         #     plot_impedance_target(cv_image,hand_points,target_pose_homog,camera_transformation_matrix)
 
-
-        if plot_estimated_pivot and P0_estimated is not None:
+        if plot_estimated_pivot and P0_estimated is not None and data_dict['pivot_frame_estimated'][count]['time']<=data_dict['far_cam/color/image_raw'][count]['time']:
+        # if plot_estimated_pivot and P0_estimated is not None:
             plot_ground_friction_cone(cv_image,P0_estimated,friction_parameter_dict,camera_transformation_matrix,force_scale)
             if measured_base_wrench_6D is not None:
                 plot_force_arrow(cv_image,P0_estimated,measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
