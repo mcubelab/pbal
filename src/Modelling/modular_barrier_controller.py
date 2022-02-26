@@ -763,7 +763,7 @@ class ModularBarrierController(object):
         else:
             aiq = np.array([-lc / 2., 0., -1.])
         biq = -self.current_params['torque_margin']
-        return aiq, biq, self.current_params['tr_torque'], ['flc']
+        return aiq, biq, self.current_params['tr_torque'], ['tlc']
 
     def normal_force_max_contact_constraint(self):
         ''' maximum applied normal force at contact constraint '''
