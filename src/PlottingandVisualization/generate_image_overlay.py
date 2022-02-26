@@ -53,7 +53,6 @@ def quat_to_mat(quat_in):
                      [r10, r11, r12],
                      [r20, r21, r22]])
 
-
 def load_shape_data(name_in):
     curr_dir = os.path.dirname(
         os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -342,6 +341,170 @@ def plot_ground_friction_cone(cv_image, COP_ground, friction_parameter_dict, cam
         cv2.polylines(cv_image, [np.vstack(
             [x_coord, y_coord]).T], False, (0, 255, 0), thickness=2)
 
+def overlay_qp_ground_constraints(cv_image,COP_ground,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict):
+    ground_frame_homog = copy.deepcopy(contact_pose_homog)
+
+    ground_frame_homog[0:3,3]=COP_ground[0:3]
+
+    theta_list = []
+    B_list = []
+    for i in range(len(qp_debug_dict['constraint_offsets'])):
+        if qp_debug_dict['label_list_cnstr'][i]=='fer' or qp_debug_dict['label_list_cnstr'][i]=='fel':
+            A_vector = qp_debug_dict['constraint_normals'][i]
+            b = qp_debug_dict['constraint_offsets'][i]
+            theta_list.append(np.arctan2(A_vector[1], A_vector[0]))
+            B_list.append(b)
+        if qp_debug_dict['label_list_cnstr'][i]=='ncmx':
+            b_max = qp_debug_dict['constraint_offsets'][i]
+ 
+
+    my_transform = np.transpose(ground_frame_homog[0:3,0:3])
+    vec_up = np.array([my_transform[0,2],my_transform[1,2]])
+    vec_left = np.array([my_transform[0,0],my_transform[1,0]])
+    vec_down = -vec_up
+    vec_right = -vec_left
+
+
+    vec_list = [vec_up,vec_down,vec_left,vec_right]
+    b_max_list = [0.0,1.2*b_max,.7*b_max,.7*b_max]
+
+    for i in range(len(vec_list)):
+        A_vector = vec_list[i]
+        b = b_max_list[i]
+        theta_list.append(np.arctan2(A_vector[1], A_vector[0]))
+        B_list.append(b)
+
+    theta_list = np.array(theta_list)
+    B_list = np.array(B_list)
+    theta_index_list = np.argsort(theta_list)
+
+    theta_list = theta_list[theta_index_list]
+    B_list = B_list[theta_index_list]
+
+
+    myHullVertexListX, myHullVertexListY = enumerate_vertices_of_constraint_polygon(
+        theta_list, B_list)
+
+    numPts = len(myHullVertexListX)
+
+
+    myHullVertexListX = -force_scale * np.array(myHullVertexListX)
+    myHullVertexListY = -force_scale * np.array(myHullVertexListY)
+
+
+    numPts = len(myHullVertexListX)
+    BoundaryPts = np.vstack([
+        myHullVertexListX,
+        myHullVertexListY,
+        np.zeros([1, numPts]),
+        np.ones([1, numPts])
+    ])
+
+    x_coord, y_coord = get_pix_easier(np.dot(ground_frame_homog,BoundaryPts), camera_transformation_matrix)
+    
+    if len(myHullVertexListX)>=3:
+        cv2.fillPoly(cv_image,[np.vstack([x_coord, y_coord]).T],(0, 0, 255))
+
+def overlay_qp_hand_constraints(cv_image,COP_point_hand_frame,hand_front_center,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict):
+
+
+    measured_wrench = qp_debug_dict['measured_wrench']
+
+    for i in range(len(qp_debug_dict['constraint_offsets'])):
+        if qp_debug_dict['label_list_cnstr'][i]=='flc' and qp_debug_dict['constraint_normals'][i][2]==-1.:
+            # print('correction!')
+            qp_debug_dict['label_list_cnstr'][i]='tlc'
+
+    frc_on = False
+    flc_on = False
+    nmax_on = False
+
+    if 'frc' in qp_debug_dict['label_list_cnstr']:
+        frc_on = True
+        frc_index = qp_debug_dict['label_list_cnstr'].index('frc')
+        A_right = qp_debug_dict['constraint_normals'][frc_index]
+        b_right = qp_debug_dict['constraint_offsets'][frc_index]
+        # print('A_right', A_right)
+    if 'flc' in qp_debug_dict['label_list_cnstr']:
+        flc_on = True
+        flc_index = qp_debug_dict['label_list_cnstr'].index('flc')
+        A_left = qp_debug_dict['constraint_normals'][flc_index]
+        b_left = qp_debug_dict['constraint_offsets'][flc_index]
+        # print('A_left', A_left)
+    if 'ncmx' in qp_debug_dict['label_list_cnstr']:
+        nmax_on = True
+        nmax_index = qp_debug_dict['label_list_cnstr'].index('ncmx')
+        A_max = qp_debug_dict['constraint_normals'][nmax_index]
+        b_max = qp_debug_dict['constraint_offsets'][nmax_index]
+        # print('A_max', A_max)
+
+        A_min = [1.0,0.0,0.0]
+        b_min = 0.0
+
+    trc_index = qp_debug_dict['label_list_cnstr'].index('trc')
+    l_torque = qp_debug_dict['constraint_normals'][trc_index][0]
+
+
+    torque_boundary_pts = np.transpose(np.vstack([hand_front_center,hand_front_center,hand_front_center,hand_front_center]))
+
+    torque_boundary_pts[1,0] = l_torque
+    torque_boundary_pts[1,1] = -l_torque
+    torque_boundary_pts[1,2] = -l_torque
+    torque_boundary_pts[1,3] = l_torque
+
+    torque_boundary_pts[0,0] = .002
+    torque_boundary_pts[0,1] = .002
+    torque_boundary_pts[0,2] = -.002
+    torque_boundary_pts[0,3] = -.002 
+
+    if flc_on:
+        top_left_vertex = np.linalg.solve(np.array([A_max[0:2],A_left[0:2]]),np.array([b_max,b_left]))
+
+    if frc_on:
+        top_right_vertex = np.linalg.solve(np.array([A_right[0:2],A_max[0:2]]),np.array([b_right,b_max]))   
+
+    if frc_on and flc_on:
+        bottom_vertex = np.linalg.solve(np.array([A_right[0:2],A_left[0:2]]),np.array([b_right,b_left]))
+
+        x_vertex_hand_list = np.array([bottom_vertex[0],top_right_vertex[0],top_left_vertex[0]])
+        y_vertex_hand_list = np.array([bottom_vertex[1],top_right_vertex[1],top_left_vertex[1]])
+
+        numPts = 3 
+  
+    if not flc_on:
+        bottom_vertex = np.linalg.solve(np.array([A_right[0:2],A_min[0:2]]),np.array([b_right,b_min]))
+
+        numPts = 4
+
+        x_vertex_hand_list = np.array([bottom_vertex[0],top_right_vertex[0],b_max,b_min])
+        y_vertex_hand_list = np.array([bottom_vertex[1],top_right_vertex[1],-.7*np.sign(top_right_vertex[1])*b_max,-.7*np.sign(top_right_vertex[1])*b_max])
+
+    if not frc_on:
+        bottom_vertex = np.linalg.solve(np.array([A_min[0:2],A_left[0:2]]),np.array([b_min,b_left]))
+
+        numPts = 4
+
+        x_vertex_hand_list = np.array([bottom_vertex[0],top_left_vertex[0],b_max,b_min])
+        y_vertex_hand_list = np.array([bottom_vertex[1],top_left_vertex[1],-.7*np.sign(top_left_vertex[1])*b_max,-.7*np.sign(top_left_vertex[1])*b_max])
+
+
+    myHullVertexListX = force_scale * x_vertex_hand_list + COP_point_hand_frame[0]
+    myHullVertexListY = force_scale * y_vertex_hand_list + COP_point_hand_frame[1]
+
+    BoundaryPts = np.vstack([
+        myHullVertexListX,
+        myHullVertexListY,
+        COP_point_hand_frame[2] * np.ones([1, numPts]),
+        np.ones([1, numPts])
+    ])
+
+    x_coord, y_coord = get_pix_easier(np.dot(contact_pose_homog,BoundaryPts), camera_transformation_matrix)
+
+    cv2.fillPoly(cv_image,[np.vstack([x_coord, y_coord]).T],(0, 0, 255))
+
+    x_coord, y_coord = get_pix_easier(np.dot(contact_pose_homog,torque_boundary_pts), camera_transformation_matrix)
+    cv2.fillPoly(cv_image,[np.vstack([x_coord, y_coord]).T],(80, 127, 255))
+    # cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T],True, (80, 127, 255),thickness=2)
 
 def shape_overlay(cv_image, obj_pose_homog, object_vertex_array, camera_transformation_matrix):
     vertex_positions_world = np.dot(obj_pose_homog, object_vertex_array)
@@ -546,15 +709,16 @@ if __name__ == '__main__':
     # my_path = 'C:/Users/taylorott/Dropbox (MIT)/pbal_assets/Experiments/InitialEstimatorDataPlusQPDebug-Jan-2022/'
     # fname = '2022-01-21-17-16-17-experiment012-rectangle-no-mass.pickle'
     # my_path = '/home/robot2/Documents/panda/data/rosbag_data/'
-    my_path = '/home/nddoshi/Dropbox (MIT)/pbal_assets/Videos/ICRA-2022-Revisions/'
+    # my_path = '/home/nddoshi/Dropbox (MIT)/pbal_assets/Videos/ICRA-2022-Revisions/'
+    my_path = 'C:/Users/taylorott/Dropbox (MIT)/pbal_assets/Videos/ICRA-2022-Revisions/'
     # fname = '2022-02-21-16-17-19-dummy-test-01-experiment0001'
     # fname = '2022-02-23-20-41-33-triange_hand_slide-experiment0001'
     # fname = '2022-02-23-22-48-29-triangle_execution_video-experiment0001'
-    # fname = '2022-02-24-00-06-18-pentagon_execution_video-experiment0001'
+    fname = '2022-02-24-00-06-18-pentagon_execution_video-experiment0001'
     # fname = '2022-02-24-01-01-22-square_execution_video-experiment0001'
     # fname = '2022-02-24-01-39-36-hexagon_execution_video-experiment0001'
     # fname = '2022-02-24-01-58-40-rectangle_execution_video-experiment0001'
-    fname = '2022-02-24-02-07-56-expanding_cones_video-experiment0001'
+    # fname = '2022-02-24-02-07-56-expanding_cones_video-experiment0001'
     # fname = '2022-02-24-02-11-53-pivot_estimation_video-experiment0001'
     # fname = '2022-02-24-02-25-01-cup_video-experiment0001'
     # fname = '2022-02-24-02-48-21-red_solo_cup_video-experiment0001'
@@ -723,11 +887,12 @@ if __name__ == '__main__':
             P0_estimated = [pivot_xyz_estimated[0],
                             hand_front_center_world[1], pivot_xyz_estimated[2], 1.0]
 
-        if target_pose_homog is not None:
-            plot_impedance_target(cv_image,hand_points,target_pose_homog,camera_transformation_matrix)
+        # if target_pose_homog is not None:
+        #     plot_impedance_target(cv_image,hand_points,target_pose_homog,camera_transformation_matrix)
 
         if plot_estimated_pivot and P0_estimated is not None and data_dict['pivot_frame_estimated'][count]['time'] <= data_dict['far_cam/color/image_raw'][count]['time']:
             # if plot_estimated_pivot and P0_estimated is not None:
+            overlay_qp_ground_constraints(cv_image,P0_estimated,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict)
             plot_ground_friction_cone(
                 cv_image, P0_estimated, friction_parameter_dict, camera_transformation_matrix, force_scale)
             if measured_base_wrench_6D is not None:
@@ -747,6 +912,7 @@ if __name__ == '__main__':
             if np.abs(measured_contact_wrench_6D[0]) > .1:
                 hand_COP_hand_frame, hand_COP_world_frame = estimate_hand_COP(
                     measured_contact_wrench_6D, hand_points, contact_pose_homog, l_contact)
+                overlay_qp_hand_constraints(cv_image,hand_COP_hand_frame,hand_front_center,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict)
                 plot_hand_friction_cone(cv_image, hand_COP_hand_frame, friction_parameter_dict,
                                         contact_pose_homog, camera_transformation_matrix, force_scale)
                 plot_force_arrow(cv_image, hand_COP_world_frame, -
@@ -774,9 +940,8 @@ if __name__ == '__main__':
         cv2.waitKey(3)
 
 
-    video_out = cv2.VideoWriter(
-        my_path + fname+'.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
-    
+    # video_out = cv2.VideoWriter(my_path + fname+'.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
+    video_out = cv2.VideoWriter(my_path + fname+'with_qpconstraints.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
 
     for i in range(len(img_array)):
         video_out.write(img_array[i])
