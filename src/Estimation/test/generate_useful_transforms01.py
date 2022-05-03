@@ -85,9 +85,15 @@ def generate_identity_matrix():
 
 if __name__ == '__main__':
 
-	my_rotation = generate_Z_rotation(np.pi/4)
-	my_translation = np.array([.01*np.sqrt(2)/2,-.01*np.sqrt(2)/2,.116])
+	# my_rotation = generate_Z_rotation(np.pi/4)
+	# my_translation = np.array([.01*np.sqrt(2)/2,-.01*np.sqrt(2)/2,.116])
 
+	# print(translation_and_rotmat_to_pose_list(my_translation,my_rotation).tolist())
+
+	# print(matrix_to_quat(generate_X_rotation(np.pi/2)))
+
+	my_rotation = generate_Z_rotation(np.pi/4)
+	my_translation = np.array([-.0595*np.sqrt(2)/2,.0595*np.sqrt(2)/2,.073])
 	print(translation_and_rotmat_to_pose_list(my_translation,my_rotation).tolist())
 
 	# [0.007071067811865476, -0.007071067811865476, 0.116, 0.0, 0.0, 0.3826834323650897, 0.9238795325112867]
