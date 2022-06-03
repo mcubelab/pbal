@@ -108,7 +108,8 @@ def synchronize_messages(data_dict,dt):
 
 
 if __name__ == '__main__':
-	my_path = 'C:/Users/taylorott/Dropbox (MIT)/pbal_assets/Experiments/InitialEstimatorDataPlusQPDebug-Jan-2022/'
+	# my_path = 'C:/Users/taylorott/Dropbox (MIT)/pbal_assets/Experiments/InitialEstimatorDataPlusQPDebug-Jan-2022/'
+	my_path = '/home/taylorott/Documents/Experiment_Data/InitialEstimatorDataPlusQPDebug-Jan-2022/'
 	fname = '2022-01-21-17-16-17-experiment012-rectangle-no-mass.pickle'
 	# fname = '2022-01-21-17-17-32-experiment013-rectangle-no-mass.pickle'
 
