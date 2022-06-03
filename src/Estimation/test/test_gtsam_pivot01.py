@@ -16,7 +16,7 @@ from cvxopt import matrix, solvers
 import json
 import numpy as np
 import pickle
-import image_overlay_helper as ioh
+import PlottingandVisualization.image_overlay_helper as ioh
 from Modelling.system_params import SystemParams
 
 
@@ -214,34 +214,34 @@ if __name__ == '__main__':
 
         if plot_estimated_pivot and P0_estimated is not None and data_dict['pivot_frame_estimated'][count]['time'] <= data_dict['far_cam/color/image_raw'][count]['time']:
             # if plot_estimated_pivot and P0_estimated is not None:
-            ioh.overlay_qp_ground_constraints(cv_image,P0_estimated,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict)
+            # ioh.overlay_qp_ground_constraints(cv_image,P0_estimated,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict)
             ioh.plot_ground_friction_cone(
                 cv_image, P0_estimated, friction_parameter_dict, camera_transformation_matrix, force_scale)
             if measured_base_wrench_6D is not None:
                 ioh.plot_force_arrow(
                     cv_image, P0_estimated, measured_base_wrench_6D[0:3], force_scale, camera_transformation_matrix)
-            ioh.plot_pivot_arrow(cv_image, qp_debug_dict, hand_front_center_world,
-                             P0_estimated, camera_transformation_matrix)
-            ioh.plot_ground_slide_arrow(
-                cv_image, qp_debug_dict, hand_front_center_world, P0_estimated, camera_transformation_matrix)
-        else:
-            ioh.plot_pivot_arrow(cv_image, qp_debug_dict, hand_front_center_world,
-                             rotation_point_hand_world_frame, camera_transformation_matrix)
-            ioh.plot_ground_slide_arrow(cv_image, qp_debug_dict, hand_front_center_world,
-                                    rotation_point_hand_world_frame, camera_transformation_matrix)
+            # ioh.plot_pivot_arrow(cv_image, qp_debug_dict, hand_front_center_world,
+            #                  P0_estimated, camera_transformation_matrix)
+            # ioh.plot_ground_slide_arrow(
+            #     cv_image, qp_debug_dict, hand_front_center_world, P0_estimated, camera_transformation_matrix)
+        # else:
+        #     ioh.plot_pivot_arrow(cv_image, qp_debug_dict, hand_front_center_world,
+        #                      rotation_point_hand_world_frame, camera_transformation_matrix)
+        #     ioh.plot_ground_slide_arrow(cv_image, qp_debug_dict, hand_front_center_world,
+        #                             rotation_point_hand_world_frame, camera_transformation_matrix)
 
         if measured_contact_wrench_6D is not None and measured_base_wrench_6D is not None:
             if np.abs(measured_contact_wrench_6D[0]) > .1:
                 hand_COP_hand_frame, hand_COP_world_frame = ioh.estimate_hand_COP(
                     measured_contact_wrench_6D, hand_points, contact_pose_homog, l_contact)
-                ioh.overlay_qp_hand_constraints(cv_image,hand_COP_hand_frame,hand_front_center,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict)
+                # ioh.overlay_qp_hand_constraints(cv_image,hand_COP_hand_frame,hand_front_center,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict)
                 ioh.plot_hand_friction_cone(cv_image, hand_COP_hand_frame, friction_parameter_dict,
                                         contact_pose_homog, camera_transformation_matrix, force_scale)
                 ioh.plot_force_arrow(cv_image, hand_COP_world_frame, -
                                  measured_base_wrench_6D[0:3], force_scale, camera_transformation_matrix)
 
-        ioh.plot_hand_slide_arrow(cv_image, qp_debug_dict, hand_points,
-                              contact_pose_homog, camera_transformation_matrix)
+        # ioh.plot_hand_slide_arrow(cv_image, qp_debug_dict, hand_points,
+        #                       contact_pose_homog, camera_transformation_matrix)
 
         # shape_overlay(cv_image,robot_apriltag_pose_matrix,hand_tag_boundary_pts,camera_transformation_matrix)
 

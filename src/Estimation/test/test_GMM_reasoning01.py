@@ -160,7 +160,7 @@ if __name__ == '__main__':
 	
 
 
-	friction_parameter_dict,last_slide_time_dict,sliding_state_dict = friction_reasoning.initialize_friciton_dictionaries()
+	friction_parameter_dict,last_slide_time_dict,sliding_state_dict = friction_reasoning.initialize_fricition_dictionaries()
 
 	contact_friction_cone_boundary_margin = 2
 	external_friction_cone_boundary_margin = 2
