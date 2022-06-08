@@ -1,6 +1,6 @@
 import numpy as np
 
-def initialize_fricition_dictionaries():
+def initialize_friction_dictionaries():
     friction_parameter_dict = {
         "acr": np.zeros([1,3]),
         "bcr": 0,

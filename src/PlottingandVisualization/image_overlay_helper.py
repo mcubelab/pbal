@@ -196,6 +196,9 @@ def enumerate_vertices_of_constraint_polygon(theta_list, b_list, closed=True):
 
     return np.array(vertex_x_list), np.array(vertex_y_list)
 
+def plot_pivot_dot(cv_image, pivot_location, camera_transformation_matrix):
+        x_coord, y_coord = get_pix_easier(pivot_location.T, camera_transformation_matrix)
+        cv2.circle(cv_image, (x_coord[0], y_coord[0]), 5 , (0, 0, 255), -1)
 
 def estimate_ground_COP(obj_vertices_world, measured_base_wrench_6D, height_threshold=.003):
     P0 = None
@@ -237,6 +240,8 @@ def estimate_hand_COP(measured_contact_wrench_6D, hand_points, contact_pose_homo
     alpha_2 = (moment_arm_length + l_contact / 2) / (l_contact)
     alpha_1 = 1 - alpha_2
     return np.dot(hand_points, np.array([alpha_1, alpha_2])), np.dot(hand_points_world, np.array([alpha_1, alpha_2]))
+
+
 
 
 def plot_force_arrow(cv_image, force_origin, force_vector, force_scale, camera_transformation_matrix):

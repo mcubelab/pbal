@@ -57,6 +57,7 @@ def error_contact_hand(measurement: np.ndarray, this: gtsam.CustomFactor,
         jacobians[1] = np.array([-np.cos(theta_hand)])
         jacobians[2] = np.array([-1])
 
+    print (error)
     return error
 
 def error_contact_ground(measurement: np.ndarray, this: gtsam.CustomFactor,
@@ -138,6 +139,9 @@ def main():
 
     # Initialize optimizer
     params = gtsam.GaussNewtonParams()
+    print(my_graph)
+    print(v)
+    print(params)
     optimizer = gtsam.GaussNewtonOptimizer(my_graph, v, params)
 
     # Optimize the factor graph
