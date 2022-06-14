@@ -25,7 +25,8 @@ I = np.eye(1)
 
 class gtsam_pivot_estimator(object):
     def __init__(self):
-        self.data_point_cap = 75
+        #self.data_point_cap = 75
+        self.packages_added = 0
         
         self.num_data_points = 0
         self.x_sym_list = []
@@ -36,7 +37,7 @@ class gtsam_pivot_estimator(object):
         self.d_sym = gtsam.symbol('d',0)
 
         self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
-        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
+        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .002)
         self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .0003)
 
         self.s_current_val = None 
@@ -46,7 +47,11 @@ class gtsam_pivot_estimator(object):
         self.v = gtsam.Values()
 
         # Initialize optimizer
-        self.params = gtsam.GaussNewtonParams()
+        # self.params = gtsam.GaussNewtonParams()
+        self.isam = gtsam.NonlinearISAM(reorderInterval=0)
+        # self.isam = gtsam.ISAM2()
+
+        self.my_graph = gtsam.NonlinearFactorGraph()
 
         self.state_factor_package_list = []
         self.changing_factor_package_list = []
@@ -58,38 +63,53 @@ class gtsam_pivot_estimator(object):
         # print(self.v)
         # print(self.params)
 
-        self.my_graph = gtsam.NonlinearFactorGraph()
+        # self.my_graph = gtsam.NonlinearFactorGraph()
 
-        for state_factor_package in self.state_factor_package_list:
-            for my_factor in state_factor_package:
-                self.my_graph.add(my_factor)
-        for i in range(1,len(self.changing_factor_package_list)):
-            changing_factor_package = self.changing_factor_package_list[i]
-            for my_factor in changing_factor_package:
-                self.my_graph.add(my_factor)
+        # for state_factor_package in self.state_factor_package_list:
+        #     for my_factor in state_factor_package:
+        #         self.my_graph.add(my_factor)
+        # for i in range(1,len(self.changing_factor_package_list)):
+        #     changing_factor_package = self.changing_factor_package_list[i]
+        #     for my_factor in changing_factor_package:
+        #         self.my_graph.add(my_factor)
 
-        self.optimizer = gtsam.GaussNewtonOptimizer(self.my_graph, self.v, self.params)
+        while self.packages_added<self.num_data_points:
+            for my_factor in self.state_factor_package_list[self.packages_added]:
+                self.my_graph.add(my_factor)
+            for my_factor in self.changing_factor_package_list[self.packages_added]:
+                self.my_graph.add(my_factor)
+            self.packages_added+=1
+
+        # self.optimizer = gtsam.GaussNewtonOptimizer(self.my_graph, self.v, self.params)
 
         # print('hi!')
-        result = self.optimizer.optimize()
+        # result = self.optimizer.optimize()
+        self.isam.update(self.my_graph,self.v)
+        result = self.isam.estimate()
+        # result = self.isam.calculateEstimate()
         x_pivot = result.atVector(self.x_sym_list[-1])
         y_pivot = result.atVector(self.h_sym)
 
         # print(result.atVector(self.mgl_A_sym))
-        self.v.update(self.mgl_A_sym,result.atVector(self.mgl_A_sym))
-        self.v.update(self.mgl_B_sym,result.atVector(self.mgl_B_sym))
-        self.v.update(self.h_sym,result.atVector(self.h_sym))
-        self.v.update(self.d_sym,result.atVector(self.d_sym))
+        # self.v.update(self.mgl_A_sym,result.atVector(self.mgl_A_sym))
+        # self.v.update(self.mgl_B_sym,result.atVector(self.mgl_B_sym))
+        # self.v.update(self.h_sym,result.atVector(self.h_sym))
+        # self.v.update(self.d_sym,result.atVector(self.d_sym))
 
-        for x_sym in self.x_sym_list:
-            self.v.update(x_sym,result.atVector(x_sym))
-        for s_sym in self.s_sym_list:
-            self.v.update(s_sym,result.atVector(s_sym))
+
+
+        # for x_sym in self.x_sym_list:
+        #     self.v.update(x_sym,result.atVector(x_sym))
+        # for s_sym in self.s_sym_list:
+        #     self.v.update(s_sym,result.atVector(s_sym))
         s = result.atVector(self.s_sym_list[-1])
         d = result.atVector(self.d_sym)
 
         self.s_current_val = s 
         self.x_current_val = x_pivot
+
+        self.my_graph.resize(0)
+        self.v.clear()
 
         return [x_pivot[0],y_pivot[0],s[0],d[0]]
 
@@ -101,11 +121,11 @@ class gtsam_pivot_estimator(object):
         self.x_sym_list.append(gtsam.symbol('x', self.num_data_points))
         self.s_sym_list.append(gtsam.symbol('s', self.num_data_points))
 
-        if self.num_data_points>self.data_point_cap:
-            self.v.erase(self.x_sym_list.pop(0))
-            self.v.erase(self.s_sym_list.pop(0))
-            self.state_factor_package_list.pop(0)
-            self.changing_factor_package_list.pop(0)
+        # if self.num_data_points>self.data_point_cap:
+        #     self.v.erase(self.x_sym_list.pop(0))
+        #     self.v.erase(self.s_sym_list.pop(0))
+        #     self.state_factor_package_list.pop(0)
+        #     self.changing_factor_package_list.pop(0)
 
         measurement = np.array([hand_pose[0],hand_pose[1],hand_pose[2],measured_base_wrench[0],measured_base_wrench[1],measured_base_wrench[2]])
 

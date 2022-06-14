@@ -170,6 +170,7 @@ if __name__ == '__main__':
     num_frames = len(data_dict['far_cam/color/image_raw'])
     my_fps = np.round((num_frames-1)/dt_overall)
 
+    print ('num data points:',len(data_dict['far_cam/color/image_raw']))
     for count in range(len(data_dict['far_cam/color/image_raw'])):
         cv_image = data_dict['far_cam/color/image_raw'][count]['msg']
 
@@ -223,11 +224,11 @@ if __name__ == '__main__':
 
             hand_pose_pivot_estimator = [-hand_front_center_world[0],hand_front_center_world[2],theta_hand_for_estimator]
             measured_wrench_pivot_estimator = [measured_base_wrench_6D[0],-measured_base_wrench_6D[2],-measured_base_wrench_6D[-2]]
-            if count%5==0:
+            if count%1==0:
                 my_pivot_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,sliding_state_dict)
-                if my_pivot_estimator.num_data_points>10:
-                    pivot_estimate_new = my_pivot_estimator.compute_estimate()
-                    pivot_estimate_vector = np.array([[-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]])
+            if count%3==0 and my_pivot_estimator.num_data_points>20:
+                pivot_estimate_new = my_pivot_estimator.compute_estimate()
+                pivot_estimate_vector = np.array([[-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]])
  
             if pivot_estimate_vector is not None:
                 ioh.plot_pivot_dot(cv_image,pivot_estimate_vector,camera_transformation_matrix)
@@ -322,6 +323,8 @@ if __name__ == '__main__':
 
     # video_out = cv2.VideoWriter(my_path + fname+'.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
     # video_out = cv2.VideoWriter(my_path + fname+'with_qpconstraints.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
+
+    # video_out = cv2.VideoWriter(my_path + 'gtsam_example01'+'.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
 
     # for i in range(len(img_array)):
     #     video_out.write(img_array[i])
