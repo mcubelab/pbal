@@ -496,13 +496,13 @@ class ModularBarrierController(object):
             ]
 
             self.mode_constraint = [
-                self.friction_left_contact_constraint,
+                # self.friction_right_contact_constraint,
                 self.torque_right_contact_constraint,
                 self.torque_left_contact_constraint,
                 self.normal_force_max_contact_constraint,
                 self.normal_force_min_contact_constraint,
-                self.normal_force_min_external_constraint,
-                self.friction_left_external_constraint
+                # self.normal_force_min_external_constraint,
+                # self.friction_left_external_constraint
             ]
          
 
@@ -516,13 +516,32 @@ class ModularBarrierController(object):
             ]
 
             self.mode_constraint = [
-                self.friction_right_contact_constraint,
+                # self.friction_left_contact_constraint,
                 self.torque_right_contact_constraint,
                 self.torque_left_contact_constraint,
                 self.normal_force_max_contact_constraint,
                 self.normal_force_min_contact_constraint,
-                self.friction_right_external_constraint,
-                self.normal_force_min_external_constraint
+                # self.friction_right_external_constraint,
+                # self.normal_force_min_external_constraint
+            ]
+
+        if self.mode == 14:  # pivot with stick contact at the hand, but not the ground
+            self.current_params=self.param_dict['pivot_params']
+
+            self.mode_cost = [
+                self.theta_cost,
+                self.wrench_regularization_cost,
+                self.normal_force_cost
+            ]
+
+            self.mode_constraint = [
+                self.friction_right_contact_constraint,
+                self.friction_left_contact_constraint,
+                self.torque_right_contact_constraint,
+                self.torque_left_contact_constraint,
+                self.normal_force_max_contact_constraint,
+                # self.friction_right_external_constraint,
+                # self.friction_left_external_constraint
             ]
 
     def compute_error_theta(self):
@@ -693,6 +712,7 @@ class ModularBarrierController(object):
                 base_vec = np.array([0., 0., 1.])
             else: 
                 base_vec = np.array([0., -.06, 1.])
+                # base_vec = np.array([0., -.15, 1.])
         else:
             base_vec = np.array([-self.s_hand, self.l_hand, 1.])
         return self.general_cost(
