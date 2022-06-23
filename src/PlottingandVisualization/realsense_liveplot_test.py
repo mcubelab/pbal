@@ -7,7 +7,7 @@ sys.path.insert(0,parentdir)
 sys.path.insert(0,gparentdir)
 import tf
 import tf.transformations as tfm
-from Modelling.ros_helper import lookupTransform
+import Helpers.ros_helper as rh
 import rospy
 import pdb
 import json
@@ -22,10 +22,10 @@ import cv2
 import sys
 from cv_bridge import CvBridge, CvBridgeError
 import roslib
-from franka_interface import ArmInterface 
+# from franka_interface import ArmInterface 
 from apriltag_ros.msg import AprilTagDetectionArray
-import Modelling.ros_helper as ros_helper
-import franka_helper
+# import Modelling.ros_helper as ros_helper
+# import franka_helper
 from Modelling.system_params import SystemParams
 
 
@@ -55,7 +55,7 @@ def load_shape_data(name_in):
     curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     parentdir = os.path.dirname(curr_dir)
     gparentdir = os.path.dirname(parentdir)
-    print 'parentdir', parentdir
+    print ('parentdir', parentdir)
     fname = os.path.join(parentdir, 'Modelling', 'shape_description', name_in+".json")
     f = open(fname)
     # f = open("/home/oneills/Documents/panda/base_ws/src/franka_ros_interface/franka_ros_controllers/scripts/models/shape_description/"+name_in+".json")
@@ -75,8 +75,10 @@ def get_tranf_matrix():
     rospy.sleep(.5)
 
     # panda hand pose in base frame WHEN TARING
+    # (translate, quaternion) = \
+    #     lookupTransform('/camera_color_optical_frame', 'base', listener)
     (translate, quaternion) = \
-        lookupTransform('/camera_color_optical_frame', 'base', listener)
+            rh.lookupTransform('/far_camera_color_optical_frame', 'base', listener)
 
 
     # Matrix for extrinsics
@@ -108,13 +110,13 @@ def apriltag_message_callback(apriltag_array):
 
         obj_apriltag_in_camera_pose = obj_apriltag_list[0].pose.pose
 
-        obj_apriltag_in_world_pose = ros_helper.convert_reference_frame(obj_apriltag_in_camera_pose, base_in_base_pose,
+        obj_apriltag_in_world_pose = rh.convert_reference_frame(obj_apriltag_in_camera_pose, base_in_base_pose,
                                                       cam_in_base_pose, frame_id = "base")
 
-        marker_apriltag_in_world_pose = ros_helper.convert_reference_frame(marker_pose_apriltag_frame, base_in_base_pose,
+        marker_apriltag_in_world_pose = rh.convert_reference_frame(marker_pose_apriltag_frame, base_in_base_pose,
                                                       obj_apriltag_in_world_pose, frame_id = "base")
 
-        obj_orientation_matrix = ros_helper.matrix_from_pose(marker_apriltag_in_world_pose)
+        obj_orientation_matrix = rh.matrix_from_pose(marker_apriltag_in_world_pose)
 
     else:
         object_detected = False
@@ -124,7 +126,7 @@ def end_effector_wrench_callback(data):
     global measured_contact_wrench_6D_list
 
     end_effector_wrench = data
-    measured_contact_wrench_6D = -np.array(ros_helper.wrench_stamped2list(
+    measured_contact_wrench_6D = -np.array(rh.wrench_stamped2list(
             end_effector_wrench))
     measured_contact_wrench = np.array([
             measured_contact_wrench_6D[0], 
@@ -144,7 +146,7 @@ def end_effector_wrench_base_frame_callback(data):
     global measured_base_wrench_6D_list
 
     base_wrench = data
-    measured_base_wrench_6D = -np.array(ros_helper.wrench_stamped2list(
+    measured_base_wrench_6D = -np.array(rh.wrench_stamped2list(
             base_wrench))
     measured_base_wrench = np.array([
             measured_base_wrench_6D[0], 
@@ -186,6 +188,9 @@ def get_pix_easier(xyz,transformation_matrix):
     return np.round(pix_x).astype(int), np.round(pix_y).astype(int)
 
 
+def ee_pose_callback(data):
+    global panda_hand_in_base_pose
+    panda_hand_in_base_pose = data
     
 
 
@@ -231,7 +236,7 @@ if __name__ == '__main__':
     rospy.init_node("realsense_liveplot_test")
     rospy.sleep(1.0)
 
-    arm = ArmInterface()
+    # arm = ArmInterface()
     bridge = CvBridge()
 
     sys_params = SystemParams()
@@ -246,11 +251,12 @@ if __name__ == '__main__':
 
 
     listener = tf.TransformListener()   
-    (cam_in_base_trans, cam_in_base_rot) = ros_helper.lookupTransform('/camera_color_optical_frame', 'base', listener)
-    cam_in_base_pose = ros_helper.list2pose_stamped(cam_in_base_trans + cam_in_base_rot, frame_id="base")
-    base_in_base_pose = ros_helper.unit_pose()
+    # (cam_in_base_trans, cam_in_base_rot) = rh.lookupTransform('/camera_color_optical_frame', 'base', listener)
+    (cam_in_base_trans, cam_in_base_rot) = rh.lookupTransform('/far_camera_color_optical_frame', 'base', listener)
+    cam_in_base_pose = rh.list2pose_stamped(cam_in_base_trans + cam_in_base_rot, frame_id="base")
+    base_in_base_pose = rh.unit_pose()
     marker_quat_apriltag_frame = tf.transformations.quaternion_from_euler(0, 0, 0)
-    marker_pose_apriltag_frame = ros_helper.list2pose_stamped([-apriltag_pos[0], -apriltag_pos[1], 0] + marker_quat_apriltag_frame.tolist())
+    marker_pose_apriltag_frame = rh.list2pose_stamped([-apriltag_pos[0], -apriltag_pos[1], 0] + marker_quat_apriltag_frame.tolist())
 
 
 
@@ -272,13 +278,23 @@ if __name__ == '__main__':
         String, 
         friction_parameter_callback)
 
+    # image_message_sub = rospy.Subscriber(
+    #    '/camera/color/image_raw',
+    #     Image,
+    #     image_message_callback)
+
     image_message_sub = rospy.Subscriber(
-       '/camera/color/image_raw',
+       '/far_cam/color/image_raw',
         Image,
         image_message_callback)
 
+    # camera_info_sub = rospy.Subscriber(
+    #     '/camera/color/camera_info',
+    #     CameraInfo,
+    #     camera_info_callback
+    #     )
     camera_info_sub = rospy.Subscriber(
-        '/camera/color/camera_info',
+        '/far_cam/color/camera_info',
         CameraInfo,
         camera_info_callback
         )
@@ -294,7 +310,11 @@ if __name__ == '__main__':
         String,
         qp_debug_message_callback)
 
-
+    # subscribe to ee pose data
+    panda_hand_in_base_pose = None
+    panda_hand_in_base_pose_sub = rospy.Subscriber(
+        '/ee_pose_in_world_from_franka_publisher', PoseStamped, 
+        ee_pose_callback, queue_size=1)
 
     
 
@@ -364,13 +384,16 @@ if __name__ == '__main__':
             cv_image = bridge.imgmsg_to_cv2(current_image, "bgr8")
 
             # face_center franka pose
-            endpoint_pose_franka = arm.endpoint_pose()
+            # endpoint_pose_franka = arm.endpoint_pose()
 
-            # face_center list
-            endpoint_pose_list = franka_helper.franka_pose2list(endpoint_pose_franka)
+            endpoint_pose = panda_hand_in_base_pose
+            endpoint_pose_list = rh.pose_stamped2list(panda_hand_in_base_pose)
 
-            contact_pose_stamped = ros_helper.list2pose_stamped(endpoint_pose_list)
-            contact_pose_homog = ros_helper.matrix_from_pose(contact_pose_stamped)
+            # # face_center list
+            # endpoint_pose_list = franka_helper.franka_pose2list(endpoint_pose_franka)
+
+            contact_pose_stamped = rh.list2pose_stamped(endpoint_pose_list)
+            contact_pose_homog = rh.matrix_from_pose(contact_pose_stamped)
                 
 
 

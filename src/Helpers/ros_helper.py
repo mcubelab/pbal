@@ -227,12 +227,12 @@ def matrix_from_transform(transform):
     T[0:3,3] = trans
     return T
 
-def initialize_rosbag(topics, exp_name='test'):
+def initialize_rosbag(topics, dir_save_bagfile, exp_name='test'):
     import datetime
     import subprocess
     #Saving rosbag options
     name_of_bag  = str(datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")) + '-' + exp_name
-    dir_save_bagfile = os.environ['CODE_BASE'] + '/data/rosbag_data/'
+    # dir_save_bagfile = os.environ['CODE_BASE'] + '/data/rosbag_data/'
     rosbag_proc = subprocess.Popen('rosbag record -q -O %s %s' % (name_of_bag, " ".join(topics)) , shell=True, cwd=dir_save_bagfile)
 
 def terminate_rosbag():
@@ -244,10 +244,10 @@ def terminate_ros_node(s):
     list_output = list_cmd.stdout.read()
     retcode = list_cmd.wait()
     assert retcode == 0, "List command returned %d" % retcode
-    for term in list_output.split("\n"):
+    for term in list_output.decode('utf8').split("\n"):
         if (term.startswith(s)):
             os.system("rosnode kill " + term)
-            print "rosnode kill " + term
+            print("rosnode kill " + term)
 
 def compute_tip2tcp_offset(listener, pose_tip_push_start, tip_name='/apriltag_tip'):
     # pose_tip_start = list2pose_stamped(pose_list, frame_id='push_start')

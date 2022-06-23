@@ -29,8 +29,6 @@ import Helpers.ros_helper as rh
 import Helpers.timing_helper as th
 import Helpers.pbal_msg_helper as pmh
 from Modelling.system_params import SystemParams
-from Modelling.modular_barrier_controller import ModularBarrierController
-import Helpers.impedance_mode_helper as IMH
 from gtsam_pivot_estimator_production import gtsam_pivot_estimator
 # import PlottingandVisualization.image_overlay_helper as ioh
 
@@ -135,6 +133,17 @@ if __name__ == '__main__':
     "/end_effector_sensor_in_base_frame", 
     WrenchStamped,  end_effector_wrench_base_frame_callback)
 
+    # set up pivot Point publisher
+    frame_message = initialize_frame()
+    pivot_xyz_pub = rospy.Publisher('/pivot_frame_estimated', TransformStamped, queue_size=10)  
+
+    # set up transform broadcaster
+    pivot_frame_broadcaster = tf2_ros.TransformBroadcaster()   
+
+    # set up pivot marker publisher
+    marker_message = initialize_marker()
+    pivot_marker_pub = rospy.Publisher('/pivot_marker', Marker, queue_size=10)
+
     if torque_boundary_boolean is None:
         print('waiting for torque boundary node')
         while torque_boundary_boolean is None:
@@ -178,6 +187,18 @@ if __name__ == '__main__':
         measured_wrench_pivot_estimator = [measured_base_wrench_6D[0],-measured_base_wrench_6D[2],-measured_base_wrench_6D[-2]]
         my_pivot_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,sliding_state_dict)
 
+        if  my_pivot_estimator.num_data_points>20:
+            pivot_estimate_new = my_pivot_estimator.compute_estimate()
+            # pivot_estimate_vector = np.array([[-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]])
+            # print(pivot_estimate_vector)
+            pivot_xyz = [-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1]]
+            # update maker for center of rotation
+            pivot_pose = rh.list2pose_stamped(pivot_xyz + [0.0,0.0,0.0,1.0])
+            update_frame_translation(pivot_xyz, frame_message)
+            update_marker_pose(pivot_pose, marker_message)
+            pivot_xyz_pub.publish(frame_message)
+            pivot_frame_broadcaster.sendTransform(frame_message)
+            # pivot_marker_pub.publish(marker_message)
         rate.sleep() 
 
 

@@ -16,12 +16,12 @@ import Helpers.ros_helper as ros_helper
 from std_msgs.msg import String
 from Modelling.system_params import SystemParams
 
-def parse_args():
+# def parse_args():
 
-    parser = argparse.ArgumentParser(description="")
-    parser.add_argument('exp_name', type=str, help='experiment name')
-    args = parser.parse_args()
-    return args
+#     parser = argparse.ArgumentParser(description="")
+#     parser.add_argument('exp_name', type=str, help='experiment name')
+#     args = parser.parse_args()
+#     return args
 
 
 if __name__ == '__main__':
@@ -65,16 +65,21 @@ if __name__ == '__main__':
         '/target_frame', 
         '/sliding_state',
         '/tag_detections',
+        '/torque_cone_boundary_test',
+        '/torque_cone_boundary_flag',
     ]
 
-    args = parse_args()
+    experiment_label = 'test_data'
+
+    # args = parse_args()
 
     # find shape name
     # sys_params = SystemParams()
     # shape_name = sys_params.ground_truth_params["SHAPE_NAME"]
 
     # find previous experiment number
-    dir_save_bagfile = os.path.join(os.environ["CODE_BASE"], "data")
+    # dir_save_bagfile = os.path.join(os.environ["CODE_BASE"], "data")
+    dir_save_bagfile = '/home/thecube/Documents/pbal_experiments/gtsam_test_data'
 
     experiment_nums = []
     for file in os.listdir(dir_save_bagfile):
@@ -95,11 +100,12 @@ if __name__ == '__main__':
 
     # experiment name
     exp_name = "experiment{:04d}".format(new_experiment_num) 
-    if args.exp_name != '':
-        exp_name = args.exp_name+'-'+exp_name    
+    if experiment_label != '':
+        exp_name = experiment_label+'-'+exp_name    
 
     print("Starting rosbag recording...")
-    ros_helper.initialize_rosbag(rostopic_list, exp_name=exp_name)
+    print(exp_name)
+    ros_helper.initialize_rosbag(rostopic_list, dir_save_bagfile, exp_name)
     
     while not rospy.is_shutdown():
         rate.sleep()

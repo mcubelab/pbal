@@ -31,14 +31,14 @@ class gtsam_pivot_estimator(object):
         self.num_data_points = 0
         self.x_sym_list = []
         self.s_sym_list = []
-        self.mgl_A_sym = gtsam.symbol(ord('p'), 0)
-        self.mgl_B_sym = gtsam.symbol(ord('q'), 0) 
-        self.h_sym = gtsam.symbol(ord('h'), 0)
-        self.d_sym = gtsam.symbol(ord('d'),0)
+        self.mgl_A_sym = gtsam.symbol('p', 0)
+        self.mgl_B_sym = gtsam.symbol('q', 0) 
+        self.h_sym = gtsam.symbol('h', 0)
+        self.d_sym = gtsam.symbol('d',0)
 
-        self.error_contact_model = gtsam.noiseModel_Isotropic.Sigma(1, .003)
-        self.error_torque_model = gtsam.noiseModel_Isotropic.Sigma(1, .002)
-        self.error_var_change_model = gtsam.noiseModel_Isotropic.Sigma(1, .0003)
+        self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
+        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .002)
+        self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .0003)
 
         self.s_current_val = None 
         self.x_current_val = None 
@@ -118,8 +118,8 @@ class gtsam_pivot_estimator(object):
 
 
         self.num_data_points+=1
-        self.x_sym_list.append(gtsam.symbol(ord('x'), self.num_data_points))
-        self.s_sym_list.append(gtsam.symbol(ord('s'), self.num_data_points))
+        self.x_sym_list.append(gtsam.symbol('x', self.num_data_points))
+        self.s_sym_list.append(gtsam.symbol('s', self.num_data_points))
 
         # if self.num_data_points>self.data_point_cap:
         #     self.v.erase(self.x_sym_list.pop(0))
@@ -206,8 +206,10 @@ class gtsam_pivot_estimator(object):
         self.changing_factor_package_list.append(changing_factor_package)
 
 
-        
-    def error_kinematic_d(self,measurement, this,values,jacobians):
+          
+    def error_kinematic_d(self,measurement: np.ndarray, this: gtsam.CustomFactor,
+                  values: gtsam.Values,
+                  jacobians: Optional[List[np.ndarray]]) -> float:
         """
         :param measurement: [x_hand,y_hand,theta_hand],  to be filled with `partial`
         :param this: gtsam.CustomFactor handle
@@ -253,7 +255,9 @@ class gtsam_pivot_estimator(object):
         # print('error_d= ', error_d)
         return [error_d]
 
-    def error_kinematic_s(self,measurement, this,values,jacobians):
+    def error_kinematic_s(self,measurement: np.ndarray, this: gtsam.CustomFactor,
+                  values: gtsam.Values,
+                  jacobians: Optional[List[np.ndarray]]) -> float:
         """
         :param measurement: [x_hand,y_hand,theta_hand],  to be filled with `partial`
         :param this: gtsam.CustomFactor handle
@@ -298,7 +302,9 @@ class gtsam_pivot_estimator(object):
         # print('error_s= ', error_s)
         return [error_s]
 
-    def error_torque_balance(self,measurement, this,values,jacobians):
+    def error_torque_balance(self,measurement: np.ndarray, this: gtsam.CustomFactor,
+                  values: gtsam.Values,
+                  jacobians: Optional[List[np.ndarray]]) -> float:
         """
         :param measurement: [x_hand,y_hand,theta_hand,fx,fy,tau],  to be filled with `partial`
         :param this: gtsam.CustomFactor handle
@@ -341,7 +347,9 @@ class gtsam_pivot_estimator(object):
         # print('moment error = ', error)
         return [error]
 
-    def error_var_constant(self,measurement, this,values,jacobians):
+    def error_var_constant(self,measurement: np.ndarray, this: gtsam.CustomFactor,
+                  values: gtsam.Values,
+                  jacobians: Optional[List[np.ndarray]]) -> float:
         """
         :param measurement: [],  to be filled with `partial`
         :param this: gtsam.CustomFactor handle
@@ -365,7 +373,9 @@ class gtsam_pivot_estimator(object):
         # print('constant error = ', error)
         return [error]
 
-    def error_var_increasing(self,measurement, this,values,jacobians):
+    def error_var_increasing(self,measurement: np.ndarray, this: gtsam.CustomFactor,
+                  values: gtsam.Values,
+                  jacobians: Optional[List[np.ndarray]]) -> float:
         """
         :param measurement: [],  to be filled with `partial`
         :param this: gtsam.CustomFactor handle
@@ -394,7 +404,9 @@ class gtsam_pivot_estimator(object):
         # print('increasing error = ', error)
         return [error]
 
-    def error_var_decreasing(self,measurement, this,values,jacobians):
+    def error_var_decreasing(self,measurement: np.ndarray, this: gtsam.CustomFactor,
+                  values: gtsam.Values,
+                  jacobians: Optional[List[np.ndarray]]) -> float:
         """
         :param measurement: [],  to be filled with `partial`
         :param this: gtsam.CustomFactor handle
@@ -422,8 +434,4 @@ class gtsam_pivot_estimator(object):
 
         # print('decreasing error = ', error)
         return [error]
-
-
-
-
 
