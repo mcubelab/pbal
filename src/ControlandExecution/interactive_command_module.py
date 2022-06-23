@@ -45,13 +45,31 @@ delta_rotate_right = {
     "delta_s" : 0.0,
 }
 
+delta_rotate_corner_left = {
+    "name": "delta_rotate_left",
+    "command_flag" : 1,
+    "mode" : 14,
+    "delta_theta" : np.pi/12,
+    "delta_x_pivot" : 0.0,
+    "delta_s" : 0.0,
+}
+
+delta_rotate_corner_right = {
+    "name": "delta_rotate_right",
+    "command_flag" : 1,
+    "mode" : 14,
+    "delta_theta" : -np.pi/12,
+    "delta_x_pivot" : 0.0,
+    "delta_s" : 0.0,
+}
+
 delta_slide_robot_left = {
     "name": "delta_slide_robot_left",
     "command_flag" : 1,
     "mode" : 1,
     "delta_theta" : 0,
     "delta_x_pivot" : 0.00,
-    "delta_s" : -0.03,
+    "delta_s" : -0.015,
 }
 
 delta_slide_robot_right = {
@@ -60,7 +78,7 @@ delta_slide_robot_right = {
     "mode" : 0,
     "delta_theta" : 0,
     "delta_x_pivot" : 0.00,
-    "delta_s" : 0.03,
+    "delta_s" : 0.015,
 }
 
 delta_super_slide_robot_left = {
@@ -69,7 +87,7 @@ delta_super_slide_robot_left = {
     "mode" : 13,
     "delta_theta" : 0,
     "delta_x_pivot" : 0.00,
-    "delta_s" : -0.0003,
+    "delta_s" : -0.001,
 }
 
 delta_super_slide_robot_right = {
@@ -78,7 +96,7 @@ delta_super_slide_robot_right = {
     "mode" : 12,
     "delta_theta" : 0,
     "delta_x_pivot" : 0.00,
-    "delta_s" : 0.0003,
+    "delta_s" : 0.001,
 }
 
 delta_slide_pivot_left = {
@@ -86,7 +104,7 @@ delta_slide_pivot_left = {
     "command_flag" : 1,
     "mode" : 2,
     "delta_theta" : 0,
-    "delta_x_pivot" : 0.1,
+    "delta_x_pivot" : 0.17,
     "delta_s" : 0.00,
 }
 
@@ -95,7 +113,7 @@ delta_slide_pivot_right = {
     "command_flag" : 1,
     "mode" : 3,
     "delta_theta" : 0,
-    "delta_x_pivot" : -0.1,
+    "delta_x_pivot" : -0.17,
     "delta_s" : 0.00,
 }
 
@@ -109,6 +127,23 @@ absolute_rotate_center = {
     "s" : 0.0,
 }
 
+absolute_rotate_left = {
+    "name": "absolute_rotate_center",
+    "command_flag" : 0,
+    "mode" : -1,
+    "theta" : 1.1*np.pi/6,
+    "x_pivot" : 0.0,
+    "s" : 0.0,
+}
+
+absolute_rotate_right = {
+    "name": "absolute_rotate_center",
+    "command_flag" : 0,
+    "mode" : -1,
+    "theta" : -1.1*np.pi/6,
+    "x_pivot" : 0.0,
+    "s" : 0.0,
+}
 
 def on_press(key):
 
@@ -132,9 +167,19 @@ def on_press(key):
     if k == 'left': # pivot left
         command_msg_dict = delta_rotate_left
         print("delta_rotate_left")
+        # command_msg_dict = absolute_rotate_left
+        # print("absolute_rotate_left")
     if k == 'right': # pivot right
         command_msg_dict = delta_rotate_right
         print("delta_rotate_right")
+        # command_msg_dict = absolute_rotate_right
+        # print("absolute_rotate_right")
+    if k == 'g': # pivot left
+        command_msg_dict = delta_rotate_corner_left
+        print("delta_rotate_corner_left")
+    if k == 'h': # pivot right
+        command_msg_dict = delta_rotate_corner_right
+        print("delta_rotate_corner_right")
     if k == 'a': # robot left
         command_msg_dict = delta_slide_robot_left
         print("delta_slide_robot_left")

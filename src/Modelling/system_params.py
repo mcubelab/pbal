@@ -69,22 +69,22 @@ class SystemParams(object):
             "wrench_regularization_constant": 0.00001,
 
             "tr_friction": [0.5 , 3.0], #[0.5 , 3.0],                            # barrier function parameters for line/line plus point/line
-            "friction_margin": .9, #.8
+            "friction_margin": 2.0, #.9, #.8
 
             "mu_contact": .1,
             "use_measured_mu_contact": True,
 
             "tr_torque": [.8 , 6.], #[.8 , 6.], #[.2 , 6.], #[.2, 4.]
             "torque_margin": 0.03,
-            "l_contact_multiplier": .9, #.9
+            "l_contact_multiplier": .95, #.9
             
             "tr_friction_external": [.9 , 1],
-            "friction_ground_margin": .6, #.4, #.8
+            "friction_ground_margin": 1.5, #.6, #.4, #.8
             "mu_ground": .3, # .2,
             "use_measured_mu_ground": True,
 
             "tr_max_normal_contact": [.3, 3.],
-            "Nmax_contact": 20., #35
+            "Nmax_contact": 32.,#32., #20., #35
 
             "tr_min_normal_external": [1., 1.],  
 
@@ -252,7 +252,8 @@ class SystemParams(object):
 
         self.controller_params = {
             # "IMPEDANCE_STIFFNESS_LIST": [4000, 4000, 4000, 400, 120, 400],
-            "IMPEDANCE_STIFFNESS_LIST": [2000, 2000, 2000, 200, 60, 200],
+            "IMPEDANCE_STIFFNESS_LIST": [2000, 2000, 2000, 400, 60, 400],
+            # "IMPEDANCE_STIFFNESS_LIST": [1000, 1000, 1000, 100, 30, 100],
             # "IMPEDANCE_STIFFNESS_LIST": [3000, 3000, 3000, 300, 90, 300],
             # "IMPEDANCE_STIFFNESS_LIST": [3000, 3000, 3000, 300, 90, 300],
             # "IMPEDANCE_STIFFNESS_LIST": [1000./5., 1000/5., 1000/5., 100/5., 30/5., 100/5.],

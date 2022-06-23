@@ -97,11 +97,11 @@ if __name__ == '__main__':
     #parameters describing how close to the friction 
     #cone boundary you need to be
     #to be considered sliding
-    contact_friction_cone_boundary_margin = 2
-    external_friction_cone_boundary_margin = 2
+    contact_friction_cone_boundary_margin = 3
+    external_friction_cone_boundary_margin = 3
     reset_time_length = .25
 
-    friction_parameter_dict,last_slide_time_dict,sliding_state_dict = friction_reasoning.initialize_friciton_dictionaries()
+    friction_parameter_dict,last_slide_time_dict,sliding_state_dict = friction_reasoning.initialize_friction_dictionaries()
 
     # queue for computing frequnecy
     time_deque = collections.deque(

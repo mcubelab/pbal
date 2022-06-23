@@ -57,7 +57,7 @@ def end_effector_wrench_base_frame_callback(data):
     measured_base_wrench = -np.array([
             measured_base_wrench_6D[0], 
             measured_base_wrench_6D[2],
-            measured_base_wrench_6D[-1]])
+            measured_base_wrench_6D[-2]])
 
     measured_base_wrench_list.append(measured_base_wrench)
     if len(measured_base_wrench_list) > 100:
@@ -106,8 +106,8 @@ if __name__ == '__main__':
     friction_parameter_dict["ber"] = []
     friction_parameter_dict["ael"] = []
     friction_parameter_dict["bel"] = []
-    friction_parameter_dict["elu"] = []
-    friction_parameter_dict["eru"] = []
+    friction_parameter_dict["elu"] = False
+    friction_parameter_dict["eru"] = False
 
     num_divisions = 64
     theta_range = 2*np.pi*(1.0*np.array(range(num_divisions)))/num_divisions
@@ -163,9 +163,11 @@ if __name__ == '__main__':
                 if (ground_data_point_count % 2) == 0:
                     ground_hull_estimator.add_data_point(
                         measured_base_wrench[[0,1]])
+
                     ground_hull_estimator.add_data_point(
                         np.array([-measured_base_wrench[0],
                             measured_base_wrench[1]]))
+
                     ground_hull_estimator.add_data_point(np.array([0,0]))
                     update_ground_friction_cone = True
 

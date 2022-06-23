@@ -16,11 +16,11 @@ from cvxopt import matrix, solvers
 import json
 import numpy as np
 import pickle
-import image_overlay_helper as ioh
+import PlottingandVisualization.image_overlay_helper as ioh
 from Modelling.system_params import SystemParams
-import time
-import Estimation.friction_reasoning as friction_reasoning
-from Estimation.test.gtsam_pivot_estimator import gtsam_pivot_estimator
+
+
+
 
 if __name__ == '__main__':
 
@@ -154,23 +154,12 @@ if __name__ == '__main__':
     P0_estimated = None
     img_array = []
     obj_pose_homog = None
-    pivot_estimate_new = None
-    pivot_estimate_vector = None
-    friction_parameter_dict,last_slide_time_dict,sliding_state_dict = friction_reasoning.initialize_friction_dictionaries()
-
-    contact_friction_cone_boundary_margin = 2
-    external_friction_cone_boundary_margin = 2
-    reset_time_length = .25
-
-
-    my_pivot_estimator = gtsam_pivot_estimator()
 
     dt_overall = data_dict['far_cam/color/image_raw'][-1]['time'] - \
         data_dict['far_cam/color/image_raw'][0]['time']
     num_frames = len(data_dict['far_cam/color/image_raw'])
     my_fps = np.round((num_frames-1)/dt_overall)
 
-    print ('num data points:',len(data_dict['far_cam/color/image_raw']))
     for count in range(len(data_dict['far_cam/color/image_raw'])):
         cv_image = data_dict['far_cam/color/image_raw'][count]['msg']
 
@@ -182,11 +171,6 @@ if __name__ == '__main__':
             contact_pose_homog = ioh.pose_list_to_matrix(ee_pose_world)
             hand_front_center_world = np.dot(
                 contact_pose_homog, hand_front_center)
-
-            hand_tangent_world = np.dot(contact_pose_homog,hand_tangent)
-            hand_normal_world = -np.dot(contact_pose_homog,hand_normal)
-
-
             robot_apriltag_pose_matrix = np.dot(
                 contact_pose_homog, robot_apriltag_in_ee_frame_homog)
             rotation_point_hand_world_frame = np.dot(
@@ -194,55 +178,13 @@ if __name__ == '__main__':
         if 'end_effector_sensor_in_base_frame' in synched_data_dict.keys():
             measured_base_wrench_6D = np.array(
                 data_dict['end_effector_sensor_in_base_frame'][count]['msg'])
-            measured_base_wrench = -np.array([
-                measured_base_wrench_6D[0], 
-                measured_base_wrench_6D[2],
-                measured_base_wrench_6D[-2]])
 
         if 'end_effector_sensor_in_end_effector_frame' in synched_data_dict.keys():
             measured_contact_wrench_6D = np.array(
                 data_dict['end_effector_sensor_in_end_effector_frame'][count]['msg'])
-            measured_contact_wrench = -np.array([
-                measured_contact_wrench_6D[0], 
-                measured_contact_wrench_6D[1],
-                measured_contact_wrench_6D[-1]])
 
         if 'friction_parameters' in synched_data_dict.keys():
-            friction_parameter_dict = data_dict['friction_parameters'][-1]['msg']
-            t0 = data_dict['friction_parameters'][count]['time']
-            friction_reasoning.convert_friction_param_dict_to_array(friction_parameter_dict)
-            friction_reasoning.compute_sliding_state_contact(
-                sliding_state_dict,friction_parameter_dict,last_slide_time_dict,
-                t0,measured_contact_wrench,contact_friction_cone_boundary_margin,reset_time_length)
-            friction_reasoning.compute_sliding_state_base(
-                sliding_state_dict,friction_parameter_dict,last_slide_time_dict,
-                t0,measured_base_wrench,external_friction_cone_boundary_margin,reset_time_length)
-
-            # print(hand_normal_world)
-            theta_hand_for_estimator = np.arctan2(hand_normal_world[0][0],hand_normal_world[2][0])
-            # print(theta_hand_for_estimator)
-
-            hand_pose_pivot_estimator = [-hand_front_center_world[0],hand_front_center_world[2],theta_hand_for_estimator]
-            measured_wrench_pivot_estimator = [measured_base_wrench_6D[0],-measured_base_wrench_6D[2],-measured_base_wrench_6D[-2]]
-            if count%1==0:
-                my_pivot_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,sliding_state_dict)
-            if count%3==0 and my_pivot_estimator.num_data_points>20:
-                pivot_estimate_new = my_pivot_estimator.compute_estimate()
-                pivot_estimate_vector = np.array([[-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]])
- 
-            if pivot_estimate_vector is not None:
-                ioh.plot_pivot_dot(cv_image,pivot_estimate_vector,camera_transformation_matrix)
-
-            # if sliding_state_dict['pslf']:
-            #     print('Pivot Sliding Left')
-            # if sliding_state_dict['psrf']:
-            #     print('Pivot Sliding Right')
-            # if sliding_state_dict['cslf']:
-            #     print('Contact Sliding Left')
-            # if sliding_state_dict['csrf']:
-            #     print('Contact Sliding Right')
-            # if not sliding_state_dict['csf']:
-            #     print('Contact sticking')
+            friction_parameter_dict = data_dict['friction_parameters'][count]['msg']
 
         if 'tag_detections' in synched_data_dict.keys() and data_dict['tag_detections'][count]['msg'] is not None:
             tag_camera_frame_homog = ioh.pose_list_to_matrix(
@@ -270,36 +212,36 @@ if __name__ == '__main__':
         # if target_pose_homog is not None:
         #     plot_impedance_target(cv_image,hand_points,target_pose_homog,camera_transformation_matrix)
 
-        # if plot_estimated_pivot and P0_estimated is not None and data_dict['pivot_frame_estimated'][count]['time'] <= data_dict['far_cam/color/image_raw'][count]['time']:
-        #     # if plot_estimated_pivot and P0_estimated is not None:
-        #     # ioh.overlay_qp_ground_constraints(cv_image,P0_estimated,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict)
-        #     ioh.plot_ground_friction_cone(
-        #         cv_image, P0_estimated, friction_parameter_dict, camera_transformation_matrix, force_scale)
-        #     if measured_base_wrench_6D is not None:
-        #         ioh.plot_force_arrow(
-        #             cv_image, P0_estimated, measured_base_wrench_6D[0:3], force_scale, camera_transformation_matrix)
-        #     ioh.plot_pivot_arrow(cv_image, qp_debug_dict, hand_front_center_world,
-        #                      P0_estimated, camera_transformation_matrix)
-        #     ioh.plot_ground_slide_arrow(
-        #         cv_image, qp_debug_dict, hand_front_center_world, P0_estimated, camera_transformation_matrix)
+        if plot_estimated_pivot and P0_estimated is not None and data_dict['pivot_frame_estimated'][count]['time'] <= data_dict['far_cam/color/image_raw'][count]['time']:
+            # if plot_estimated_pivot and P0_estimated is not None:
+            # ioh.overlay_qp_ground_constraints(cv_image,P0_estimated,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict)
+            ioh.plot_ground_friction_cone(
+                cv_image, P0_estimated, friction_parameter_dict, camera_transformation_matrix, force_scale)
+            if measured_base_wrench_6D is not None:
+                ioh.plot_force_arrow(
+                    cv_image, P0_estimated, measured_base_wrench_6D[0:3], force_scale, camera_transformation_matrix)
+            # ioh.plot_pivot_arrow(cv_image, qp_debug_dict, hand_front_center_world,
+            #                  P0_estimated, camera_transformation_matrix)
+            # ioh.plot_ground_slide_arrow(
+            #     cv_image, qp_debug_dict, hand_front_center_world, P0_estimated, camera_transformation_matrix)
         # else:
         #     ioh.plot_pivot_arrow(cv_image, qp_debug_dict, hand_front_center_world,
         #                      rotation_point_hand_world_frame, camera_transformation_matrix)
         #     ioh.plot_ground_slide_arrow(cv_image, qp_debug_dict, hand_front_center_world,
         #                             rotation_point_hand_world_frame, camera_transformation_matrix)
 
-        # if measured_contact_wrench_6D is not None and measured_base_wrench_6D is not None:
-        #     if np.abs(measured_contact_wrench_6D[0]) > .1:
-        #         hand_COP_hand_frame, hand_COP_world_frame = ioh.estimate_hand_COP(
-        #             measured_contact_wrench_6D, hand_points, contact_pose_homog, l_contact)
-        #         # ioh.overlay_qp_hand_constraints(cv_image,hand_COP_hand_frame,hand_front_center,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict)
-        #         ioh.plot_hand_friction_cone(cv_image, hand_COP_hand_frame, friction_parameter_dict,
-        #                                 contact_pose_homog, camera_transformation_matrix, force_scale)
-        #         ioh.plot_force_arrow(cv_image, hand_COP_world_frame, 
-        #                          -measured_base_wrench_6D[0:3], force_scale, camera_transformation_matrix)
+        if measured_contact_wrench_6D is not None and measured_base_wrench_6D is not None:
+            if np.abs(measured_contact_wrench_6D[0]) > .1:
+                hand_COP_hand_frame, hand_COP_world_frame = ioh.estimate_hand_COP(
+                    measured_contact_wrench_6D, hand_points, contact_pose_homog, l_contact)
+                # ioh.overlay_qp_hand_constraints(cv_image,hand_COP_hand_frame,hand_front_center,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict)
+                ioh.plot_hand_friction_cone(cv_image, hand_COP_hand_frame, friction_parameter_dict,
+                                        contact_pose_homog, camera_transformation_matrix, force_scale)
+                ioh.plot_force_arrow(cv_image, hand_COP_world_frame, -
+                                 measured_base_wrench_6D[0:3], force_scale, camera_transformation_matrix)
 
         # ioh.plot_hand_slide_arrow(cv_image, qp_debug_dict, hand_points,
-                              # contact_pose_homog, camera_transformation_matrix)
+        #                       contact_pose_homog, camera_transformation_matrix)
 
         # shape_overlay(cv_image,robot_apriltag_pose_matrix,hand_tag_boundary_pts,camera_transformation_matrix)
 
@@ -318,13 +260,10 @@ if __name__ == '__main__':
         img_array.append(cv_image)
         cv2.imshow("Image window", cv_image)
         cv2.waitKey(3)
-        # time.sleep(.03)
 
 
     # video_out = cv2.VideoWriter(my_path + fname+'.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
     # video_out = cv2.VideoWriter(my_path + fname+'with_qpconstraints.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
-
-    # video_out = cv2.VideoWriter(my_path + 'gtsam_example01'+'.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
 
     # for i in range(len(img_array)):
     #     video_out.write(img_array[i])

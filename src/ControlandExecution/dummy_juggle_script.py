@@ -1,4 +1,14 @@
 #!/usr/bin/env python
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
+
 import rospy
 import pdb
 import numpy as np
@@ -6,7 +16,8 @@ import json
 from std_msgs.msg import String
 import time
 
-
+import Helpers.pbal_msg_helper as pmh
+from pbal.msg import ControlCommandStamped
 
 if __name__ == '__main__':
 
@@ -158,7 +169,7 @@ if __name__ == '__main__':
         "name": "absolute_rotate_left",
         "command_flag" : 0,
         "mode" : -1,
-        "theta" : np.pi/10, #np.pi/6+np.pi/20,
+        "theta" : np.pi/12, #np.pi/6+np.pi/20,
         "x_pivot" : 0.0,
         "s" : 0.0,
     }
@@ -167,7 +178,7 @@ if __name__ == '__main__':
         "name": "absolute_rotate_right",
         "command_flag" : 0,
         "mode" : -1,
-        "theta" : -np.pi/10, #np.pi/6-np.pi/20,
+        "theta" : -np.pi/12, #np.pi/6-np.pi/20,
         "x_pivot" : 0.0,
         "s" : 0.0,
     }
@@ -276,42 +287,45 @@ if __name__ == '__main__':
 
 
     message_queue= [
-       absolute_rotate_left,
-       absolute_rotate_right
+        absolute_rotate_center,
+        absolute_rotate_left,
+        absolute_rotate_center,
+        absolute_rotate_right
     ]
 
     #command_msg_dict = delta_flush_static
 
     command_msg_string = json.dumps(command_msg_dict)
 
+    command_msg = ControlCommandStamped()
 
-    control_command_pub = rospy.Publisher(
-        '/barrier_func_control_command', 
-        String,
-        queue_size=10)
+    control_command_pub = rospy.Publisher('/barrier_func_control_command', 
+        ControlCommandStamped, queue_size=10)
 
 
-    published = False
-    while (not published) and (not rospy.is_shutdown()):
+    # published = False
+    # while (not published) and (not rospy.is_shutdown()):
         
-        print(control_command_pub.get_num_connections())
-        if control_command_pub.get_num_connections() == 1:
+    #     print(control_command_pub.get_num_connections())
+    #     if control_command_pub.get_num_connections() == 1:
 
-            command_msg.data = command_msg_string
+    #         command_msg.data = command_msg_string
      
-            control_command_pub.publish(command_msg)
-            published = True
+    #         control_command_pub.publish(command_msg)
+    #         published = True
 
-    time.sleep(3)
+    time.sleep(1)
     print 'hello!'
     while True:
         for message in message_queue:
-           #print(message["name"])
-           command_msg_dict = message
-           command_msg_string = json.dumps(command_msg_dict)
-           command_msg.data = command_msg_string
-           control_command_pub.publish(command_msg)
-           time.sleep(40)
+            #print(message["name"])
+            command_msg_dict = message
+            command_msg = pmh.command_dict_to_command_stamped(command_msg_dict)
+            control_command_pub.publish(command_msg)       
+            # command_msg_string = json.dumps(command_msg_dict)
+            # command_msg.data = command_msg_string
+            # control_command_pub.publish(command_msg)
+            time.sleep(4)
 
     # command_msg_dict = absolute_rotate_center
     # # command_msg_dict_pruned = prune_command_message(command_msg_dict)
