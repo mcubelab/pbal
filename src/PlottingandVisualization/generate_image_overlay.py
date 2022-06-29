@@ -33,7 +33,9 @@ if __name__ == '__main__':
     # my_path = '/home/nddoshi/Dropbox (MIT)/pbal_assets/Videos/ICRA-2022-Revisions/'
     # my_path = 'C:/Users/taylorott/Dropbox (MIT)/pbal_assets/Videos/ICRA-2022-Revisions/'
     # my_path = '/home/taylorott/Documents/experiment_data/'
-    my_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data/'
+    # my_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data/'
+    my_path = '/home/taylorott/Documents/experiment_data/gtsam_test_data/'
+    fname = '2022-06-23-01-24-26-test_data-experiment0017'
     # fname = '2022-02-21-16-17-19-dummy-test-01-experiment0001'
     # fname = '2022-02-23-20-41-33-triange_hand_slide-experiment0001'
     # fname = '2022-02-23-22-48-29-triangle_execution_video-experiment0001'
@@ -46,7 +48,7 @@ if __name__ == '__main__':
     # fname = '2022-06-22-23-13-19-test_data-experiment0001'
     # fname = '2022-06-23-00-03-02-test_data-experiment0003'
     # fname = '2022-06-23-00-07-48-test_data-experiment0004'
-    fname = '2022-06-23-01-24-26-test_data-experiment0017'
+    # fname = '2022-06-23-01-24-26-test_data-experiment0017'
     # fname = '2022-06-23-01-20-56-test_data-experiment0016'
     # fname = '2022-06-23-00-22-44-test_data-experiment0005'
     # fname = '2022-02-24-02-25-01-cup_video-experiment0001'
@@ -174,7 +176,7 @@ if __name__ == '__main__':
     reset_time_length = .25
 
 
-    # my_pivot_estimator = gtsam_pivot_estimator()
+    my_pivot_estimator = gtsam_pivot_estimator()
 
     dt_overall = data_dict['far_cam/color/image_raw'][-1]['time'] - \
         data_dict['far_cam/color/image_raw'][0]['time']
@@ -236,14 +238,14 @@ if __name__ == '__main__':
             hand_pose_pivot_estimator = [-hand_front_center_world[0],hand_front_center_world[2],theta_hand_for_estimator]
             measured_wrench_pivot_estimator = [measured_base_wrench_6D[0],-measured_base_wrench_6D[2],-measured_base_wrench_6D[-2]]
 
-            # if count%1==0:
-            #     my_pivot_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,sliding_state_dict)
-            # if count%3==0 and my_pivot_estimator.num_data_points>20:
-            #     pivot_estimate_new = my_pivot_estimator.compute_estimate()
-            #     pivot_estimate_vector = np.array([[-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]])
+            if count%1==0:
+                my_pivot_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,sliding_state_dict)
+            if count%1==0 and my_pivot_estimator.num_data_points>20:
+                pivot_estimate_new = my_pivot_estimator.compute_estimate()
+                pivot_estimate_vector = np.array([[-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]])
  
-            # if pivot_estimate_vector is not None:
-            #     ioh.plot_pivot_dot(cv_image,pivot_estimate_vector,camera_transformation_matrix)
+            if pivot_estimate_vector is not None:
+                ioh.plot_pivot_dot(cv_image,pivot_estimate_vector,camera_transformation_matrix)
 
             # if sliding_state_dict['pslf']:
             #     print('Pivot Sliding Left')
@@ -314,10 +316,10 @@ if __name__ == '__main__':
         # ioh.plot_hand_slide_arrow(cv_image, qp_debug_dict, hand_points,
                               # contact_pose_homog, camera_transformation_matrix)
 
-        ioh.shape_overlay(cv_image,robot_apriltag_pose_matrix,hand_tag_boundary_pts,camera_transformation_matrix)
+        # ioh.shape_overlay(cv_image,robot_apriltag_pose_matrix,hand_tag_boundary_pts,camera_transformation_matrix)
 
-        if tag_camera_frame_homog is not None:
-            ioh.shape_overlay(cv_image,obj_pose_homog,object_vertex_array,camera_transformation_matrix)
+        # if tag_camera_frame_homog is not None:
+        #     ioh.shape_overlay(cv_image,obj_pose_homog,object_vertex_array,camera_transformation_matrix)
         #     current_dot_positions = np.dot(obj_pose_homog,object_vertex_array)
         #     # plot_desired_object_pose(cv_image,qp_debug_dict,object_vertex_array,obj_pose_homog, camera_transformation_matrix)
         #     plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,None,camera_transformation_matrix,current_dot_positions,True)
@@ -329,16 +331,16 @@ if __name__ == '__main__':
         #             plot_force_arrow(cv_image,P0,measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
 
         img_array.append(cv_image)
-        cv2.imshow("Image window", cv_image)
-        cv2.waitKey(3)
-        time.sleep(.03)
+        # cv2.imshow("Image window", cv_image)
+        # cv2.waitKey(3)
+        # time.sleep(.03)
 
 
     # video_out = cv2.VideoWriter(my_path + fname+'.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
     # video_out = cv2.VideoWriter(my_path + fname+'with_qpconstraints.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
 
-    # video_out = cv2.VideoWriter(my_path + 'gtsam_example01'+'.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
+    video_out = cv2.VideoWriter(my_path + 'gtsam_example02'+'.avi', cv2.VideoWriter_fourcc(*'DIVX'), my_fps, size)
 
-    # for i in range(len(img_array)):
-    #     video_out.write(img_array[i])
-    # video_out.release()
+    for i in range(len(img_array)):
+        video_out.write(img_array[i])
+    video_out.release()
