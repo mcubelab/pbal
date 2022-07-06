@@ -1,20 +1,30 @@
 #!/usr/bin/env python
-import rospy
+# import rospy
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+gparentdir = os.path.dirname(parentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, gparentdir)
+
 import pdb
 import json
 import numpy as np
-from std_msgs.msg import Float32MultiArray, Float32, Bool, String
-from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
+# from std_msgs.msg import Float32MultiArray, Float32, Bool, String
+# from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 
 import time
-import models.ros_helper as ros_helper
+# import models.ros_helper as ros_helper
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.lines as lines
-from livestats import livestats
-from models.system_params import SystemParams
+# from livestats import livestats
+# from models.system_params import SystemParams
 from convex_hull_estimator import ConvexHullEstimator
 
 
@@ -95,7 +105,7 @@ def generate_randomized_triangle_point(my_triangle):
 
 if __name__ == '__main__':
 
-    num_divisions = 1
+    num_divisions = 10
   
     theta_range = 2*np.pi*(1.0*np.array(range(num_divisions)))/num_divisions
 
@@ -220,7 +230,7 @@ if __name__ == '__main__':
 
     hull_estimator.generate_convex_hull_closed_polygon()
 
-    print time.time() - last_update_time
+    print (time.time() - last_update_time)
 
     hull_estimator.initialize_quantile_boundary_plot(axs5)
     hull_estimator.initialize_quantile_polygon_plot(axs6)
@@ -239,8 +249,8 @@ if __name__ == '__main__':
     hull_estimator.initialize_side_detection_plot(axs2)
     hull_estimator.update_side_detection_plot()
     
-    # hull_estimator.initialize_final_constraint_plot_left_right(axs8)
-    # hull_estimator.update_final_constraint_plot_left_right()
+    hull_estimator.initialize_final_constraint_plot_left_right(axs8)
+    hull_estimator.update_final_constraint_plot_left_right()
 
     axs2.set_xlim([0, 4*np.pi])
     axs2.set_ylim([-2, 20])
