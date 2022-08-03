@@ -73,12 +73,25 @@ if __name__ == '__main__':
 
 
     # Define rostopic publishers
+    #wrench at the force torque sensor rotated into the base frame
+    #Wrench measured by the ATI, multiplied by a rotation matrix (from ATI frame to world)
     ft_sensor_in_base_frame_pub = rospy.Publisher('/ft_sensor_in_base_frame', 
         WrenchStamped, queue_size = 10)
+
+    #wrench at the force torque sensor rotated into the end effector frame -Neel 7/5/2022
+    #wrench measured by the ATI, multiplied by a rotation matrix (from ATI frame to end-effector)
     ft_sensor_in_end_effector_frame_pub = rospy.Publisher('/ft_sensor_in_end_effector_frame', 
         WrenchStamped, queue_size = 10)
+
+    #wrench at the end-effector in the end effector coordinates -Neel 7/5/2022
+    #wrench measured by the ATI, but the torque has been transformed using a different reference point,
+    #specifically, the origin of the end-effector frame (should be palm center), and using end-effector basis
     end_effector_sensor_in_end_effector_frame_pub = rospy.Publisher(
         '/end_effector_sensor_in_end_effector_frame', WrenchStamped, queue_size = 10)
+
+    #wrench at the end-effector in the base coordinates -Neel 7/5/2022
+    #wrench measured by the ATI, but the torque has been transformed using a different reference point,
+    #specifically, the origin of the end-effector frame (should be palm center), and using BASE FRAME basis
     end_effector_sensor_in_base_frame_pub = rospy.Publisher(
         '/end_effector_sensor_in_base_frame', WrenchStamped, queue_size = 10)
     torque_cone_boundary_test_pub = rospy.Publisher(

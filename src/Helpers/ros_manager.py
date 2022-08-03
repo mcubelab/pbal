@@ -2,24 +2,25 @@ class ros_manager(object):
 	def __init__(self):
 
 
-	'/ft_sensor_in_base_frame'
-	'/ft_sensor_in_end_effector_frame'
-	'/end_effector_sensor_in_end_effector_frame'
-	'/end_effector_sensor_in_base_frame'
-	'/torque_cone_boundary_test'
-	'/torque_cone_boundary_flag'
-	'/pivot_frame_realsense'
-	'/pivot_frame_estimated'
-	'/generalized_positions'
-	'/end_effector_sensor_in_end_effector_frame'
-	'/barrier_func_control_command'
-	'/friction_parameters'
-	'/torque_bound_message'
-	'/ee_pose_in_world_from_franka_publisher'
-	'/pivot_sliding_commanded_flag'
-	'/qp_debug_message'
-	'/target_frame'
-	
+	# '/ft_sensor_in_base_frame'
+	# '/ft_sensor_in_end_effector_frame'
+	# '/end_effector_sensor_in_end_effector_frame'
+	# '/end_effector_sensor_in_base_frame'
+	# '/torque_cone_boundary_test'
+	# '/torque_cone_boundary_flag'
+	# '/pivot_frame_realsense'
+	# '/pivot_frame_estimated'
+	# '/generalized_positions'
+	# '/end_effector_sensor_in_end_effector_frame'
+	# '/barrier_func_control_command'
+	# '/friction_parameters'
+	# '/torque_bound_message'
+	# '/ee_pose_in_world_from_franka_publisher'
+	# '/pivot_sliding_commanded_flag'
+	# '/qp_debug_message'
+	# '/target_frame'
+
+
 	def publisher_stuff():
 	    ft_sensor_in_base_frame_pub = rospy.Publisher('/ft_sensor_in_base_frame', 
 	        WrenchStamped, queue_size = 10)
@@ -76,6 +77,9 @@ class ros_manager(object):
 	    frame_message = initialize_frame()
 	    target_frame_pub = rospy.Publisher('/target_frame', 
 	        TransformStamped, queue_size=10) 
+
+        control_command_pub = rospy.Publisher('/barrier_func_control_command', 
+        	ControlCommandStamped, queue_size=10)
 
 
 
@@ -151,6 +155,34 @@ class ros_manager(object):
 
 		    else:
 		        object_detected = False
+
+    def end_effector_wrench_callback(data):
+	    global measured_contact_wrench_list
+	    end_effector_wrench = data
+	    measured_contact_wrench_6D = rh.wrench_stamped2list(
+	            end_effector_wrench)
+	    measured_contact_wrench = -np.array([
+	            measured_contact_wrench_6D[0], 
+	            measured_contact_wrench_6D[1],
+	            measured_contact_wrench_6D[-1]])
+
+	    measured_contact_wrench_list.append(measured_contact_wrench)
+	    if len(measured_contact_wrench_list) > 100:
+	       measured_contact_wrench_list.pop(0)
+
+	def end_effector_wrench_base_frame_callback(data):
+	    global measured_base_wrench_list
+	    base_wrench = data
+	    measured_base_wrench_6D = rh.wrench_stamped2list(
+	            base_wrench)
+	    measured_base_wrench = -np.array([
+	            measured_base_wrench_6D[0], 
+	            measured_base_wrench_6D[2],
+	            measured_base_wrench_6D[-2]])
+
+	    measured_base_wrench_list.append(measured_base_wrench)
+	    if len(measured_base_wrench_list) > 100:
+	       measured_base_wrench_list.pop(0)
 
 	def friction_parameter_callback(data):
 	    global friction_parameter_list
