@@ -200,6 +200,8 @@ def on_press(key):
         print("delta_slide_pivot_right")
 
 
+
+
     if command_msg_dict is not None:
         # command_msg_string = json.dumps(command_msg_dict)
         command_msg = pmh.command_dict_to_command_stamped(
@@ -227,6 +229,21 @@ def on_press(key):
 
 
 if __name__ == '__main__':
+    print('-----------------------------')
+    print('COMMAND SUMMARY')
+    print('c: absolute rotate center')
+    print('left arrow: rotate left')
+    print('right arrow: rotate right')
+    print('g: rotate corner left')
+    print('h: rotate corner right')
+    print('a: slide hand left') 
+    print('d: slide hand right')
+    print('1: super slide left')
+    print('3: super slide right')
+    print('q: slide pivot left')
+    print('e: slide pivote right')
+    print('Space: pause')
+    print('-----------------------------')
 
     rospy.init_node("barrier_func_commands")
     rospy.sleep(1.0)
