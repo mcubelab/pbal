@@ -309,8 +309,8 @@ if __name__ == '__main__':
     sys_params = SystemParams()
     l_contact = sys_params.object_params["L_CONTACT_MAX"]
 
-    # shape_name = 'big_triangle'
-    shape_name = 'big_rectangle'
+    shape_name = 'big_triangle'
+    # shape_name = 'big_rectangle'
     # shape_name = 'rectangle_bump_in'
     # shape_name = 'rectangle_bump_out'
     
@@ -513,7 +513,7 @@ if __name__ == '__main__':
 
             cv_image = bridge.imgmsg_to_cv2(current_image, "bgr8")
 
-            ioh.shape_overlay(cv_image,robot_apriltag_pose_matrix,hand_tag_boundary_pts,camera_transformation_matrix)
+            # ioh.shape_overlay(cv_image,robot_apriltag_pose_matrix,hand_tag_boundary_pts,camera_transformation_matrix)
 
             if pivot_xyz_estimated is not None:
                 P0_estimated = [pivot_xyz_estimated[0], hand_front_center_world[1],pivot_xyz_estimated[2], 1.0]
@@ -556,7 +556,7 @@ if __name__ == '__main__':
             #             plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0,camera_transformation_matrix)
             #             plot_force_arrow(cv_image,P0,-measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
 
-            # plot_hand_slide_arrow(cv_image,qp_debug_dict,hand_points,contact_pose_homog,camera_transformation_matrix)
+            ioh.plot_hand_slide_arrow(cv_image,qp_debug_dict,hand_points,contact_pose_homog,camera_transformation_matrix)
   
         # if measured_contact_wrench_6D is not None and measured_base_wrench_6D is not None:
         #     if np.abs(measured_contact_wrench_6D[0]) > .1:

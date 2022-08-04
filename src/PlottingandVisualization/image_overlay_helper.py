@@ -511,14 +511,23 @@ def overlay_qp_hand_constraints(cv_image,COP_point_hand_frame,hand_front_center,
     cv2.fillPoly(cv_image,[np.vstack([x_coord, y_coord]).T],(80, 127, 255))
     # cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T],True, (80, 127, 255),thickness=2)
 
-def shape_overlay(cv_image, obj_pose_homog, object_vertex_array, camera_transformation_matrix):
+def shape_overlay(cv_image, obj_pose_homog, object_vertex_array, camera_transformation_matrix,isclosed = True):
     vertex_positions_world = np.dot(obj_pose_homog, object_vertex_array)
     x_coord, y_coord = get_pix_easier(
         vertex_positions_world, camera_transformation_matrix)
     cv2.polylines(cv_image,
                   [np.vstack([x_coord, y_coord]).T],
-                  True, (0, 255, 0),
+                  isclosed, (0, 255, 0),
                   thickness=2)
+
+
+def scatter_dots(cv_image, obj_pose_homog, object_vertex_array, camera_transformation_matrix):
+    vertex_positions_world = np.dot(obj_pose_homog, object_vertex_array)
+    x_coord, y_coord = get_pix_easier(
+        vertex_positions_world, camera_transformation_matrix)
+
+    for i in range(len(x_coord)):
+        cv2.circle(cv_image, (x_coord[i], y_coord[i]), 2 , (0, 255, 0), -1)
 
 
 def plot_ground_slide_arrow(cv_image, qp_debug_dict, hand_front_center_world, P0, camera_transformation_matrix, obj_pts=None, obj_pts_given=False):
