@@ -22,7 +22,7 @@ import tf.transformations as tfm
 
 from apriltag_ros.msg import AprilTagDetectionArray
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
-from pbal.msg import FrictionParamsStamped, QPDebugStamped
+from pbal.msg import FrictionParamsStamped, ControlCommandStamped, QPDebugStamped, SlidingStateStamped
 from sensor_msgs.msg import CameraInfo, Image
 from std_msgs.msg import Float32MultiArray
 
@@ -30,8 +30,10 @@ from Modelling.system_params import SystemParams
 import Helpers.ros_helper as rh
 import Helpers.pbal_msg_helper as pmh
 import Estimation.friction_reasoning as friction_reasoning
-import image_overlay_helper as ioh
+import PlottingandVisualization.image_overlay_helper as ioh
 
+from Estimation.test.gtsam_advanced_pivot_estimator import gtsam_advanced_pivot_estimator
+from Estimation.basic_gpis_shape_seed import basic_gpis_shape_seed
 
 def get_tranf_matrix():
     global cam_to_display
@@ -228,6 +230,11 @@ def ee_pose_callback(data):
     panda_hand_in_base_pose = data
 
 
+def sliding_state_callback(data):
+    global sliding_state_dict
+    sliding_state_dict = pmh.sliding_stamped_to_sliding_dict(
+        sliding_msg=data)
+
 def pivot_xyz_estimated_callback(data):
     global pivot_xyz_estimated
 
@@ -278,6 +285,7 @@ if __name__ == '__main__':
     # processed_image_list = []
     qp_debug_dict = None
 
+    sliding_state_dict = None
 
     hand_points = np.array([[0.0, 0.0], [.05, -.05],
                             [0.041, 0.041], [1.0, 1.0]])
@@ -299,7 +307,7 @@ if __name__ == '__main__':
     should_publish = False
     plot_estimated_pivot = True
 
-    rospy.init_node("realsense_liveplot_test")
+    rospy.init_node("test_shape_estimator_realtime")
     rate = rospy.Rate(5)
     rospy.sleep(1.0)
 
@@ -379,6 +387,9 @@ if __name__ == '__main__':
         '/friction_parameters', 
         FrictionParamsStamped, 
         friction_parameter_callback)
+
+    sliding_state_sub = rospy.Subscriber(
+        "/sliding_state", SlidingStateStamped, sliding_state_callback)
 
 
 
@@ -461,8 +472,18 @@ if __name__ == '__main__':
     print (camera_transformation_matrix.tolist())
     camera_info_sub.unregister()
 
+    count = 1
+
+    my_basic_gpis_shape_seed = basic_gpis_shape_seed()
+    my_gpis, dummy = my_basic_gpis_shape_seed.init_gp()
+    contour_x,contour_y  = None,None
+    pivot_estimate_vector = None
+    my_advanced_pivot_estimator = gtsam_advanced_pivot_estimator(my_gpis)
+
 
     while not rospy.is_shutdown():
+
+        count+=1
 
         if qp_debug_dict_list:
             while qp_debug_dict_list:
@@ -523,14 +544,47 @@ if __name__ == '__main__':
             # ioh.plot_force_arrow(cv_image,P0_estimated,-measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
 
 
-            if plot_estimated_pivot and pivot_xyz_estimated is not None:
-                ioh.plot_pivot_dot(cv_image,pivot_estimate_vector,camera_transformation_matrix)
+            if plot_estimated_pivot and P0_estimated is not None:
+                # ioh.plot_pivot_dot(cv_image,pivot_estimate_vector,camera_transformation_matrix)
                 ioh.plot_pivot_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0_estimated,camera_transformation_matrix)
                 ioh.plot_ground_slide_arrow(cv_image,qp_debug_dict,hand_front_center_world,P0_estimated,camera_transformation_matrix)
 
-            if object_detected:
+            if measured_base_wrench_6D is not None and sliding_state_dict is not None:
 
-                ioh.shape_overlay(cv_image,obj_pose_homog,object_vertex_array,camera_transformation_matrix)
+                hand_tangent_world = np.dot(contact_pose_homog,hand_tangent)
+                hand_normal_world = -np.dot(contact_pose_homog,hand_normal)
+                theta_hand_for_estimator = np.arctan2(hand_normal_world[0][0],hand_normal_world[2][0])
+                hand_pose_pivot_estimator = [-hand_front_center_world[0],hand_front_center_world[2],theta_hand_for_estimator]
+                measured_wrench_pivot_estimator = [measured_base_wrench_6D[0],-measured_base_wrench_6D[2],-measured_base_wrench_6D[-2]]
+
+                if count%1==0:
+                    my_advanced_pivot_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,sliding_state_dict)
+                if count%1==0 and my_advanced_pivot_estimator.num_data_points>20:
+                    pivot_estimate_new = my_advanced_pivot_estimator.compute_estimate()
+                    # pivot_estimate_vector = np.array([[-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]])
+
+                    P0_estimated = [-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]
+                    pivot_estimate_vector = np.array([P0_estimated])
+
+                if count%40==0 and my_advanced_pivot_estimator.num_data_points>20:
+
+                    contour_x,contour_y = my_advanced_pivot_estimator.generate_contours()
+
+
+
+                if pivot_estimate_vector is not None and contour_x is not None:
+                    temp_vertex_array = np.zeros([4,len(contour_x)])
+                    temp_vertex_array[3][:]= np.ones(len(contour_x))
+                    temp_vertex_array[2][:]+= .041
+                    temp_vertex_array[0][:]= -np.array(contour_y)
+                    temp_vertex_array[1][:]= np.array(contour_x)-pivot_estimate_new[2]
+                    ioh.shape_overlay(cv_image,contact_pose_homog,temp_vertex_array,camera_transformation_matrix,False)
+
+                    ioh.plot_pivot_dot(cv_image,pivot_estimate_vector,camera_transformation_matrix)
+
+            # if object_detected:
+
+                # ioh.shape_overlay(cv_image,obj_pose_homog,object_vertex_array,camera_transformation_matrix)
 
             #     current_dot_positions = np.dot(obj_pose_homog,object_vertex_array)
 

@@ -36,8 +36,8 @@ if __name__ == '__main__':
     # my_path = '/home/nddoshi/Dropbox (MIT)/pbal_assets/Videos/ICRA-2022-Revisions/'
     # my_path = 'C:/Users/taylorott/Dropbox (MIT)/pbal_assets/Videos/ICRA-2022-Revisions/'
     # my_path = '/home/taylorott/Documents/experiment_data/'
-    # my_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data/'
-    my_path = '/home/taylorott/Documents/experiment_data/gtsam_test_data/'
+    my_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data/'
+    # my_path = '/home/taylorott/Documents/experiment_data/gtsam_test_data/'
     # fname = '2022-06-23-01-24-26-test_data-experiment0017'
     # fname = '2022-06-22-23-13-19-test_data-experiment0001'
     # fname = '2022-06-22-23-21-28-test_data-experiment0002'
@@ -47,11 +47,11 @@ if __name__ == '__main__':
     # fname = '2022-06-23-00-25-16-test_data-experiment0006' #don't use this one
     # fname = '2022-06-23-00-27-11-test_data-experiment0007'
     # fname = '2022-06-23-00-36-41-test_data-experiment0008'
-    fname = '2022-06-23-00-37-09-test_data-experiment0009'
+    # fname = '2022-06-23-00-37-09-test_data-experiment0009'
     # fname = '2022-06-23-00-38-27-test_data-experiment0010'
     # fname = '2022-06-23-00-42-59-test_data-experiment0011'
     # fname = '2022-06-23-00-48-47-test_data-experiment0012'
-    # fname = '2022-06-23-00-49-23-test_data-experiment0013'
+    fname = '2022-06-23-00-49-23-test_data-experiment0013'
     # fname = '2022-06-23-01-09-13-test_data-experiment0014'
     # fname = '2022-06-23-01-14-51-test_data-experiment0015' 
     # fname = '2022-06-23-01-20-56-test_data-experiment0016' #do not use
@@ -289,7 +289,8 @@ if __name__ == '__main__':
 
             if count%20==0 and my_advanced_pivot_estimator.num_data_points>20:
 
-                contour_x,contour_y = my_advanced_pivot_estimator.gpis.eval_contour()
+                # contour_x,contour_y = my_advanced_pivot_estimator.gpis.eval_contour()
+                contour_x,contour_y = my_advanced_pivot_estimator.generate_contours()
 
                 # print (pivot_estimate_new)
             if pivot_estimate_vector is not None:
@@ -307,7 +308,8 @@ if __name__ == '__main__':
                     temp_vertex_array[2][:]+= .041
                     temp_vertex_array[0][:]= -np.array(contour_y)
                     temp_vertex_array[1][:]= np.array(contour_x)-pivot_estimate_new[2]
-                    ioh.shape_overlay(cv_image,contact_pose_homog,temp_vertex_array,camera_transformation_matrix)
+                    ioh.shape_overlay(cv_image,contact_pose_homog,temp_vertex_array,camera_transformation_matrix,False)
+                    # ioh.scatter_dots(cv_image,contact_pose_homog,temp_vertex_array,camera_transformation_matrix)
                 ioh.plot_pivot_dot(cv_image,pivot_estimate_vector,camera_transformation_matrix)
 
 

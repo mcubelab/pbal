@@ -7,7 +7,8 @@ gparentdir = os.path.dirname(parentdir)
 sys.path.insert(0, parentdir)
 sys.path.insert(0, gparentdir)
 
-sys.path.append('/home/taylorott/Documents/gpis-touch-public/mex')
+# sys.path.append('/home/taylorott/Documents/gpis-touch-public/mex')
+sys.path.append('/home/thecube/Documents/gpis-touch-public/mex')
 
 import json
 import pickle
@@ -245,7 +246,8 @@ class basic_gpis_shape_seed(object):
         isLocal = False
 
 
-        dll_fname='/home/taylorott/Documents/gpis-touch-public/mex/build/libgp_python.so'
+        # dll_fname='/home/taylorott/Documents/gpis-touch-public/mex/build/libgp_python.so'
+        dll_fname='/home/thecube/Documents/gpis-touch-public/mex/build/libgp_python.so'
         my_gp = gp_wrapper(dll_fname)
         my_gp.init_gp(varNoise, priorNoise, testLim, testRes, isLocal, priorRad)
 
