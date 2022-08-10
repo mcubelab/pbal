@@ -175,8 +175,10 @@ class gtsam_advanced_pivot_estimator(object):
 
         return list(contour_x_out[sorted_indices]),list(contour_y_out[sorted_indices])
 
-    def add_data_point(self,hand_pose,measured_base_wrench,sliding_state_dict):
-
+    def add_data_point(self,hand_pose,measured_base_wrench,sliding_state_dict,torque_boundary_boolean):
+        #don't proceed if not making line contact
+        if not torque_boundary_boolean:
+            return
         
         state_factor_package = []
         changing_factor_package = []

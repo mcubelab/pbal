@@ -24,7 +24,7 @@ from apriltag_ros.msg import AprilTagDetectionArray
 from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
 from pbal.msg import FrictionParamsStamped, ControlCommandStamped, QPDebugStamped, SlidingStateStamped
 from sensor_msgs.msg import CameraInfo, Image
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, Bool
 
 from Modelling.system_params import SystemParams
 import Helpers.ros_helper as rh
@@ -248,6 +248,9 @@ def target_frame_callback(data):
     target_pose = data
 
 
+def torque_cone_boundary_test_callback(data):
+    global torque_boundary_boolean
+    torque_boundary_boolean = data.data
 
 if __name__ == '__main__':
 
@@ -364,6 +367,8 @@ if __name__ == '__main__':
     # subscribe to ee pose data
     panda_hand_in_base_pose = None
 
+    torque_boundary_boolean = None
+
 
     # subscribers
     panda_hand_in_base_pose_sub         = rospy.Subscriber(
@@ -434,6 +439,11 @@ if __name__ == '__main__':
         QPDebugStamped, 
         qp_debug_message_callback)
 
+    # set up torque cone boundary subscriber
+    torque_cone_boundary_test_sub       = rospy.Subscriber(
+        "/torque_cone_boundary_test", 
+        Bool,  
+        torque_cone_boundary_test_callback)
     
 
     # set up pivot Point publisher
@@ -557,30 +567,35 @@ if __name__ == '__main__':
                 hand_pose_pivot_estimator = [-hand_front_center_world[0],hand_front_center_world[2],theta_hand_for_estimator]
                 measured_wrench_pivot_estimator = [measured_base_wrench_6D[0],-measured_base_wrench_6D[2],-measured_base_wrench_6D[-2]]
 
-                if count%1==0:
-                    my_advanced_pivot_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,sliding_state_dict)
-                if count%1==0 and my_advanced_pivot_estimator.num_data_points>20:
-                    pivot_estimate_new = my_advanced_pivot_estimator.compute_estimate()
-                    # pivot_estimate_vector = np.array([[-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]])
+                # if count%1==0:
+                #     my_advanced_pivot_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,sliding_state_dict,torque_boundary_boolean)
+                # if count%1==0 and my_advanced_pivot_estimator.num_data_points>20:
+                #     pivot_estimate_new = my_advanced_pivot_estimator.compute_estimate()
+                #     # pivot_estimate_vector = np.array([[-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]])
 
-                    P0_estimated = [-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]
-                    pivot_estimate_vector = np.array([P0_estimated])
+                #     P0_estimated = [-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]
+                #     pivot_estimate_vector = np.array([P0_estimated])
 
-                if count%40==0 and my_advanced_pivot_estimator.num_data_points>20:
+                # if count%40==0 and my_advanced_pivot_estimator.num_data_points>20:
 
-                    contour_x,contour_y = my_advanced_pivot_estimator.generate_contours()
+                #     contour_x,contour_y = my_advanced_pivot_estimator.generate_contours()
+
+                # if pivot_estimate_vector is not None and contour_x is not None:
+                #     temp_vertex_array = np.zeros([4,len(contour_x)])
+                #     temp_vertex_array[3][:]= np.ones(len(contour_x))
+                #     temp_vertex_array[2][:]+= .041
+                #     temp_vertex_array[0][:]= -np.array(contour_y)
+                #     temp_vertex_array[1][:]= np.array(contour_x)-pivot_estimate_new[2]
+                #     ioh.shape_overlay(cv_image,contact_pose_homog,temp_vertex_array,camera_transformation_matrix,False)
 
 
+                #     # ioh.plot_ground_friction_cone(cv_image,P0_estimated,friction_parameter_dict,camera_transformation_matrix,force_scale)
+                #     # ioh.plot_force_arrow(cv_image,P0_estimated,-measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
 
-                if pivot_estimate_vector is not None and contour_x is not None:
-                    temp_vertex_array = np.zeros([4,len(contour_x)])
-                    temp_vertex_array[3][:]= np.ones(len(contour_x))
-                    temp_vertex_array[2][:]+= .041
-                    temp_vertex_array[0][:]= -np.array(contour_y)
-                    temp_vertex_array[1][:]= np.array(contour_x)-pivot_estimate_new[2]
-                    ioh.shape_overlay(cv_image,contact_pose_homog,temp_vertex_array,camera_transformation_matrix,False)
+                #     ioh.plot_pivot_dot(cv_image,pivot_estimate_vector,camera_transformation_matrix)
 
-                    ioh.plot_pivot_dot(cv_image,pivot_estimate_vector,camera_transformation_matrix)
+        
+
 
             # if object_detected:
 
@@ -612,11 +627,11 @@ if __name__ == '__main__':
 
             ioh.plot_hand_slide_arrow(cv_image,qp_debug_dict,hand_points,contact_pose_homog,camera_transformation_matrix)
   
-        # if measured_contact_wrench_6D is not None and measured_base_wrench_6D is not None:
-        #     if np.abs(measured_contact_wrench_6D[0]) > .1:
-        #         hand_COP_hand_frame, hand_COP_world_frame = ioh.estimate_hand_COP(measured_contact_wrench_6D,hand_points,contact_pose_homog,l_contact)
-        #         ioh.plot_hand_friction_cone(cv_image,hand_COP_hand_frame,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale)
-        #         ioh.plot_force_arrow(cv_image,hand_COP_world_frame,measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
+        if measured_contact_wrench_6D is not None and measured_base_wrench_6D is not None:
+            if np.abs(measured_contact_wrench_6D[0]) > .1:
+                hand_COP_hand_frame, hand_COP_world_frame = ioh.estimate_hand_COP(measured_contact_wrench_6D,hand_points,contact_pose_homog,l_contact)
+                # ioh.plot_hand_friction_cone(cv_image,hand_COP_hand_frame,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale)
+                ioh.plot_force_arrow(cv_image,hand_COP_world_frame,measured_base_wrench_6D[0:3],force_scale,camera_transformation_matrix)
 
 
 
