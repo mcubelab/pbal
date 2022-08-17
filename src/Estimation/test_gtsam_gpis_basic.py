@@ -47,7 +47,7 @@ if __name__ == '__main__':
     # fname = '2022-06-23-00-25-16-test_data-experiment0006' #don't use this one
     # fname = '2022-06-23-00-27-11-test_data-experiment0007'
     # fname = '2022-06-23-00-36-41-test_data-experiment0008'
-    fname = '2022-06-23-00-37-09-test_data-experiment0009'
+    # fname = '2022-06-23-00-37-09-test_data-experiment0009'
     # fname = '2022-06-23-00-38-27-test_data-experiment0010'
     # fname = '2022-06-23-00-42-59-test_data-experiment0011'
     # fname = '2022-06-23-00-48-47-test_data-experiment0012'
@@ -55,6 +55,11 @@ if __name__ == '__main__':
     # fname = '2022-06-23-01-09-13-test_data-experiment0014'
     # fname = '2022-06-23-01-14-51-test_data-experiment0015' 
     # fname = '2022-06-23-01-20-56-test_data-experiment0016' #do not use
+    # fname = '2022-08-10-15-53-50-test_data-experiment0018'
+    # fname = '2022-08-10-16-13-46-test_data-experiment0019'
+    # fname = '2022-08-10-16-20-36-test_data-experiment0020'
+    # fname = '2022-08-10-16-22-10-test_data-experiment0021'
+    # fname = '2022-08-10-16-33-50-test_data-experiment0022'
 
     # fname = '2022-02-21-16-17-19-dummy-test-01-experiment0001'
     # fname = '2022-02-23-20-41-33-triange_hand_slide-experiment0001'
