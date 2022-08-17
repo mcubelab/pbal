@@ -23,7 +23,8 @@ import time
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.lines as lines
-from LiveStatsFolder.livestats import livestats
+from livestats import livestats
+# from LiveStatsFolder.livestats import livestats
 from Modelling.system_params import SystemParams
 import copy
 

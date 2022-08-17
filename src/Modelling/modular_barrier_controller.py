@@ -711,7 +711,7 @@ class ModularBarrierController(object):
             if self.current_params['pure_agnostic_rotation'] == True:
                 base_vec = np.array([0., 0., 1.])
             else: 
-                base_vec = np.array([0., -.06, 1.])
+                base_vec = np.array([0., -self.current_params['DEFAULT_PIVOT_LOCATION'], 1.])
                 # base_vec = np.array([0., -.15, 1.])
         else:
             base_vec = np.array([-self.s_hand, self.l_hand, 1.])

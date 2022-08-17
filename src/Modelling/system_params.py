@@ -10,7 +10,6 @@ class SystemParams(object):
             "MU_CONTACT_0": None,                     # friciton between robot/obj
             "TORQUE_BOUNDARY_MARGIN": 0.8,            # multiplies L_CONTACT to set conservative margin for torque boundary
             "END_EFFECTOR_MASS": 0.193  ,             # hand mass (kg)
-
         }
 
         self.ground_truth_params = {
@@ -48,6 +47,9 @@ class SystemParams(object):
         }
 
         pivot_params= { 
+
+            "DEFAULT_PIVOT_LOCATION": .1,
+
             "K_theta": 600., #150.,                                         # objective function parameters: theta, line/line plus point/line
             "theta_scale": 0.3,
             "concavity_theta": 60,

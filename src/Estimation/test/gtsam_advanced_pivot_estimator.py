@@ -61,6 +61,10 @@ class gtsam_advanced_pivot_estimator(object):
         self.s_prior = 0.0
         self.h_prior = 0.0
 
+        self.s_max = None
+        self.s_min = None
+        self.d_max = None 
+        self.d_min = None 
         # New Values container
         self.v = gtsam.Values()
 
@@ -117,6 +121,17 @@ class gtsam_advanced_pivot_estimator(object):
 
         s_contact = np.dot(th,rp-rh)+s[0]
         d_contact = np.dot(nh,rp-rh)
+
+        if self.s_max is None:
+            self.s_max = s_contact
+            self.s_min = s_contact
+            self.d_max = d_contact 
+            self.d_min = d_contact 
+        else:
+            self.s_max = max(self.s_max,s_contact)
+            self.s_min = min(self.s_min,s_contact)
+            self.d_max = max(self.s_max,d_contact)
+            self.d_min = min(self.s_min,d_contact) 
         
         pos_vec = np.array([s_contact,d_contact])
         grav_direction = np.array([0.0,-1.0])
@@ -125,8 +140,8 @@ class gtsam_advanced_pivot_estimator(object):
 
         perp_vec = np.array([normal_vec[1],-normal_vec[0]])
         self.gpis.update_gp(pos_vec,normal_vec)
-        self.gpis.update_gp(pos_vec+.005*perp_vec,normal_vec)
-        self.gpis.update_gp(pos_vec-.005*perp_vec,normal_vec)
+        self.gpis.update_gp(pos_vec+.001*perp_vec,normal_vec)
+        self.gpis.update_gp(pos_vec-.001*perp_vec,normal_vec)
 
         # pos_vec = np.array([s[0],0.0])
         # normal_vec = np.array([0.0,10.0])
@@ -135,10 +150,35 @@ class gtsam_advanced_pivot_estimator(object):
 
         return [x_pivot[0],y_pivot[0],s[0]]
 
+    def generate_contours(self):
+        contour_x,contour_y = self.gpis.eval_contour()
+
+        contour_x_out = []
+        contour_y_out = []
+
+        margin_s = 0.001 
+        margin_d = 0.03
+
+        dmin_contour = min(contour_y)
 
 
-    def add_data_point(self,hand_pose,measured_base_wrench,sliding_state_dict):
+        for i in range(len(contour_x)):
+            if (max(self.s_min-contour_x[i],contour_x[i]-self.s_max)<=margin_s
+                and contour_y[i]-dmin_contour<=margin_d):
 
+                contour_x_out.append(contour_x[i])
+                contour_y_out.append(contour_y[i])
+
+        contour_x_out = np.array(contour_x_out)
+        contour_y_out = np.array(contour_y_out)
+        sorted_indices = np.argsort(contour_x_out)
+
+        return list(contour_x_out[sorted_indices]),list(contour_y_out[sorted_indices])
+
+    def add_data_point(self,hand_pose,measured_base_wrench,sliding_state_dict,torque_boundary_boolean):
+        #don't proceed if not making line contact
+        if not torque_boundary_boolean:
+            return
         
         state_factor_package = []
         changing_factor_package = []
