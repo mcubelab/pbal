@@ -12,6 +12,7 @@ pbal_start_pose = {
 
 if __name__ == '__main__':
     rospy.init_node("move_to_pbal_node")
+    
     r = ArmInterface()
     r.set_joint_position_speed(speed=0.15)
     r.move_to_joint_positions(positions=pbal_start_pose,

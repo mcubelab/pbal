@@ -287,7 +287,7 @@ def quatlist_to_theta(quat_list):
     pose_homog = matrix_from_pose(pose_stamped)
 
     hand_normal_x = pose_homog[0,0]
-    hand_normal_z = pose_homog[2,0]
+    hand_normal_z = pose_homog[2,0] 
 
     return -np.arctan2(hand_normal_x, -hand_normal_z)   
 

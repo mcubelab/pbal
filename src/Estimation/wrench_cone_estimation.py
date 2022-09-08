@@ -1,14 +1,7 @@
 #!/usr/bin/env python
-import os
-import sys
-import inspect
-currentdir = os.path.dirname(os.path.abspath(
-    inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-gparentdir = os.path.dirname(parentdir)
-sys.path.insert(0, parentdir)
-sys.path.insert(0, gparentdir)
-
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+sys.path.insert(0,os.path.dirname(currentdir))
 
 import collections
 import json
@@ -27,42 +20,14 @@ from pbal.msg import FrictionParamsStamped
 from std_msgs.msg import Float32MultiArray, Float32, Bool, String
 
 import Helpers.ros_helper as rh
-import Helpers.timing_helper as th
+from Helpers.time_logger import time_logger
 import Helpers.pbal_msg_helper as pmh
+from Helpers.ros_manager import ros_manager
 
 from Modelling.system_params import SystemParams
 from Modelling.convex_hull_estimator import ConvexHullEstimator
 
 from robot_friction_cone_estimator import RobotFrictionConeEstimator
-
-def end_effector_wrench_callback(data):
-    global measured_contact_wrench_list
-    end_effector_wrench = data
-    measured_contact_wrench_6D = rh.wrench_stamped2list(
-            end_effector_wrench)
-    measured_contact_wrench = -np.array([
-            measured_contact_wrench_6D[0], 
-            measured_contact_wrench_6D[1],
-            measured_contact_wrench_6D[-1]])
-
-    measured_contact_wrench_list.append(measured_contact_wrench)
-    if len(measured_contact_wrench_list) > 100:
-       measured_contact_wrench_list.pop(0)
-
-def end_effector_wrench_base_frame_callback(data):
-    global measured_base_wrench_list
-    base_wrench = data
-    measured_base_wrench_6D = rh.wrench_stamped2list(
-            base_wrench)
-    measured_base_wrench = -np.array([
-            measured_base_wrench_6D[0], 
-            measured_base_wrench_6D[2],
-            measured_base_wrench_6D[-2]])
-
-    measured_base_wrench_list.append(measured_base_wrench)
-    if len(measured_base_wrench_list) > 100:
-       measured_base_wrench_list.pop(0)
-
 
 
 if __name__ == '__main__':
@@ -77,29 +42,11 @@ if __name__ == '__main__':
     theta_min_external = np.arctan(
         sys_params.controller_params["pivot_params"]["mu_ground"])
 
-    # subscribers
-    measured_contact_wrench_list = []
-    end_effector_wrench_sub = rospy.Subscriber(
-        "/end_effector_sensor_in_end_effector_frame", 
-        WrenchStamped,  end_effector_wrench_callback)
+    rm = ros_manager()
+    rm.subscribe('/end_effector_sensor_in_end_effector_frame')
+    rm.subscribe('/end_effector_sensor_in_base_frame')
+    rm.spawn_publisher('/friction_parameters')
 
-    measured_base_wrench_list = []
-    end_effector_wrench_base_frame_sub = rospy.Subscriber(
-        "/end_effector_sensor_in_base_frame", 
-        WrenchStamped,  end_effector_wrench_base_frame_callback)
-
-    # publishers
-    friction_parameter_pub = rospy.Publisher(
-        '/friction_parameters', 
-        FrictionParamsStamped,
-        queue_size=10)
-    # friction_parameter_pub = rospy.Publisher(
-    #     '/friction_parameters', 
-    #     String,
-    #     queue_size=10)
-
-    friction_parameter_msg = FrictionParamsStamped()
-    # friction_parameter_msg = String()
 
     friction_parameter_dict = {}
     friction_parameter_dict["aer"] = []
@@ -125,53 +72,46 @@ if __name__ == '__main__':
     should_publish_robot_friction_cone = False
     should_publish_ground_friction_cone = False
 
-    # queue for computing frequnecy
-    time_deque = collections.deque(
-        maxlen=sys_params.debug_params['QUEUE_LEN'])
+    # object for computing loop frequnecy
+    tl = time_logger(node_name)
 
     update_robot_friction_cone = False
     update_ground_friction_cone = False
 
+    hand_data_point_count = 0
+    hand_update_number = 100
+
     ground_data_point_count = 0
-    # loop_counter = 0
+    ground_update_number = 100
+
     print("Starting wrench cone estimation")
     while not rospy.is_shutdown():
-        # print("looping...")
-        # loop_counter+=1
-
-        t0 = time.time()
+        tl.reset()
+        rm.unpack_all()
 
         # updating quantiles for robot friction cone
-        if measured_contact_wrench_list:
-            update_robot_friction_cone = True            
+        if rm.end_effector_wrench_has_new:
+            hand_data_point_count +=1
+            update_robot_friction_cone = hand_data_point_count%hand_update_number == 0
 
-            while measured_contact_wrench_list:
-                measured_contact_wrench = measured_contact_wrench_list.pop(0)
-                robot_friction_estimator.add_data_point(
-                    measured_contact_wrench)
-   
-        # print loop_counter
-        # print(len(measured_contact_wrench_list))
-        # print(len(measured_base_wrench_list))
-     
-        # updating quantiles for ground friction cone
-        if measured_base_wrench_list:
-            while measured_base_wrench_list:
-                measured_base_wrench = measured_base_wrench_list.pop(0)
-                ground_data_point_count +=1
+            robot_friction_estimator.add_data_point(
+                    rm.measured_contact_wrench)
 
-                if (ground_data_point_count % 2) == 0:
-                    ground_hull_estimator.add_data_point(
-                        measured_base_wrench[[0,1]])
 
-                    ground_hull_estimator.add_data_point(
-                        np.array([-measured_base_wrench[0],
-                            measured_base_wrench[1]]))
+        if rm.end_effector_wrench_base_frame_has_new:
+            ground_data_point_count +=1
+            update_ground_friction_cone = ground_data_point_count%ground_update_number == 0
 
-                    ground_hull_estimator.add_data_point(np.array([0,0]))
-                    update_ground_friction_cone = True
+            if (ground_data_point_count % 2) == 0:
+                ground_hull_estimator.add_data_point(
+                    rm.measured_base_wrench[[0,1]])
 
-                    
+                ground_hull_estimator.add_data_point(
+                    np.array([-rm.measured_base_wrench[0],
+                        rm.measured_base_wrench[1]]))
+
+                ground_hull_estimator.add_data_point(np.array([0,0]))
+           
         # updating robot friction parameters
         if update_robot_friction_cone:
             robot_friction_estimator.update_estimator()
@@ -186,16 +126,13 @@ if __name__ == '__main__':
             should_publish_robot_friction_cone = True
             update_robot_friction_cone = False
 
-        # print time.time() - last_update_time
+
         # updating ground friction parameters
         if update_ground_friction_cone and (time.time()- last_update_time > 
             boundary_update_time):
 
-            # last_update_time = time.time()
-            # print last_update_time
-            # tupdate0 = time.time()
+        
             ground_hull_estimator.generate_convex_hull_closed_polygon()
-            # print(time.time() - tupdate0)
             param_dict_ground = ground_hull_estimator.return_left_right_friction_dictionary()
 
             if param_dict_ground["elu"]:
@@ -211,31 +148,17 @@ if __name__ == '__main__':
             should_publish_ground_friction_cone = True
             update_ground_friction_cone = False
 
-            # print 'hello!'
 
         if should_publish_robot_friction_cone and should_publish_ground_friction_cone:
-            # friction_parameter_msg.data = json.dumps(friction_parameter_dict)
-            friction_parameter_msg = pmh.friction_dict_to_friction_stamped(
-                friction_parameter_dict)
-            friction_parameter_pub.publish(friction_parameter_msg)
+            rm.pub_friction_parameter(friction_parameter_dict)
             should_publish_robot_friction_cone = False
             should_publish_ground_friction_cone = False
             # print 'published!'
 
-        # update time deque
-        time_deque.append(1000 * (time.time() - t0))   
-
         # log timing info
-        if len(time_deque) == sys_params.debug_params['QUEUE_LEN']:
-            rospy.loginfo_throttle(sys_params.debug_params["LOG_TIME"], 
-                (node_name + " runtime: {mean:.3f} +/- {std:.3f} [ms]")
-                .format(mean=sum(time_deque)/len(time_deque), 
-                std=th.compute_std_dev(my_deque=time_deque, 
-                    mean_val=sum(time_deque)/len(time_deque))))
+        tl.log_time()
 
-        rate.sleep()
 
-    print 'oh no!, shutdown'
 
 
 
