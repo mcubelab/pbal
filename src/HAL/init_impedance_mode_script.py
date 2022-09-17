@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-gparentdir = os.path.dirname(parentdir)
-sys.path.insert(0,parentdir) 
-sys.path.insert(0,gparentdir)
+sys.path.insert(0,s.path.dirname(os.path.dirname(currentdir)))
 
 import collections
 import pdb
