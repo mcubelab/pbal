@@ -12,20 +12,26 @@ import pbal_msg_helper as pmh
 import time
 import numpy as np
 from Estimation import friction_reasoning
+	# '/ee_pose_in_world_from_franka_publisher'
+
 	# '/ft_sensor_in_base_frame'
 	# '/ft_sensor_in_end_effector_frame'
 	# '/end_effector_sensor_in_end_effector_frame'
 	# '/end_effector_sensor_in_base_frame'
 	# '/torque_cone_boundary_test'
 	# '/torque_cone_boundary_flag'
+
+	# '/friction_parameters'
+	
+
 	# '/pivot_frame_realsense'
 	# '/pivot_frame_estimated'
 	# '/generalized_positions'
 	# '/end_effector_sensor_in_end_effector_frame'
 	# '/barrier_func_control_command'
-	# '/friction_parameters'
+	
 	# '/torque_bound_message'
-	# '/ee_pose_in_world_from_franka_publisher'
+	
 	# '/pivot_sliding_commanded_flag'
 	# '/qp_debug_message'
 	# '/target_frame'
@@ -121,10 +127,15 @@ class ros_manager(object):
 				FrictionParamsStamped, 
 				self.friction_parameter_callback)
 
-
-
 	def spawn_publisher(self,topic):
-		if   topic == '/ft_sensor_in_base_frame':
+
+		if topic == '/ee_pose_in_world_from_franka_publisher':
+			self.ee_pose_in_world_from_franka_pub = rospy.Publisher(
+				topic, 
+				PoseStamped, 
+				queue_size = 10)
+
+		elif topic == '/ft_sensor_in_base_frame':
 
 			#wrench at the force torque sensor rotated into the base frame
 			#Wrench measured by the ATI, multiplied by a rotation matrix (from ATI frame to world)
@@ -185,6 +196,10 @@ class ros_manager(object):
 				topic, 
 				SlidingStateStamped,
 				queue_size = 10)
+
+	def pub_ee_pose_in_world_from_franka(self,ee_pose_in_world_list):
+		ee_pose_in_world_pose_stamped = rh.list2pose_stamped(ee_pose_in_world_list)
+		self.ee_pose_in_world_from_franka_pub.publish(ee_pose_in_world_pose_stamped)
 
 	def pub_ft_sensor_in_base_frame(self,msg):
 		self.ft_sensor_in_base_frame_pub.publish(msg)

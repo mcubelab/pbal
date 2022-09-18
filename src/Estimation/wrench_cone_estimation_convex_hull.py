@@ -1,13 +1,7 @@
 #!/usr/bin/env python
-import os
-import sys
-import inspect
-currentdir = os.path.dirname(os.path.abspath(
-    inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-gparentdir = os.path.dirname(parentdir)
-sys.path.insert(0, parentdir)
-sys.path.insert(0, gparentdir)
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+sys.path.insert(0,os.path.dirname(currentdir))
 
 
 import rospy
@@ -26,7 +20,7 @@ from matplotlib import cm
 import matplotlib.lines as lines
 from livestats import livestats
 from Modelling.system_params import SystemParams
-from convex_hull_estimator import ConvexHullEstimator
+from Modelling.convex_hull_estimator import ConvexHullEstimator
 from robot_friction_cone_estimator import RobotFrictionConeEstimator
 
 from cvxopt import matrix, solvers
@@ -141,8 +135,10 @@ if __name__ == '__main__':
         axs[2].set_xlim([-30, 30])
         axs[2].set_ylim([-50, 10])
         axs[2].set_title('Friction Cone Ground')
-        # plt.show()
-        plt.pause(0.3)
+        plt.show()
+
+        time.sleep(.1)
+        # plt.pause(0.3)
 
 
 

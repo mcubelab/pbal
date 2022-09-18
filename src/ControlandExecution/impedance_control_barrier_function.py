@@ -61,24 +61,6 @@ def update_frame(frame_pose_stamped, frame_message):
 def robot2_pose_list(xyz_list, theta):
     return xyz_list + rh.theta_to_quatlist(theta)
 
-# def get_robot_world_xyz_theta(arm):
-    
-#     # initial impedance target
-#     pose = arm.endpoint_pose()
-    
-#     sixD_list = fh.franka_pose2list(
-#         pose)
-
-#     theta = rh.quatlist_to_theta(
-#         sixD_list[3:])
-
-#     xyz_theta = np.array([
-#         sixD_list[0],
-#         sixD_list[1],
-#         sixD_list[2],
-#         theta])
-
-#     return xyz_theta
 
 def get_robot_world_xyz_theta2(pose_stamped):
     
@@ -163,22 +145,6 @@ def generalized_positions_callback(data):
 def end_effector_wrench_callback(data):
     global end_effector_wrench
     end_effector_wrench = data 
-
-# def object_apriltag_pose_callback(data):
-#     global object_apriltag_pose
-#     object_apriltag_pose = data
-
-# def robot_friction_coeff_callback(data):
-#     global robot_friction_coeff
-#     robot_friction_coeff = data.data
-
-# def com_ray_callback(data):
-#     global theta0
-#     theta0 = data.data
-
-# def gravity_torque_callback(data):
-#     global mgl
-#     mgl = data.data
 
 def friction_parameter_callback(data):
     global friction_parameter_list

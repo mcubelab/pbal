@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     dummy, last_slide_time_dict, sliding_state_dict = friction_reasoning.initialize_friction_dictionaries()
 
-    # object for computing loop frequnecy
+    # object for computing loop frequency
     tl = time_logger(node_name)
    
     print("Starting sliding state estimation from wrench cone")
