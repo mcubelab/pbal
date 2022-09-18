@@ -3,15 +3,17 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(currentdir))
 
+import json
 import rospy
 from geometry_msgs.msg import PoseStamped, WrenchStamped, TransformStamped
-from std_msgs.msg import Bool, Int32
-from pbal.msg import SlidingStateStamped, FrictionParamsStamped
+from std_msgs.msg import Bool, Int32, Float32MultiArray, Float32
+from pbal.msg import SlidingStateStamped, FrictionParamsStamped, ControlCommandStamped, QPDebugStamped
 import ros_helper as rh
 import pbal_msg_helper as pmh
 import time
 import numpy as np
 from Estimation import friction_reasoning
+import tf2_ros
 	# '/ee_pose_in_world_from_franka_publisher'
 
 	# '/ft_sensor_in_base_frame'
@@ -35,6 +37,31 @@ from Estimation import friction_reasoning
 	# '/pivot_sliding_commanded_flag'
 	# '/qp_debug_message'
 	# '/target_frame'
+
+def initialize_frame():
+	frame_message = TransformStamped()
+	frame_message.header.frame_id = "base"
+	frame_message.header.stamp = rospy.Time.now()
+	frame_message.child_frame_id = "hand_estimate"
+	frame_message.transform.translation.x = 0.0
+	frame_message.transform.translation.y = 0.0
+	frame_message.transform.translation.z = 0.0
+
+	frame_message.transform.rotation.x = 0.0
+	frame_message.transform.rotation.y = 0.0
+	frame_message.transform.rotation.z = 0.0
+	frame_message.transform.rotation.w = 1.0
+	return frame_message
+
+def update_frame(frame_pose_stamped, frame_message):
+	frame_message.header.stamp = rospy.Time.now()
+	frame_message.transform.translation.x = frame_pose_stamped.pose.position.x
+	frame_message.transform.translation.y = frame_pose_stamped.pose.position.y
+	frame_message.transform.translation.z = frame_pose_stamped.pose.position.z
+	frame_message.transform.rotation.x = frame_pose_stamped.pose.orientation.x
+	frame_message.transform.rotation.y = frame_pose_stamped.pose.orientation.y
+	frame_message.transform.rotation.z = frame_pose_stamped.pose.orientation.z
+	frame_message.transform.rotation.w = frame_pose_stamped.pose.orientation.w
 
 class ros_manager(object):
 	def __init__(self):
@@ -73,6 +100,8 @@ class ros_manager(object):
 			self.unpack_list.append(self.force_unpack)
 			self.ft_wrench_in_ft_sensor_list = []
 			self.ft_wrench_in_ft_sensor_available_index = len(self.data_available_list)-1
+			self.force_has_new = False
+
 			self.ft_wrench_in_ft_sensor = None
 
 			self.ft_wrench_in_ft_sensor_frame_sub = rospy.Subscriber(
@@ -86,10 +115,12 @@ class ros_manager(object):
 			self.unpack_list.append(self.ee_pose_unpack)
 			self.panda_hand_in_base_pose_list = []
 			self.panda_hand_in_base_pose_available_index = len(self.data_available_list)-1
+			self.ee_pose_has_new = False
+
 			self.panda_hand_in_base_pose = None 
 			self.base_z_in_panda_hand = None
 
-			panda_hand_in_base_pose_sub = rospy.Subscriber(
+			self.panda_hand_in_base_pose_sub = rospy.Subscriber(
 				topic, 
 				PoseStamped, 
 				self.ee_pose_callback, 
@@ -99,6 +130,8 @@ class ros_manager(object):
 			self.unpack_list.append(self.end_effector_wrench_unpack)
 			self.measured_contact_wrench_list = []
 			self.measured_contact_wrench_available_index = len(self.data_available_list)-1
+			self.end_effector_wrench_has_new = False
+
 			self.measured_contact_wrench = None
 
 			self.end_effector_wrench_sub = rospy.Subscriber(
@@ -110,6 +143,8 @@ class ros_manager(object):
 			self.unpack_list.append(self.end_effector_wrench_base_frame_unpack)
 			self.measured_base_wrench_list = []
 			self.measured_base_wrench_available_index = len(self.data_available_list)-1
+			self.end_effector_wrench_base_frame_has_new = False
+
 			self.measured_base_wrench = None
 
 			self.end_effector_wrench_base_frame_sub = rospy.Subscriber(
@@ -121,11 +156,88 @@ class ros_manager(object):
 			self.unpack_list.append(self.friction_parameter_unpack)
 			self.friction_parameter_list = []
 			self.friction_parameter_available_index = len(self.data_available_list)-1
+			self.friction_parameter_has_new = False
+
 			self.friction_parameter_dict, dummy1 ,dummy2 = friction_reasoning.initialize_friction_dictionaries()
+
 			self.friction_parameter_sub = rospy.Subscriber(
-				'/friction_parameters', 
+				topic, 
 				FrictionParamsStamped, 
 				self.friction_parameter_callback)
+
+		elif topic == '/pivot_frame_realsense':
+			self.unpack_list.append(self.pivot_xyz_realsense_unpack)
+			self.pivot_xyz_realsense_list = []
+			self.pivot_xyz_realsense_available_index = len(self.data_available_list)-1
+			self.pivot_xyz_realsense_has_new = False
+
+			self.pivot_xyz = None
+			self.pivot_xyz_realsense = None
+			self.pivot_xyz_estimated = None
+			self.pivot_message_realsense_time = None
+			self.pivot_message_estimated_time = None
+
+			self.pivot_xyz_realsense_sub = rospy.Subscriber(
+				topic, 
+				TransformStamped, 
+				self.pivot_xyz_realsense_callback)
+
+		elif topic == '/pivot_frame_estimated':
+			self.unpack_list.append(self.pivot_xyz_estimated_unpack)
+			self.pivot_xyz_estimated_list = []
+			self.pivot_xyz_estimated_available_index = len(self.data_available_list)-1
+			self.pivot_xyz_estimated_has_new = False
+
+			self.pivot_xyz = None
+			self.pivot_xyz_realsense = None
+			self.pivot_xyz_estimated = None
+			self.pivot_message_realsense_time = None
+			self.pivot_message_estimated_time = None
+
+			self.pivot_xyz_estimated_sub = rospy.Subscriber(
+				topic, 
+				TransformStamped, 
+				self.pivot_xyz_estimated_callback)
+
+		elif topic == '/generalized_positions':
+			self.unpack_list.append(self.generalized_positions_unpack)
+			self.generalized_positions_list = []
+			self.generalized_positions_available_index = len(self.data_available_list)-1
+			self.generalized_positions_has_new = False
+
+			self.generalized_positions = None
+			self.state_not_exists_bool = True
+
+			self.generalized_positions_sub = rospy.Subscriber(
+				topic, 
+				Float32MultiArray,  
+				self.generalized_positions_callback)
+
+		elif topic == '/barrier_func_control_command':
+			self.unpack_list.append(self.barrier_func_control_command_unpack)
+			self.barrier_func_control_command_list = []
+			self.barrier_func_control_command_available_index = len(self.data_available_list)-1
+			self.barrier_func_control_command_has_new = False
+
+			self.command_msg = None
+
+			self.control_command_sub = rospy.Subscriber(
+				topic, 
+				ControlCommandStamped, 
+				self.barrier_func_control_command_callback)
+
+		elif topic == '/torque_bound_message':
+			self.unpack_list.append(self.torque_bound_unpack)
+			self.torque_bound_list = []
+			self.torque_bound_available_index = len(self.data_available_list)-1
+			self.torque_bound_has_new = False
+
+			self.torque_bounds = None
+
+			self.torque_bound_sub = rospy.Subscriber(
+				topic, 
+				Float32MultiArray,  
+				self.torque_bound_callback)
 
 	def spawn_publisher(self,topic):
 
@@ -197,6 +309,31 @@ class ros_manager(object):
 				SlidingStateStamped,
 				queue_size = 10)
 
+		elif topic == '/pivot_sliding_commanded_flag':
+			# setting up publisher for sliding
+			self.pivot_sliding_commanded_flag_msg = Bool()
+			self.pivot_sliding_commanded_flag_pub = rospy.Publisher(
+				topic, 
+				Bool, 
+				queue_size=10)
+
+		elif topic == '/qp_debug_message':
+			self.qp_debug_message_pub = rospy.Publisher(
+				topic, 
+				QPDebugStamped,
+				queue_size=10)
+
+		elif topic == '/target_frame':
+			# intialize impedance target frame
+			self.frame_message = initialize_frame()
+			self.target_frame_pub = rospy.Publisher(topic, 
+				TransformStamped, 
+				queue_size=10) 
+			# set up transform broadcaster
+			self.target_frame_broadcaster = tf2_ros.TransformBroadcaster()
+
+
+
 	def pub_ee_pose_in_world_from_franka(self,ee_pose_in_world_list):
 		ee_pose_in_world_pose_stamped = rh.list2pose_stamped(ee_pose_in_world_list)
 		self.ee_pose_in_world_from_franka_pub.publish(ee_pose_in_world_pose_stamped)
@@ -227,7 +364,20 @@ class ros_manager(object):
 
 	def pub_sliding_state(self,sliding_state_dict):
 		self.sliding_state_pub.publish(
-                pmh.sliding_dict_to_sliding_stamped(sliding_dict=sliding_state_dict))
+			pmh.sliding_dict_to_sliding_stamped(sliding_dict=sliding_state_dict))
+
+	def pub_pivot_sliding_commanded_flag(self,pivot_sliding_commanded_flag):
+		self.pivot_sliding_commanded_flag_msg.data = pivot_sliding_commanded_flag
+		self.pivot_sliding_commanded_flag_pub.publish(self.pivot_sliding_commanded_flag_msg)
+
+	def pub_target_frame(self,waypoint_pose_list):
+		update_frame(rh.list2pose_stamped(waypoint_pose_list),self.frame_message)
+		self.target_frame_pub.publish(self.frame_message)
+		self.target_frame_broadcaster.sendTransform(self.frame_message)
+
+	def pub_qp_debug_message(self,debug_dict):
+		self.qp_debug_message_pub.publish(pmh.qp_debug_dict_to_qp_debug_stamped(
+			qp_debug_dict = debug_dict))
 
 	def force_callback(self,data):
 		self.ft_wrench_in_ft_sensor_list.append(data)
@@ -317,6 +467,98 @@ class ros_manager(object):
 			data = self.friction_parameter_list.pop(0)
 			self.friction_parameter_dict = pmh.friction_stamped_to_friction_dict(data)
 			friction_reasoning.convert_friction_param_dict_to_array(self.friction_parameter_dict)
+
 			self.friction_parameter_has_new = True
 		else:
 			self.friction_parameter_has_new = False
+
+	def pivot_xyz_realsense_callback(self,data):
+		self.pivot_xyz_realsense_list.append([data,time.time()])
+		if len(self.pivot_xyz_realsense_list)>1:
+			self.pivot_xyz_realsense_list.pop(0)
+		self.data_available_list[self.pivot_xyz_realsense_available_index]=True
+
+	def pivot_xyz_realsense_unpack(self):
+		if len(self.pivot_xyz_realsense_list)>0:
+			msg = self.pivot_xyz_realsense_list.pop(0)
+			data = msg[0]
+			self.pivot_message_realsense_time = msg[1]
+			self.pivot_xyz_realsense =  [data.transform.translation.x,
+				data.transform.translation.y,
+				data.transform.translation.z]
+
+			self.pivot_xyz = self.pivot_xyz_realsense
+
+			self.pivot_xyz_realsense_has_new = True
+		else:
+			self.pivot_xyz_realsense_has_new = False
+
+
+	def pivot_xyz_estimated_callback(self,data):
+		self.pivot_xyz_estimated_list.append([data,time.time()])
+		if len(self.pivot_xyz_estimated_list)>1:
+			self.pivot_xyz_estimated_list.pop(0)
+		self.data_available_list[self.pivot_xyz_estimated_available_index]=True
+
+	def pivot_xyz_estimated_unpack(self):
+		if len(self.pivot_xyz_estimated_list)>0:
+			msg = self.pivot_xyz_estimated_list.pop(0)
+			data = msg[0]
+			self.pivot_message_estimated_time = msg[1]
+			self.pivot_xyz_estimated =  [data.transform.translation.x,
+				data.transform.translation.y,
+				data.transform.translation.z]
+
+			#if there has been no message from the realsense
+			if (self.pivot_xyz_realsense is None) or (self.pivot_message_estimated_time-self.pivot_message_realsense_time>.5):
+				self.pivot_xyz = self.pivot_xyz_estimated
+
+			self.pivot_xyz_estimated_has_new = True
+		else:
+			self.pivot_xyz_estimated_has_new = False
+
+	def generalized_positions_callback(self,data):
+		self.generalized_positions_list.append(data)
+		if len(self.generalized_positions_list)>1:
+			self.generalized_positions_list.pop(0)
+		self.data_available_list[self.generalized_positions_available_index]=True
+
+	def generalized_positions_unpack(self):
+		if len(self.generalized_positions_list)>0:
+			data = self.generalized_positions_list.pop(0)
+			self.generalized_positions = data.data
+			self.state_not_exists_bool = False
+
+			self.generalized_positions_has_new = True
+		else:
+			self.generalized_positions_has_new = False
+
+	def barrier_func_control_command_callback(self,data):
+		self.barrier_func_control_command_list.append(data)
+		if len(self.barrier_func_control_command_list)>1:
+			self.barrier_func_control_command_list.pop(0)
+		self.data_available_list[self.barrier_func_control_command_available_index]=True
+
+	def barrier_func_control_command_unpack(self):
+		if len(self.barrier_func_control_command_list)>0:
+			data = self.barrier_func_control_command_list.pop(0)
+			self.command_msg = pmh.command_stamped_to_command_dict(data)
+
+			self.barrier_func_control_command_has_new = True
+		else:
+			self.barrier_func_control_command_has_new = False
+
+	def torque_bound_callback(self,data):
+		self.torque_bound_list.append(data)
+		if len(self.torque_bound_list)>1:
+			self.torque_bound_list.pop(0)
+		self.data_available_list[self.torque_bound_available_index]=True
+
+	def torque_bound_unpack(self):
+		if len(self.torque_bound_list)>0:
+			data = self.torque_bound_list.pop(0)
+			self.torque_bounds = json.loads(data.data).tolist()
+
+			self.torque_bound_has_new = True
+		else:
+			self.torque_bound_has_new = False
