@@ -67,7 +67,7 @@ delta_slide_robot_left = {
     "name": "delta_slide_robot_left",
     "command_flag" : 1,
     "mode" : 1,
-    "delta_theta" : 0,
+    "delta_theta" : 0.0,
     "delta_x_pivot" : 0.00,
     "delta_s" : -0.015,
 }
@@ -76,7 +76,7 @@ delta_slide_robot_right = {
     "name": "delta_slide_robot_right",
     "command_flag" : 1,
     "mode" : 0,
-    "delta_theta" : 0,
+    "delta_theta" : 0.0,
     "delta_x_pivot" : 0.00,
     "delta_s" : 0.015,
 }
@@ -85,7 +85,7 @@ delta_super_slide_robot_left = {
     "name": "delta_super_slide_robot_left",
     "command_flag" : 1,
     "mode" : 13,
-    "delta_theta" : 0,
+    "delta_theta" : 0.0,
     "delta_x_pivot" : 0.00,
     "delta_s" : -0.001,
 }
@@ -94,7 +94,7 @@ delta_super_slide_robot_right = {
     "name": "delta_super_slide_robot_right",
     "command_flag" : 1,
     "mode" : 12,
-    "delta_theta" : 0,
+    "delta_theta" : 0.0,
     "delta_x_pivot" : 0.00,
     "delta_s" : 0.001,
 }
@@ -103,7 +103,7 @@ delta_slide_pivot_left = {
     "name": "delta_slide_pivot_left",
     "command_flag" : 1,
     "mode" : 2,
-    "delta_theta" : 0,
+    "delta_theta" : 0.0,
     "delta_x_pivot" : 0.17,
     "delta_s" : 0.00,
 }
@@ -112,7 +112,7 @@ delta_slide_pivot_right = {
     "name": "delta_slide_pivot_right",
     "command_flag" : 1,
     "mode" : 3,
-    "delta_theta" : 0,
+    "delta_theta" : 0.0,
     "delta_x_pivot" : -0.17,
     "delta_s" : 0.00,
 }

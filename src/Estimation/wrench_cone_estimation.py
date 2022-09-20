@@ -37,10 +37,15 @@ if __name__ == '__main__':
     sys_params = SystemParams()
     rate = rospy.Rate(sys_params.estimator_params["RATE"])
 
+    # theta_min_contact = np.arctan(
+    #     sys_params.controller_params["pivot_params"]["mu_contact"])
+    # theta_min_external = np.arctan(
+    #     sys_params.controller_params["pivot_params"]["mu_ground"])
+
     theta_min_contact = np.arctan(
-        sys_params.controller_params["pivot_params"]["mu_contact"])
+        sys_params.pivot_params["mu_contact"])
     theta_min_external = np.arctan(
-        sys_params.controller_params["pivot_params"]["mu_ground"])
+        sys_params.pivot_params["mu_ground"])
 
     rm = ros_manager()
     rm.subscribe('/end_effector_sensor_in_end_effector_frame')

@@ -1,9 +1,5 @@
 import numpy as np
-import math
-import os
-
-import tf
-import rospy
+import time
 from geometry_msgs.msg import PoseStamped, Pose2D, WrenchStamped, PointStamped
 
 
@@ -18,38 +14,6 @@ def list2pose_stamped(pose, frame_id="world"):
     msg.pose.orientation.z = pose[5]
     msg.pose.orientation.w = pose[6]
     return msg
-
-def lookupTransform(homeFrame, targetFrame, listener):
-    ntfretry = 100
-    retryTime = .05
-    for i in range(ntfretry):
-        try:
-            t = rospy.Time(0)
-            (trans, rot) = listener.lookupTransform(targetFrame, homeFrame, t)
-            return (trans, rot)
-        except:  #(tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            print('[lookupTransform] failed to transform')
-            print('[lookupTransform] targetFrame %s homeFrame %s, retry %d' %
-                  (targetFrame, homeFrame, i))
-            rospy.sleep(retryTime)
-    return None, None
-
-def rotate_wrench(wrench_source, pose_transform):
-    force_source, torque_source = wrenchstamped_2FT(wrench_source)
-    T_transform_source = matrix_from_pose(pose_transform)[:3, :3]
-    force_transformed = np.matmul(T_transform_source, np.array(force_source))
-    torque_transformed = np.matmul(T_transform_source, np.array(torque_source))
-
-    return list2wrench_stamped(force_transformed.tolist() + 
-        torque_transformed.tolist())
-
-def wrench_reference_point_change(wrench_source, vector_from_new_ref):
-    # wrench source and vector_from_new_ref need in the same frame
-    force_source, torque_source = wrenchstamped_2FT(wrench_source)
-    torque_transformed = np.array(torque_source) + np.cross(np.array(vector_from_new_ref), 
-        np.array(force_source))
-    return list2wrench_stamped(force_source + torque_transformed.tolist())
-
 
 def wrenchstamped_2FT(wrench):
 
@@ -78,8 +42,189 @@ def list2wrench_stamped(wrench, frame_id="base"):
     return msg
 
 def wrench_stamped2list(msg):
+    
     force, torque = wrenchstamped_2FT(msg)
     return force + torque
+
+def pose_stamped2list(msg):
+
+    return [float(msg.pose.position.x),
+            float(msg.pose.position.y),
+            float(msg.pose.position.z),
+            float(msg.pose.orientation.x),
+            float(msg.pose.orientation.y),
+            float(msg.pose.orientation.z),
+            float(msg.pose.orientation.w),
+            ]
+
+def transform_stamped2list(msg):
+
+    return [float(msg.transform.translation.x),
+            float(msg.transform.translation.y),
+            float(msg.transform.translation.z),
+            float(msg.transform.rotation.x),
+            float(msg.transform.rotation.y),
+            float(msg.transform.rotation.z),
+            float(msg.transform.rotation.w),
+            ]
+
+def list2point_stamped(xyz):
+    msg = PointStamped()
+    msg.point.x = xyz[0]
+    msg.point.y = xyz[1]
+    msg.point.z = xyz[2]
+    return msg
+
+def point_stamped2list(msg):
+    return [msg.point.x, msg.point.y, msg.point.z]
+
+def list2pose_twod(pose):
+    msg = Pose2D()
+    msg.x = pose[0]
+    msg.y = pose[1]
+    msg.theta = pose[2]
+    return msg
+
+def pose_twod2list(msg):
+    return [msg.x, msg.y, msg.theta]
+
+def quat2list(quat):
+    return [quat.x, quat.y, quat.z, quat.w]
+
+def unit_pose():
+    return list2pose_stamped([0,0,0,0,0,0,1])
+
+def pose_from_matrix(matrix, frame_id="world"):
+    return list2pose_stamped(pose_list_from_matrix(matrix), frame_id=frame_id)
+
+def matrix_from_pose(pose):
+    return matrix_from_pose_list(pose_stamped2list(pose))
+
+def matrix_from_transform(transform):
+    return matrix_from_pose_list(transform_stamped2list(transform))
+
+
+def quat_from_matrix(M):
+    r00 = M[0,0]
+    r01 = M[0,1]
+    r02 = M[0,2]
+
+    r10 = M[1,0]
+    r11 = M[1,1]
+    r12 = M[1,2]
+
+    r20 = M[2,0]
+    r21 = M[2,1]
+    r22 = M[2,2]
+
+    qw = np.sqrt((r00+r11+r22)+1.0)/2.0
+    qx = np.sqrt(1.0+r00-r11-r22)/2.0
+    qy = np.sqrt(1.0+r11-r00-r22)/2.0
+    qz = np.sqrt(1.0+r22-r11-r00)/2.0
+
+    max_index  = np.argmax( [qw,qx,qy,qz] )
+
+    if max_index == 0:
+        qx = (r21-r12 )/(4.0*qw)
+        qy = (r02-r20 )/(4.0*qw)
+        qz = (r10-r01 )/(4.0*qw)
+
+    if max_index == 1:
+        qw = (r21-r12 )/(4.0*qx)
+        qy = (r01+r10 )/(4.0*qx)
+        qz = (r20+r02 )/(4.0*qx)
+
+    if max_index == 2:
+        qw = (r02-r20 )/(4.0*qy)
+        qx = (r01+r10 )/(4.0*qy)
+        qz = (r12+r21 )/(4.0*qy)
+
+    if max_index == 3:
+        qw = (r10-r01 )/(4.0*qz)
+        qx = (r20+r02 )/(4.0*qz)
+        qy = (r12+r21 )/(4.0*qz)
+
+    return [qx,qy,qz,qw]
+
+def trans_and_quat_from_matrix(M):
+    return [M[0,3],M[1,3],M[2,3]], quat_from_matrix(M)
+
+def pose_list_from_matrix(M):
+    return [M[0,3],M[1,3],M[2,3]] + quat_from_matrix(M)
+
+def matrix_from_trans_and_quat(trans=None,quat=None):
+
+    tx = 0.0
+    ty = 0.0
+    tz = 0.0
+
+    qx = 0.0
+    qy = 0.0
+    qz = 0.0
+    qw = 1.0
+
+    if trans is not None:
+        tx = trans[0]
+        ty = trans[1]
+        tz = trans[2]
+
+    if quat is not None:    
+        qx = quat[0]
+        qy = quat[1]
+        qz = quat[2]
+        qw = quat[3]
+
+    r00 = 2*(qw*qw+qx*qx)-1
+    r01 = 2*(qx*qy-qw*qz)
+    r02 = 2*(qx*qz+qw*qy)
+
+    r10 = 2*(qx*qy+qw*qz)
+    r11 = 2*(qw*qw+qy*qy)-1
+    r12 = 2*(qy*qz-qw*qx)
+
+    r20 = 2*(qx*qz-qw*qy)
+    r21 = 2*(qy*qz+qw*qx)
+    r22 = 2*(qw*qw+qz*qz)-1
+
+    return np.array([[r00, r01, r02,  tx],
+                     [r10, r11, r12,  ty],
+                     [r20, r21, r22,  tz],
+                     [0.0, 0.0, 0.0, 1.0]])
+
+def matrix_from_pose_list(pose_list):
+    return matrix_from_trans_and_quat(pose_list[0:3],pose_list[3:7])
+
+
+def lookupTransform(homeFrame, targetFrame, listener):
+    ntfretry = 100
+    retryTime = .05
+    for i in range(ntfretry):
+        try:
+            (trans, rot) = listener.lookupTransform(targetFrame, homeFrame, listener.getLatestCommonTime(targetFrame, homeFrame))
+            return (trans, rot)
+        except:  
+            print('[lookupTransform] failed to transform')
+            print('[lookupTransform] targetFrame %s homeFrame %s, retry %d' %
+                  (targetFrame, homeFrame, i))
+            time.sleep(retryTime)
+
+    return None, None
+
+def rotate_wrench(wrench_source, pose_transform):
+    force_source, torque_source = wrenchstamped_2FT(wrench_source)
+    T_transform_source = matrix_from_pose(pose_transform)[:3, :3]
+    force_transformed = np.matmul(T_transform_source, np.array(force_source))
+    torque_transformed = np.matmul(T_transform_source, np.array(torque_source))
+
+    return list2wrench_stamped(force_transformed.tolist() + torque_transformed.tolist())
+
+def wrench_reference_point_change(wrench_source, vector_from_new_ref):
+    # wrench source and vector_from_new_ref need in the same frame
+    force_source, torque_source = wrenchstamped_2FT(wrench_source)
+    torque_transformed = np.array(torque_source) + np.cross(np.array(vector_from_new_ref), np.array(force_source))
+
+    return list2wrench_stamped(force_source + torque_transformed.tolist())
+
 
 def transform_pose(pose_source, pose_transform):
     T_pose_source = matrix_from_pose(pose_source)
@@ -117,51 +262,6 @@ def transform_body(pose_source_world, pose_transform_target_body):
                                                          frame_id="yumi_body")
     return pose_source_rotated_world
 
-def pose_stamped2list(msg):
-    return [float(msg.pose.position.x),
-            float(msg.pose.position.y),
-            float(msg.pose.position.z),
-            float(msg.pose.orientation.x),
-            float(msg.pose.orientation.y),
-            float(msg.pose.orientation.z),
-            float(msg.pose.orientation.w),
-            ]
-
-def transform_stamped2list(msg):
-    return [float(msg.transform.translation.x),
-            float(msg.transform.translation.y),
-            float(msg.transform.translation.z),
-            float(msg.transform.rotation.x),
-            float(msg.transform.rotation.y),
-            float(msg.transform.rotation.z),
-            float(msg.transform.rotation.w),
-            ]
-
-
-def list2pose_twod(pose):
-    msg = Pose2D()
-    msg.x = pose[0]
-    msg.y = pose[1]
-    msg.theta = pose[2]
-    return msg
-
-def list2point_stamped(xyz):
-    msg = PointStamped()
-    msg.point.x = xyz[0]
-    msg.point.y = xyz[1]
-    msg.point.z = xyz[2]
-    return msg
-
-def point_stamped2list(msg):
-    return [msg.point.x, 
-        msg.point.y,
-        msg.point.z]
-
-def quat2list(quat):
-    return[quat.x, quat.y, quat.z, quat.w]
-
-def unit_pose():
-    return list2pose_stamped([0,0,0,0,0,0,1])
 
 
 def convert_reference_frame(pose_source, pose_frame_target, pose_frame_source, frame_id = "work_obj"):
@@ -172,17 +272,9 @@ def convert_reference_frame(pose_source, pose_frame_target, pose_frame_source, f
     pose_target = pose_from_matrix(T_pose_target, frame_id=frame_id)
     return pose_target
 
-def pose_from_matrix(matrix, frame_id="world"):
-    trans = tf.transformations.translation_from_matrix(matrix)
-    quat = tf.transformations.quaternion_from_matrix(matrix)
-    pose = list(trans) + list(quat)
-    pose = list2pose_stamped(pose, frame_id=frame_id)
-    return pose
-
 def get_pose_from_tf_frame(listener, target_frame, source_name):
-    trans, quat = listener.lookupTransform(source_name, target_frame, rospy.Time(0))
-    pose_target_source = list2pose_stamped(trans+quat,
-                                           frame_id=source_name)
+    trans, quat = listener.lookupTransform(source_name, target_frame, listener.getLatestCommonTime(source_name, target_frame))
+    pose_target_source = list2pose_stamped(trans+quat, frame_id=source_name)
     return pose_target_source
 
 def get_transform(pose_frame_target, pose_frame_source):
@@ -199,46 +291,20 @@ def get_transform(pose_frame_target, pose_frame_source):
     pose_relative_world = pose_from_matrix(T_relative_world, frame_id=pose_frame_source.header.frame_id)
     return pose_relative_world
 
-def matrix_from_trans_and_quat(trans,quat):
-    T = tf.transformations.quaternion_matrix(quat)
-    T[0:3,3] = trans
-    return T
-    
-def matrix_from_pose_list(pose_list):
-    trans = pose_list[0:3]
-    quat = pose_list[3:7]
-    T = tf.transformations.quaternion_matrix(quat)
-    T[0:3,3] = trans
-    return T
 
-def matrix_from_pose(pose):
-    pose_list = pose_stamped2list(pose)
-    trans = pose_list[0:3]
-    quat = pose_list[3:7]
-    T = tf.transformations.quaternion_matrix(quat)
-    T[0:3,3] = trans
-    return T
-
-def matrix_from_transform(transform):
-    transform_list = transform_stamped2list(transform)
-    trans = transform_list[0:3]
-    quat = transform_list[3:7]
-    T = tf.transformations.quaternion_matrix(quat)
-    T[0:3,3] = trans
-    return T
 
 def initialize_rosbag(topics, dir_save_bagfile, exp_name='test'):
     import datetime
     import subprocess
     #Saving rosbag options
     name_of_bag  = str(datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")) + '-' + exp_name
-    # dir_save_bagfile = os.environ['CODE_BASE'] + '/data/rosbag_data/'
     rosbag_proc = subprocess.Popen('rosbag record -q -O %s %s' % (name_of_bag, " ".join(topics)) , shell=True, cwd=dir_save_bagfile)
 
 def terminate_rosbag():
     terminate_ros_node('/record')
 
 def terminate_ros_node(s):
+    import os
     import subprocess
     list_cmd = subprocess.Popen("rosnode list", shell=True, stdout=subprocess.PIPE)
     list_output = list_cmd.stdout.read()
@@ -278,43 +344,20 @@ def transform_tip2tcp(listener,  pose_tip_push_start, tip_name='/apriltag_tip'):
     pose_tcp_map = compute_tip2tcp_offset(listener,  pose_tip_push_start, tip_name)
     pose_map_list = convert_ros2abb(pose_tcp_map)
     return pose_map_list
+  
 
 def quatlist_to_theta(quat_list):
     '''converts fraka quaternion to sagittal plane angle'''
-    
-    pose_list = [0., 0., 0.] + quat_list
-    pose_stamped = list2pose_stamped(pose_list)
-    pose_homog = matrix_from_pose(pose_stamped)
+
+    pose_homog = matrix_from_trans_and_quat(quat = quat_list)
 
     hand_normal_x = pose_homog[0,0]
     hand_normal_z = pose_homog[2,0] 
 
     return -np.arctan2(hand_normal_x, -hand_normal_z)   
 
-
 def theta_to_quatlist(theta):
-    '''converts sagittal plane angle to fraka quaternion'''
-
-    # sin/cos of line contact orientation
-    sint, cost = np.sin(theta), np.cos(theta)
-    
-    # line contact orientation in world frame
-    endpoint_orien_mat = np.array([[-sint, -cost, 0], 
-        [0, 0, 1], [-cost, sint, 0]])
-
-    # zero position
-    endpoint_position = np.array([0., 0., 0.])
-
-    # homogenous transform w.r.t world frame
-    endpoint_homog = np.vstack([np.vstack([endpoint_orien_mat.T,  
-        endpoint_position]).T, np.array([0., 0., 0., 1.])])
-
-    # pose stamped in world frame
-    endpoint_pose = pose_from_matrix(endpoint_homog)
-
-    # pose list in world frame
-    endpoint_pose_list = pose_stamped2list(endpoint_pose)
-
-    # return quaternion portion
-    return endpoint_pose_list[3:]
-
+    '''converts sagittal plane angle to franka quaternion'''
+    return quat_from_matrix(np.array([[-np.sin(theta), -np.cos(theta), 0.0], 
+                                      [           0.0,            0.0, 1.0], 
+                                      [-np.cos(theta),  np.sin(theta), 0.0]]))

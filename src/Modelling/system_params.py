@@ -46,7 +46,7 @@ class SystemParams(object):
             "QUEUE_LEN": 100                         # length of queue for computing average timing
         }
 
-        pivot_params= { 
+        self.pivot_params= { 
 
             "DEFAULT_PIVOT_LOCATION": .1,
 
@@ -94,163 +94,6 @@ class SystemParams(object):
             "Nmin_contact": 1.,
         }
 
-        guarded_move_params = {
-            "K_theta": 150.,                                            # objective function parameters: theta, free
-            "theta_scale": 0.3,
-            "concavity_theta": 60.,
-            "pure_agnostic_rotation": True, 
-
-            "K_pos_hand": 100.,                                            # objective function parameters: x-hand, free
-            "hand_pos_scale": 0.006,
-            "concavity_pos_hand": 60.,
-
-            "wrench_regularization_constant": 0.00001,
-
-            "tr_friction": [20., 1.],        # barrier function parameters for line/line plus point/line
-            "friction_margin": -2,
-            "mu_contact": 0.0,
-            "use_measured_mu_contact": False,
-
-            "tr_torque": [5., 5.],
-            "torque_margin": -.1,
-            "l_contact_multiplier": 0.0,
-
-            "tr_max_normal_contact": [20., 1.],
-            "Nmax_contact": 2,
-
-            "tr_min_normal_contact": [20., 1.],
-            "Nmin_contact": -2
-        }
-
-        static_object_flush_move_params = {
-            "K_pos_hand": 100.,                                            # objective function parameters: x-hand, free
-            "hand_pos_scale": 0.006,
-            "concavity_pos_hand": 60.,
-
-            "wrench_regularization_constant": 0.01,
-
-            "tr_friction": [1.5, .5],        # barrier function parameters for line/line plus point/line
-            "friction_margin": -.7,
-            "mu_contact": 0.0,
-            "use_measured_mu_contact": False,
-
-            "tr_torque": [6., 6.],
-            "torque_margin": -.01,
-            "l_contact_multiplier": 0.0,
-
-            "tr_max_normal_contact": [1.5, .5],
-            "Nmax_contact": .7,
-
-            "tr_min_normal_contact": [1.5, .5],
-            "Nmin_contact": -.7
-        }
-
-        static_object_flush_stick_params = {
-            "wrench_regularization_constant": 0.01,
-
-            "tr_friction": [0.5 , 3.],    # barrier function parameters for line/line plus point/line
-            "friction_margin": 0.,
-            "mu_contact": .1,
-            "use_measured_mu_contact": False,
-
-            "tr_torque": [6 , 6],
-            "torque_margin": 0.01,
-            "l_contact_multiplier": .8,
-
-            "tr_max_normal_contact": [1.5, .5],
-            "Nmax_contact": .4,
-        }
-
-        #static_object_flush_move_params = {
-        #    "K_pos_hand": 100.,                                            # objective function parameters: x-hand, free
-        #    "hand_pos_scale": 0.006,
-        #    "concavity_pos_hand": 60.,
-
-        #    "wrench_regularization_constant": 0.00001,
-
-        #    "tr_friction": [1., 1.],        # barrier function parameters for line/line plus point/line
-        #    "friction_margin": -.5,
-        #    "mu_contact": 0.05,
-        #    "use_measured_mu_contact": False,
-
-        #    "tr_torque": [5., 5.],
-        #    "torque_margin": -.02,
-        #    "l_contact_multiplier": 0.1,
-
-        #    "tr_max_normal_contact": [20., 1.],
-        #    "Nmax_contact": .5
-        #}
-
-        pure_stick_params = {
-            "K_N": .2,                                               # objective function parameters: N, line/line plus point/line
-            "N_scale": 8.,
-            "concavity_N": 1.,
-            "N_tar": 15.,
-
-            "wrench_regularization_constant": 0.00001,
-
-            "tr_friction": [.5, 3.],        # barrier function parameters for line/line plus point/line
-            "friction_margin": 0.,
-            "mu_contact": 0.1,
-            "use_measured_mu_contact": True,
-
-            "tr_torque": [.2, 5.],
-            "torque_margin": 0.05,
-            "l_contact_multiplier": .2,
-
-            "tr_max_normal_contact": [1., 3.],
-            "Nmax_contact": 30.
-        }
-
-        slide_external_line_contact_params = {    
-
-            # "K_theta": 150.,                                         # objective function parameters: theta, line/line plus point/line
-            # "theta_scale": 0.3,
-            # "concavity_theta": 60,
-            # "pure_agnostic_rotation": True,        
-            
-            "K_x_pivot": 108.,                                             # objective function parameters: s, line/line plus point/line
-            "x_pivot_scale": 0.006,
-            "concavity_x_pivot": 60,
-            "mu_ground": 0.2,
-            "use_measured_mu_ground": True,
-
-            "K_s": .5,                                               # objective function parameters: s, line/line plus point/line
-            "s_scale": 0.0005,
-            "concavity_s": 0.3,
-            
-            "K_N": .2,                                               # objective function parameters: N, line/line plus point/line
-            "N_scale": 80.,
-            "concavity_N": 1.,
-            "N_tar": 0.,
-
-            "K_tau": .2,                                               # objective function parameters: N, line/line plus point/line
-            "tau_scale": 80.,
-            "concavity_tau": 1.,
-            "tau_tar": 0.,
-
-            "tr_friction_external": [1 , 1],
-            "friction_ground_margin": -3,
-            "mu_ground": 0.0,
-            "use_measured_mu_ground": False,
-
-            "wrench_regularization_constant": 0.01, #0.00001,   # was 0.01
-
-            "tr_friction": [1, 1],        # barrier function parameters for line/line plus point/line
-            "friction_margin": -2,
-            "mu_contact": 0.0,
-            "use_measured_mu_contact": False,
-
-            "tr_torque": [1 , 1],
-            "torque_margin": 0.00,
-            "l_contact_multiplier": .8,
-            
-            "tr_max_normal_contact": [1, 1],
-            "Nmax_contact": 30.,  
-
-            "tr_min_normal_contact": [1, 1],
-            "Nmin_contact": 1.5
-        }
 
         self.controller_params = {
             # "IMPEDANCE_STIFFNESS_LIST": [4000, 4000, 4000, 400, 120, 400],
@@ -264,10 +107,4 @@ class SystemParams(object):
             "RATE": 200,                                                    # hz (control rate)
             # "INTEGRAL_MULTIPLIER": 20., #30., #20
             "INTEGRAL_MULTIPLIER": 25.,
-            "pivot_params": pivot_params,
-            "guarded_move_params": guarded_move_params,
-            "static_object_flush_move_params": static_object_flush_move_params,
-            "pure_stick_params": pure_stick_params,
-            "slide_external_line_contact_params": slide_external_line_contact_params,
-            "static_object_flush_stick_params": static_object_flush_stick_params
         }

@@ -65,9 +65,9 @@ def update_frame(frame_pose_stamped, frame_message):
 
 class ros_manager(object):
 	def __init__(self):
-		self.data_available_list = []
-		self.available_mask_list = []
-		self.unpack_list = []
+		self.data_available = []
+		self.available_mask = []
+		self.unpack_functions = []
 
 	def wait_for_necessary_data(self):
 		print("Waiting to hear from essential subscribers")
@@ -77,11 +77,11 @@ class ros_manager(object):
 			time.sleep(.1)
 
 			can_proceed = True
-			for i in range(len(self.data_available_list)):
-				can_proceed = can_proceed and (self.data_available_list[i] or self.available_mask_list[i])
+			for i in range(len(self.data_available)):
+				can_proceed = can_proceed and (self.data_available[i] or self.available_mask[i])
 
 	def unpack_all(self):
-		for my_func in self.unpack_list:
+		for my_func in self.unpack_functions:
 			my_func()
 
 	def subscribe_to_list(self,list_in, isNecessary = True):
@@ -93,16 +93,17 @@ class ros_manager(object):
 			self.spawn_publisher(topic)
 
 	def subscribe(self,topic, isNecessary = True):
-		self.available_mask_list.append(not isNecessary)
-		self.data_available_list.append(False)
+		self.available_mask.append(not isNecessary)
+		self.data_available.append(False)
 
 		if   topic ==  '/netft/netft_data':
-			self.unpack_list.append(self.force_unpack)
-			self.ft_wrench_in_ft_sensor_list = []
-			self.ft_wrench_in_ft_sensor_available_index = len(self.data_available_list)-1
+			self.unpack_functions.append(self.force_unpack)
+			self.ft_wrench_in_ft_sensor_buffer = []
+			self.ft_wrench_in_ft_sensor_available_index = len(self.data_available)-1
 			self.force_has_new = False
 
 			self.ft_wrench_in_ft_sensor = None
+			self.ft_wrench_in_ft_sensor_list = None
 
 			self.ft_wrench_in_ft_sensor_frame_sub = rospy.Subscriber(
 				topic, 
@@ -112,12 +113,14 @@ class ros_manager(object):
 
 		elif topic == '/ee_pose_in_world_from_franka_publisher':
 			# subscribe to ee pose data
-			self.unpack_list.append(self.ee_pose_unpack)
-			self.panda_hand_in_base_pose_list = []
-			self.panda_hand_in_base_pose_available_index = len(self.data_available_list)-1
+			self.unpack_functions.append(self.ee_pose_unpack)
+			self.panda_hand_in_base_pose_buffer = []
+			self.panda_hand_in_base_pose_available_index = len(self.data_available)-1
 			self.ee_pose_has_new = False
 
-			self.panda_hand_in_base_pose = None 
+			self.panda_hand_in_base_pose = None
+			self.panda_hand_in_base_pose_list = None
+
 			self.base_z_in_panda_hand = None
 
 			self.panda_hand_in_base_pose_sub = rospy.Subscriber(
@@ -127,9 +130,9 @@ class ros_manager(object):
 				queue_size=1)
 
 		elif topic == '/end_effector_sensor_in_end_effector_frame':
-			self.unpack_list.append(self.end_effector_wrench_unpack)
-			self.measured_contact_wrench_list = []
-			self.measured_contact_wrench_available_index = len(self.data_available_list)-1
+			self.unpack_functions.append(self.end_effector_wrench_unpack)
+			self.measured_contact_wrench_buffer = []
+			self.measured_contact_wrench_available_index = len(self.data_available)-1
 			self.end_effector_wrench_has_new = False
 
 			self.measured_contact_wrench = None
@@ -140,9 +143,9 @@ class ros_manager(object):
 				self.end_effector_wrench_callback)
 
 		elif topic == '/end_effector_sensor_in_base_frame':
-			self.unpack_list.append(self.end_effector_wrench_base_frame_unpack)
-			self.measured_base_wrench_list = []
-			self.measured_base_wrench_available_index = len(self.data_available_list)-1
+			self.unpack_functions.append(self.end_effector_wrench_base_frame_unpack)
+			self.measured_base_wrench_buffer = []
+			self.measured_base_wrench_available_index = len(self.data_available)-1
 			self.end_effector_wrench_base_frame_has_new = False
 
 			self.measured_base_wrench = None
@@ -153,9 +156,9 @@ class ros_manager(object):
 				self.end_effector_wrench_base_frame_callback)
 
 		elif topic == '/friction_parameters':
-			self.unpack_list.append(self.friction_parameter_unpack)
-			self.friction_parameter_list = []
-			self.friction_parameter_available_index = len(self.data_available_list)-1
+			self.unpack_functions.append(self.friction_parameter_unpack)
+			self.friction_parameter_buffer = []
+			self.friction_parameter_available_index = len(self.data_available)-1
 			self.friction_parameter_has_new = False
 
 			self.friction_parameter_dict, dummy1 ,dummy2 = friction_reasoning.initialize_friction_dictionaries()
@@ -166,9 +169,9 @@ class ros_manager(object):
 				self.friction_parameter_callback)
 
 		elif topic == '/pivot_frame_realsense':
-			self.unpack_list.append(self.pivot_xyz_realsense_unpack)
-			self.pivot_xyz_realsense_list = []
-			self.pivot_xyz_realsense_available_index = len(self.data_available_list)-1
+			self.unpack_functions.append(self.pivot_xyz_realsense_unpack)
+			self.pivot_xyz_realsense_buffer = []
+			self.pivot_xyz_realsense_available_index = len(self.data_available)-1
 			self.pivot_xyz_realsense_has_new = False
 
 			self.pivot_xyz = None
@@ -183,9 +186,9 @@ class ros_manager(object):
 				self.pivot_xyz_realsense_callback)
 
 		elif topic == '/pivot_frame_estimated':
-			self.unpack_list.append(self.pivot_xyz_estimated_unpack)
-			self.pivot_xyz_estimated_list = []
-			self.pivot_xyz_estimated_available_index = len(self.data_available_list)-1
+			self.unpack_functions.append(self.pivot_xyz_estimated_unpack)
+			self.pivot_xyz_estimated_buffer = []
+			self.pivot_xyz_estimated_available_index = len(self.data_available)-1
 			self.pivot_xyz_estimated_has_new = False
 
 			self.pivot_xyz = None
@@ -200,12 +203,16 @@ class ros_manager(object):
 				self.pivot_xyz_estimated_callback)
 
 		elif topic == '/generalized_positions':
-			self.unpack_list.append(self.generalized_positions_unpack)
-			self.generalized_positions_list = []
-			self.generalized_positions_available_index = len(self.data_available_list)-1
+			self.unpack_functions.append(self.generalized_positions_unpack)
+			self.generalized_positions_buffer = []
+			self.generalized_positions_available_index = len(self.data_available)-1
 			self.generalized_positions_has_new = False
 
 			self.generalized_positions = None
+			self.l_hand     = None
+			self.s_hand     = None
+			self.theta_hand = None
+			
 			self.state_not_exists_bool = True
 
 			self.generalized_positions_sub = rospy.Subscriber(
@@ -214,9 +221,9 @@ class ros_manager(object):
 				self.generalized_positions_callback)
 
 		elif topic == '/barrier_func_control_command':
-			self.unpack_list.append(self.barrier_func_control_command_unpack)
-			self.barrier_func_control_command_list = []
-			self.barrier_func_control_command_available_index = len(self.data_available_list)-1
+			self.unpack_functions.append(self.barrier_func_control_command_unpack)
+			self.barrier_func_control_command_buffer = []
+			self.barrier_func_control_command_available_index = len(self.data_available)-1
 			self.barrier_func_control_command_has_new = False
 
 			self.command_msg = None
@@ -227,9 +234,9 @@ class ros_manager(object):
 				self.barrier_func_control_command_callback)
 
 		elif topic == '/torque_bound_message':
-			self.unpack_list.append(self.torque_bound_unpack)
-			self.torque_bound_list = []
-			self.torque_bound_available_index = len(self.data_available_list)-1
+			self.unpack_functions.append(self.torque_bound_unpack)
+			self.torque_bound_buffer = []
+			self.torque_bound_available_index = len(self.data_available)-1
 			self.torque_bound_has_new = False
 
 			self.torque_bounds = None
@@ -380,29 +387,31 @@ class ros_manager(object):
 			qp_debug_dict = debug_dict))
 
 	def force_callback(self,data):
-		self.ft_wrench_in_ft_sensor_list.append(data)
-		if len(self.ft_wrench_in_ft_sensor_list)>1:
-			self.ft_wrench_in_ft_sensor_list.pop(0)
-		self.data_available_list[self.ft_wrench_in_ft_sensor_available_index]=True
+		self.ft_wrench_in_ft_sensor_buffer.append(data)
+		if len(self.ft_wrench_in_ft_sensor_buffer)>1:
+			self.ft_wrench_in_ft_sensor_buffer.pop(0)
+		self.data_available[self.ft_wrench_in_ft_sensor_available_index]=True
 
 	def force_unpack(self):
-		if len(self.ft_wrench_in_ft_sensor_list)>0:
-			self.ft_wrench_in_ft_sensor = self.ft_wrench_in_ft_sensor_list.pop(0)
+		if len(self.ft_wrench_in_ft_sensor_buffer)>0:
+			self.ft_wrench_in_ft_sensor = self.ft_wrench_in_ft_sensor_buffer.pop(0)
+			self.ft_wrench_in_ft_sensor_list = rh.wrench_stamped2list(self.ft_wrench_in_ft_sensor)
 
 			self.force_has_new = True
 		else:
 			self.force_has_new = False	
 
 	def ee_pose_callback(self,data):
-		self.panda_hand_in_base_pose_list.append(data)
-		if len(self.panda_hand_in_base_pose_list)>1:
-			self.panda_hand_in_base_pose_list.pop(0)
-		self.data_available_list[self.panda_hand_in_base_pose_available_index]=True
+		self.panda_hand_in_base_pose_buffer.append(data)
+		if len(self.panda_hand_in_base_pose_buffer)>1:
+			self.panda_hand_in_base_pose_buffer.pop(0)
+		self.data_available[self.panda_hand_in_base_pose_available_index]=True
 		
 	def ee_pose_unpack(self):
-		if len(self.panda_hand_in_base_pose_list)>0:
+		if len(self.panda_hand_in_base_pose_buffer)>0:
 
-			self.panda_hand_in_base_pose = self.panda_hand_in_base_pose_list.pop(0)
+			self.panda_hand_in_base_pose = self.panda_hand_in_base_pose_buffer.pop(0)
+			self.panda_hand_in_base_pose_list = rh.pose_stamped2list(self.panda_hand_in_base_pose)
 
 			self.base_z_in_panda_hand = rh.matrix_from_pose(
 				self.panda_hand_in_base_pose)[2, :3]
@@ -412,15 +421,15 @@ class ros_manager(object):
 			self.ee_pose_has_new = False
 
 	def end_effector_wrench_callback(self,data):
-		self.measured_contact_wrench_list.append(data)
-		if len(self.measured_contact_wrench_list)>1:
-			self.measured_contact_wrench_list.pop(0)
-		self.data_available_list[self.measured_contact_wrench_available_index]=True
+		self.measured_contact_wrench_buffer.append(data)
+		if len(self.measured_contact_wrench_buffer)>1:
+			self.measured_contact_wrench_buffer.pop(0)
+		self.data_available[self.measured_contact_wrench_available_index]=True
 
 	def end_effector_wrench_unpack(self):
-		if  len(self.measured_contact_wrench_list)>0:
+		if  len(self.measured_contact_wrench_buffer)>0:
 
-			end_effector_wrench = self.measured_contact_wrench_list.pop(0)
+			end_effector_wrench = self.measured_contact_wrench_buffer.pop(0)
 
 			measured_contact_wrench_6D = rh.wrench_stamped2list(
 				end_effector_wrench)
@@ -435,14 +444,14 @@ class ros_manager(object):
 			self.end_effector_wrench_has_new = False
 
 	def end_effector_wrench_base_frame_callback(self,data):
-		self.measured_base_wrench_list.append(data)
-		if len(self.measured_base_wrench_list)>1:
-			self.measured_base_wrench_list.pop(0)
-		self.data_available_list[self.measured_base_wrench_available_index]=True
+		self.measured_base_wrench_buffer.append(data)
+		if len(self.measured_base_wrench_buffer)>1:
+			self.measured_base_wrench_buffer.pop(0)
+		self.data_available[self.measured_base_wrench_available_index]=True
 
 	def end_effector_wrench_base_frame_unpack(self):
-		if len(self.measured_base_wrench_list)>0:
-			base_wrench = self.measured_base_wrench_list.pop(0)
+		if len(self.measured_base_wrench_buffer)>0:
+			base_wrench = self.measured_base_wrench_buffer.pop(0)
 
 			measured_base_wrench_6D = rh.wrench_stamped2list(
 				base_wrench)
@@ -457,14 +466,14 @@ class ros_manager(object):
 			self.end_effector_wrench_base_frame_has_new = False
 
 	def friction_parameter_callback(self,data):
-		self.friction_parameter_list.append(data)
-		if len(self.friction_parameter_list)>1:
-			self.friction_parameter_list.pop(0)
-		self.data_available_list[self.friction_parameter_available_index]=True
+		self.friction_parameter_buffer.append(data)
+		if len(self.friction_parameter_buffer)>1:
+			self.friction_parameter_buffer.pop(0)
+		self.data_available[self.friction_parameter_available_index]=True
 
 	def friction_parameter_unpack(self):
-		if len(self.friction_parameter_list)>0:
-			data = self.friction_parameter_list.pop(0)
+		if len(self.friction_parameter_buffer)>0:
+			data = self.friction_parameter_buffer.pop(0)
 			self.friction_parameter_dict = pmh.friction_stamped_to_friction_dict(data)
 			friction_reasoning.convert_friction_param_dict_to_array(self.friction_parameter_dict)
 
@@ -473,14 +482,14 @@ class ros_manager(object):
 			self.friction_parameter_has_new = False
 
 	def pivot_xyz_realsense_callback(self,data):
-		self.pivot_xyz_realsense_list.append([data,time.time()])
-		if len(self.pivot_xyz_realsense_list)>1:
-			self.pivot_xyz_realsense_list.pop(0)
-		self.data_available_list[self.pivot_xyz_realsense_available_index]=True
+		self.pivot_xyz_realsense_buffer.append([data,time.time()])
+		if len(self.pivot_xyz_realsense_buffer)>1:
+			self.pivot_xyz_realsense_buffer.pop(0)
+		self.data_available[self.pivot_xyz_realsense_available_index]=True
 
 	def pivot_xyz_realsense_unpack(self):
-		if len(self.pivot_xyz_realsense_list)>0:
-			msg = self.pivot_xyz_realsense_list.pop(0)
+		if len(self.pivot_xyz_realsense_buffer)>0:
+			msg = self.pivot_xyz_realsense_buffer.pop(0)
 			data = msg[0]
 			self.pivot_message_realsense_time = msg[1]
 			self.pivot_xyz_realsense =  [data.transform.translation.x,
@@ -495,14 +504,14 @@ class ros_manager(object):
 
 
 	def pivot_xyz_estimated_callback(self,data):
-		self.pivot_xyz_estimated_list.append([data,time.time()])
-		if len(self.pivot_xyz_estimated_list)>1:
-			self.pivot_xyz_estimated_list.pop(0)
-		self.data_available_list[self.pivot_xyz_estimated_available_index]=True
+		self.pivot_xyz_estimated_buffer.append([data,time.time()])
+		if len(self.pivot_xyz_estimated_buffer)>1:
+			self.pivot_xyz_estimated_buffer.pop(0)
+		self.data_available[self.pivot_xyz_estimated_available_index]=True
 
 	def pivot_xyz_estimated_unpack(self):
-		if len(self.pivot_xyz_estimated_list)>0:
-			msg = self.pivot_xyz_estimated_list.pop(0)
+		if len(self.pivot_xyz_estimated_buffer)>0:
+			msg = self.pivot_xyz_estimated_buffer.pop(0)
 			data = msg[0]
 			self.pivot_message_estimated_time = msg[1]
 			self.pivot_xyz_estimated =  [data.transform.translation.x,
@@ -518,15 +527,19 @@ class ros_manager(object):
 			self.pivot_xyz_estimated_has_new = False
 
 	def generalized_positions_callback(self,data):
-		self.generalized_positions_list.append(data)
-		if len(self.generalized_positions_list)>1:
-			self.generalized_positions_list.pop(0)
-		self.data_available_list[self.generalized_positions_available_index]=True
+		self.generalized_positions_buffer.append(data)
+		if len(self.generalized_positions_buffer)>1:
+			self.generalized_positions_buffer.pop(0)
+		self.data_available[self.generalized_positions_available_index]=True
 
 	def generalized_positions_unpack(self):
-		if len(self.generalized_positions_list)>0:
-			data = self.generalized_positions_list.pop(0)
+		if len(self.generalized_positions_buffer)>0:
+			data = self.generalized_positions_buffer.pop(0)
 			self.generalized_positions = data.data
+			self.l_hand     = contact_pose[0]
+			self.s_hand     = contact_pose[1]
+			self.theta_hand = contact_pose[2]
+
 			self.state_not_exists_bool = False
 
 			self.generalized_positions_has_new = True
@@ -534,14 +547,14 @@ class ros_manager(object):
 			self.generalized_positions_has_new = False
 
 	def barrier_func_control_command_callback(self,data):
-		self.barrier_func_control_command_list.append(data)
-		if len(self.barrier_func_control_command_list)>1:
-			self.barrier_func_control_command_list.pop(0)
-		self.data_available_list[self.barrier_func_control_command_available_index]=True
+		self.barrier_func_control_command_buffer.append(data)
+		if len(self.barrier_func_control_command_buffer)>1:
+			self.barrier_func_control_command_buffer.pop(0)
+		self.data_available[self.barrier_func_control_command_available_index]=True
 
 	def barrier_func_control_command_unpack(self):
-		if len(self.barrier_func_control_command_list)>0:
-			data = self.barrier_func_control_command_list.pop(0)
+		if len(self.barrier_func_control_command_buffer)>0:
+			data = self.barrier_func_control_command_buffer.pop(0)
 			self.command_msg = pmh.command_stamped_to_command_dict(data)
 
 			self.barrier_func_control_command_has_new = True
@@ -549,14 +562,14 @@ class ros_manager(object):
 			self.barrier_func_control_command_has_new = False
 
 	def torque_bound_callback(self,data):
-		self.torque_bound_list.append(data)
-		if len(self.torque_bound_list)>1:
-			self.torque_bound_list.pop(0)
-		self.data_available_list[self.torque_bound_available_index]=True
+		self.torque_bound_buffer.append(data)
+		if len(self.torque_bound_buffer)>1:
+			self.torque_bound_buffer.pop(0)
+		self.data_available[self.torque_bound_available_index]=True
 
 	def torque_bound_unpack(self):
-		if len(self.torque_bound_list)>0:
-			data = self.torque_bound_list.pop(0)
+		if len(self.torque_bound_buffer)>0:
+			data = self.torque_bound_buffer.pop(0)
 			self.torque_bounds = json.loads(data.data).tolist()
 
 			self.torque_bound_has_new = True
