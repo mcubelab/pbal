@@ -434,6 +434,7 @@ class ros_manager(object):
 			measured_contact_wrench_6D = rh.wrench_stamped2list(
 				end_effector_wrench)
 
+			##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
 			self.measured_contact_wrench = -np.array([
 				measured_contact_wrench_6D[0], 
 				measured_contact_wrench_6D[1],
@@ -456,6 +457,7 @@ class ros_manager(object):
 			measured_base_wrench_6D = rh.wrench_stamped2list(
 				base_wrench)
 
+			##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
 			self.measured_base_wrench = -np.array([
 				measured_base_wrench_6D[0], 
 				measured_base_wrench_6D[2],

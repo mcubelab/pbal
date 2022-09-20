@@ -97,7 +97,12 @@ class SystemParams(object):
 
         self.controller_params = {
             # "IMPEDANCE_STIFFNESS_LIST": [4000, 4000, 4000, 400, 120, 400],
+
+
+            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
             "IMPEDANCE_STIFFNESS_LIST": [2000, 2000, 2000, 400, 60, 400],
+
+
             # "IMPEDANCE_STIFFNESS_LIST": [1000, 1000, 1000, 100, 30, 100],
             # "IMPEDANCE_STIFFNESS_LIST": [3000, 3000, 3000, 300, 90, 300],
             # "IMPEDANCE_STIFFNESS_LIST": [3000, 3000, 3000, 300, 90, 300],

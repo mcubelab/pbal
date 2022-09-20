@@ -23,6 +23,8 @@ class RobotFrictionConeEstimator(object):
         self.theta_threshold = theta_threshold
 
     def add_data_point(self,measured_contact_wrench):
+
+        ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
         f_tangential = np.abs(measured_contact_wrench[1])
         f_normal     =        measured_contact_wrench[0]
 

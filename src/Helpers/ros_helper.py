@@ -345,7 +345,7 @@ def transform_tip2tcp(listener,  pose_tip_push_start, tip_name='/apriltag_tip'):
     pose_map_list = convert_ros2abb(pose_tcp_map)
     return pose_map_list
   
-
+##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
 def quatlist_to_theta(quat_list):
     '''converts fraka quaternion to sagittal plane angle'''
 
@@ -356,6 +356,7 @@ def quatlist_to_theta(quat_list):
 
     return -np.arctan2(hand_normal_x, -hand_normal_z)   
 
+##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
 def theta_to_quatlist(theta):
     '''converts sagittal plane angle to franka quaternion'''
     return quat_from_matrix(np.array([[-np.sin(theta), -np.cos(theta), 0.0], 

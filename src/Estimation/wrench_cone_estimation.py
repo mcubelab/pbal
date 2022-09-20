@@ -99,6 +99,7 @@ if __name__ == '__main__':
             hand_data_point_count +=1
             update_robot_friction_cone = hand_data_point_count%hand_update_number == 0
 
+            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
             robot_friction_estimator.add_data_point(
                     rm.measured_contact_wrench)
 
@@ -108,9 +109,12 @@ if __name__ == '__main__':
             update_ground_friction_cone = ground_data_point_count%ground_update_number == 0
 
             if (ground_data_point_count % 2) == 0:
+
+                ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
                 ground_hull_estimator.add_data_point(
                     rm.measured_base_wrench[[0,1]])
 
+                ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
                 ground_hull_estimator.add_data_point(
                     np.array([-rm.measured_base_wrench[0],
                         rm.measured_base_wrench[1]]))
