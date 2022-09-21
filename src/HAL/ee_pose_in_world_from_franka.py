@@ -33,10 +33,12 @@ if __name__ == '__main__':
         tl.reset()
  
         (ee_pose_world_trans, ee_pose_world_rot) = rh.lookupTransform('/panda_EE', 'base', listener)
-        ee_pose_in_world_list = ee_pose_world_trans+ee_pose_world_rot
 
-        # publish and sleep
-        rm.pub_ee_pose_in_world_from_franka(ee_pose_in_world_list)
+        if ee_pose_world_trans is not None and ee_pose_world_rot is not None:
+            ee_pose_in_world_list = ee_pose_world_trans+ee_pose_world_rot
+
+            # publish and sleep
+            rm.pub_ee_pose_in_world_from_franka(ee_pose_in_world_list)
 
         # log timing info       
         tl.log_time()

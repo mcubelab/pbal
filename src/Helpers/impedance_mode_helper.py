@@ -46,6 +46,9 @@ class impedance_mode_helper():
         self.Cartesian_impedance_pose_publisher.unregister()
 
     def set_cart_impedance_pose(self, pose):
+
+        self.stiffness_message.use_flag = 0
+
         if isinstance(pose,list):
             self.pose_message.pose.position.x = pose[0]
             self.pose_message.pose.position.y = pose[1]
@@ -66,6 +69,9 @@ class impedance_mode_helper():
         self.Cartesian_impedance_pose_publisher.publish(self.pose_message)
 
     def set_cart_impedance_stiffness(self,stiffness=None, damping=None):
+
+        self.stiffness_message.use_flag = 0
+
         if stiffness is not None:
             self.stiffness_message.x = stiffness[0]
             self.stiffness_message.y = stiffness[1]
@@ -90,6 +96,57 @@ class impedance_mode_helper():
             self.stiffness_message.bzrot = -1.0
 
         self.Cartesian_stiffness_publisher.publish(self.stiffness_message)
+
+
+    def set_cart_imepedance_stiffness_matrix(self,stiffness_trans=None, stiffness_rot=None, 
+                                                  damping_trans=None,   damping_rot=None):
+        
+        if stiffness_trans is not None and stiffness_rot is not None and damping_trans is not None and damping_rot is not None:
+
+            self.stiffness_message.use_flag = 1
+
+            self.stiffness_message.xx = stiffness_trans[0][0]
+            self.stiffness_message.xy = stiffness_trans[0][1]
+            self.stiffness_message.xz = stiffness_trans[0][2]
+            self.stiffness_message.yx = stiffness_trans[1][0]
+            self.stiffness_message.yy = stiffness_trans[1][1]
+            self.stiffness_message.yz = stiffness_trans[1][2]
+            self.stiffness_message.zx = stiffness_trans[2][0]
+            self.stiffness_message.zy = stiffness_trans[2][1]
+            self.stiffness_message.zz = stiffness_trans[2][2]
+
+            self.stiffness_message.xxrot = stiffness_rot[0][0] 
+            self.stiffness_message.xyrot = stiffness_rot[0][1]
+            self.stiffness_message.xzrot = stiffness_rot[0][2]
+            self.stiffness_message.yxrot = stiffness_rot[1][0]
+            self.stiffness_message.yyrot = stiffness_rot[1][1]
+            self.stiffness_message.yzrot = stiffness_rot[1][2]
+            self.stiffness_message.zxrot = stiffness_rot[2][0]
+            self.stiffness_message.zyrot = stiffness_rot[2][1]
+            self.stiffness_message.zzrot = stiffness_rot[2][2]
+            
+            self.stiffness_message.bxx = damping_trans[0][0]
+            self.stiffness_message.bxy = damping_trans[0][1]
+            self.stiffness_message.bxz = damping_trans[0][2]
+            self.stiffness_message.byx = damping_trans[1][0]
+            self.stiffness_message.byy = damping_trans[1][1]
+            self.stiffness_message.byz = damping_trans[1][2]
+            self.stiffness_message.bzx = damping_trans[2][0]
+            self.stiffness_message.bzy = damping_trans[2][1]
+            self.stiffness_message.bzz = damping_trans[2][2]
+            
+            self.stiffness_message.bxxrot = damping_rot[0][0]
+            self.stiffness_message.bxyrot = damping_rot[0][1]
+            self.stiffness_message.bxzrot = damping_rot[0][2]
+            self.stiffness_message.byxrot = damping_rot[1][0]
+            self.stiffness_message.byyrot = damping_rot[1][1]
+            self.stiffness_message.byzrot = damping_rot[1][2]
+            self.stiffness_message.bzxrot = damping_rot[2][0]
+            self.stiffness_message.bzyrot = damping_rot[2][1]
+            self.stiffness_message.bzzrot = damping_rot[2][2]
+
+            self.Cartesian_stiffness_publisher.publish(self.stiffness_message)
+
 
     def initialize_impedance_mode(self,torque_upper,force_upper):
         # initialize arm
