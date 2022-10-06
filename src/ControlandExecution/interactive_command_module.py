@@ -42,7 +42,7 @@ delta_rotate_right = {
 delta_rotate_corner_left = {
     'name': 'delta_rotate_left',
     'command_flag' : 1,
-    'mode' : 14,
+    'mode' : 6,
     'delta_theta' : np.pi/12,
     'delta_s_pivot' : 0.0,
     'delta_s_hand' : 0.0,
@@ -51,7 +51,7 @@ delta_rotate_corner_left = {
 delta_rotate_corner_right = {
     'name': 'delta_rotate_right',
     'command_flag' : 1,
-    'mode' : 14,
+    'mode' : 6,
     'delta_theta' : -np.pi/12,
     'delta_s_pivot' : 0.0,
     'delta_s_hand' : 0.0,
@@ -78,7 +78,7 @@ delta_slide_robot_right = {
 delta_super_slide_robot_left = {
     'name': 'delta_super_slide_robot_left',
     'command_flag' : 1,
-    'mode' : 13,
+    'mode' : 5,
     'delta_theta' : 0.0,
     'delta_s_pivot' : 0.00,
     'delta_s_hand' : -0.001,
@@ -87,7 +87,7 @@ delta_super_slide_robot_left = {
 delta_super_slide_robot_right = {
     'name': 'delta_super_slide_robot_right',
     'command_flag' : 1,
-    'mode' : 12,
+    'mode' : 4,
     'delta_theta' : 0.0,
     'delta_s_pivot' : 0.00,
     'delta_s_hand' : 0.001,
@@ -161,13 +161,9 @@ def on_press(key):
     if k == 'left': # pivot left
         command_msg_dict = delta_rotate_left
         print('delta_rotate_left')
-        # command_msg_dict = absolute_rotate_left
-        # print('absolute_rotate_left')
     if k == 'right': # pivot right
         command_msg_dict = delta_rotate_right
         print('delta_rotate_right')
-        # command_msg_dict = absolute_rotate_right
-        # print('absolute_rotate_right')
     if k == 'g': # pivot left
         command_msg_dict = delta_rotate_corner_left
         print('delta_rotate_corner_left')
@@ -197,29 +193,14 @@ def on_press(key):
 
 
     if command_msg_dict is not None:
-        # command_msg_string = json.dumps(command_msg_dict)
         command_msg = pmh.command_dict_to_command_stamped(
             command_msg_dict)
     else: 
         command_msg = None
 
-    # pdb.set_trace()
     if command_msg is not None:
-        # command_msg.data = command_msg_string
-        # pdb.set_trace()
-        # print(command_msg)
         control_command_pub.publish(command_msg)
-        # published = False
-        # while (not published) and (not rospy.is_shutdown()):
 
-            
-        #     print 'num connections: ', control_command_pub.get_num_connections()
-
-        #     if control_command_pub.get_num_connections() >= 1:
-        #         print('command received')
-        #         command_msg.data = command_msg_string     
-        #         control_command_pub.publish(command_msg)
-        #         published = True
 
 
 if __name__ == '__main__':
@@ -249,37 +230,12 @@ if __name__ == '__main__':
         ControlCommandStamped, queue_size=10)
 
 
-    # published = False
     listener = keyboard.Listener(on_press=on_press)
-    listener.start()                # start to listen on a separate thread
+
+    # start to listen on a separate thread
+    listener.start()                
     listener.join()
 
-    # while (not published) and (not rospy.is_shutdown()):
-        
-    #     print(control_command_pub.get_num_connections())
-    #     if control_command_pub.get_num_connections() == 1:
-
-    #         command_msg.data = command_msg_string
-     
-    #         control_command_pub.publish(command_msg)
-    #         published = True
-
-    # time.sleep(3)
-
-    # while True:
-    #     for message in message_queue:
-    #        #print(message['name'])
-    #        command_msg_dict = message
-    #        command_msg_string = json.dumps(command_msg_dict)
-    #        command_msg.data = command_msg_string
-    #        control_command_pub.publish(command_msg)
-    #        time.sleep(5)
-
-    # command_msg_dict = absolute_rotate_center
-    # # command_msg_dict_pruned = prune_command_message(command_msg_dict)
-    # command_msg_string = json.dumps(command_msg_dict)
-    # command_msg.data = command_msg_string 
-    # control_command_pub.publish(command_msg)
 
 
 

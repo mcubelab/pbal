@@ -16,7 +16,6 @@ from franka_tools import CollisionBehaviourInterface
 
 import Helpers.franka_helper as fh
 import Helpers.ros_helper as rh
-import Helpers.timing_helper as th
 from franka_core_msgs.msg import CartImpedanceStiffness
 from Modelling.system_params import SystemParams
 

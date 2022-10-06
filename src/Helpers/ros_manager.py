@@ -112,7 +112,6 @@ class ros_manager(object):
 				queue_size=1)
 
 		elif topic == '/ee_pose_in_world_manipulation_from_franka_publisher':
-			# subscribe to ee pose data
 			self.unpack_functions.append(self.ee_pose_in_world_manipulation_unpack)
 			self.ee_pose_in_world_manipulation_buffer = []
 			self.ee_pose_in_world_manipulation_available_index = len(self.data_available)-1
@@ -122,8 +121,6 @@ class ros_manager(object):
 			self.ee_pose_in_world_manipulation_list = None
 			self.ee_pose_in_world_manipulation_homog = None
 
-			# self.base_z_in_panda_hand = None
-
 			self.ee_pose_in_world_manipulation_sub = rospy.Subscriber(
 				topic, 
 				PoseStamped, 
@@ -131,7 +128,6 @@ class ros_manager(object):
 				queue_size=1)
 
 		elif topic == '/ee_pose_in_base_from_franka_publisher':
-			# subscribe to ee pose data
 			self.unpack_functions.append(self.ee_pose_in_base_unpack)
 			self.ee_pose_in_base_buffer = []
 			self.ee_pose_in_base_available_index = len(self.data_available)-1
@@ -141,7 +137,7 @@ class ros_manager(object):
 			self.ee_pose_in_base_list = None
 			self.ee_pose_in_base_homog = None
 
-			# self.base_z_in_panda_hand = None
+			self.base_z_in_ee_frame = None
 
 			self.ee_pose_in_base_sub = rospy.Subscriber(
 				topic, 

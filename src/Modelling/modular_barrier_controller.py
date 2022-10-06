@@ -13,15 +13,6 @@ solvers.options['feastol'] = 1e-6
 solvers.options['maxiters'] = 10
 
 
-def robot2contact(contact_pose):
-    # define sine and cosine
-    sint, cost = np.sin(contact_pose[2]), np.cos(contact_pose[2])
-
-    # line contact orientation in world frame
-    return np.array([[-cost, sint, 0.], 
-                     [-sint,-cost, 0.], 
-                     [   0.,   0., 1.]])
-
 class ModularBarrierController(object):
     def __init__(self, pivot_params,object_params):
         self.pivot_params = pivot_params
@@ -148,10 +139,8 @@ class ModularBarrierController(object):
         
         return np.squeeze(np.array(result['x']))
 
-    def update_controller(self, mode, theta_hand, contact_wrench, friction_parameter_dict, error_dict,
-    	l_hand = None,
-    	s_hand = None,
-        torque_bounds = None):
+    def update_controller(self, mode, theta_hand, contact_wrench, friction_parameter_dict, 
+                                error_dict, rotation_vector = None, torque_bounds = None):
 
     	self.error_dict=error_dict
 
@@ -164,13 +153,13 @@ class ModularBarrierController(object):
         else:
             self.torque_bounds = torque_bounds
 
-    	# update pose variables
-    	self.theta_hand, self.l_hand, self.s_hand = theta_hand, l_hand, s_hand
+    	self.theta_hand = theta_hand
+        self.rotation_vector = rotation_vector
 
     	# update_mode
-        if (mode == 0 or mode == 12) and error_dict['error_s_hand'] > 0:
+        if (mode == 0 or mode == 4) and error_dict['error_s_hand'] > 0:
             mode = -1
-        if (mode == 1 or mode == 13) and error_dict['error_s_hand'] < 0:
+        if (mode == 1 or mode == 5) and error_dict['error_s_hand'] < 0:
             mode = -1
         if mode == 2 and error_dict['error_s_pivot'] > 0:
             mode = -1
@@ -182,8 +171,14 @@ class ModularBarrierController(object):
     	# update contact wrench
     	self.contact_wrench = contact_wrench
 
-        self.R2C = robot2contact(np.array([
-            self.l_hand, self.s_hand, self.theta_hand]))
+
+        # R2C is the matrix that maps 2-D wrench vectors in the end-effector frame [F_n,F_t,Tau_z] (in EE frame) 
+        #to corresponding 2-D wrench vectors in the world_manipulation frame [F_n,F_t,Tau_z] (in world manipulation frame)
+        #we make assumption that the Z axes of the EE frame and world manipulation frames are parrallel to one another
+        #theta_hand is the counterclockwise rotation of the end-effector about its Z axis
+        self.R2C = np.array([[-np.cos(self.theta_hand), np.sin(self.theta_hand), 0.], 
+                             [-np.sin(self.theta_hand),-np.cos(self.theta_hand), 0.], 
+                             [                      0.,                     0.,  1.]])
 
         if self.mode == -1:  # line/line stick and point/line stick
 
@@ -276,7 +271,7 @@ class ModularBarrierController(object):
                 self.normal_force_min_external_constraint
             ]
 
-        if self.mode == 12:   # line/line slide +  and point/line stick
+        if self.mode == 4:   # line/line slide +  and point/line stick
 
             self.mode_cost = [
                 self.theta_cost,
@@ -292,7 +287,7 @@ class ModularBarrierController(object):
             ]
          
 
-        if self.mode == 13:   # line/line slide -  and point/line stick
+        if self.mode == 5:   # line/line slide -  and point/line stick
 
             self.mode_cost = [
                 self.theta_cost,
@@ -307,7 +302,7 @@ class ModularBarrierController(object):
                 self.normal_force_min_contact_constraint,
             ]
 
-        if self.mode == 14:  # pivot with stick contact at the hand, but not the ground
+        if self.mode == 6:  # pivot with stick contact at the hand, but not the ground
 
             self.mode_cost = [
                 self.theta_cost,
@@ -371,16 +366,6 @@ class ModularBarrierController(object):
             K=self.pivot_params['K_s_hand'],
             concavity=self.pivot_params['concavity_s_hand'])
 
-    def slide_agnostic_robot_cost(self):
-        ''' cost term for sliding right at robot '''
-        self.compute_error_s_hand()
-
-        return self.general_cost(
-            base_error=self.error_s_hand,
-            base_vec=np.array([0, 1., 0.]),
-            K=self.pivot_params['K_s_hand'],
-            concavity=self.pivot_params['concavity_s_hand'])
-
     def slide_right_external_cost(self):
         ''' cost term for sliding right at external '''
         self.compute_error_s_pivot()
@@ -419,7 +404,6 @@ class ModularBarrierController(object):
             K=self.pivot_params['K_tau'],
             concavity=self.pivot_params['concavity_tau'])
 
-
     def wrench_regularization_cost(self):
         ''' cost encouraging delta wrench to be small in 2-norm '''
         return self.pivot_params['wrench_regularization_constant'] * np.identity(
@@ -428,13 +412,13 @@ class ModularBarrierController(object):
     def theta_cost(self):
         ''' cost term for rotating about pivot '''
         self.compute_error_theta()
-        if self.s_hand is None or self.l_hand is None:
+        if self.rotation_vector is None:
             if self.pivot_params['pure_agnostic_rotation'] == True:
                 base_vec = np.array([0., 0., 1.])
             else: 
                 base_vec = np.array([0., -self.pivot_params['DEFAULT_PIVOT_LOCATION'], 1.])
         else:
-            base_vec = np.array([-self.s_hand, self.l_hand, 1.])
+            base_vec = np.array(self.rotation_vector)
         return self.general_cost(
             base_error=self.error_theta,
             base_vec=base_vec,

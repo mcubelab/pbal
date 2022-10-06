@@ -22,7 +22,6 @@ def get_robot_world_manipulation_xyz_theta2(pose_list):
     return np.array([pose_list[0], pose_list[1], pose_list[2], rh.quatlist_to_theta(pose_list[3:])])
 
 def wrench_transform_contact2world_manipulation(theta):
-
     return np.array([[-np.cos(theta),  np.sin(theta), 0.0], 
                     [ -np.sin(theta), -np.cos(theta), 0.0], 
                     [            0.0,            0.0, 1.0]])
@@ -36,7 +35,7 @@ if __name__ == '__main__':
     controller_params = sys_params.controller_params
 
     RATE = controller_params['RATE']
-    rate = rospy.Rate(RATE) # in yaml
+    rate = rospy.Rate(RATE)
 
     rm = ros_manager()
     rm.subscribe_to_list(['/end_effector_sensor_in_end_effector_frame',
@@ -117,9 +116,9 @@ if __name__ == '__main__':
             command_flag = rm.command_msg['command_flag']
             mode = rm.command_msg['mode']
 
-            if mode == -1 or mode == 14:
+            if mode == -1 or mode == 6:
                 coord_set = {'theta'}
-            if mode == 0 or mode == 1 or mode == 12 or mode == 13:
+            if mode == 0 or mode == 1 or mode == 4 or mode == 5:
                 coord_set = {'theta','s_hand'}
             if mode == 2 or mode == 3:
                 coord_set = {'theta','s_pivot'}
@@ -178,11 +177,11 @@ if __name__ == '__main__':
         if 'theta' in coord_set:
             error_dict['error_theta'] =  current_xyz_theta_robot_frame[3] - theta_target
 
-
             while error_dict['error_theta']> np.pi:
                 error_dict['error_theta']-= 2*np.pi
             while error_dict['error_theta']< -np.pi:
                 error_dict['error_theta']+= 2*np.pi
+
         if 's_hand' in coord_set:
             if rm.state_not_exists_bool and command_flag == 1:
                 #Note! X-axis of world_manipulation frame is usually vertical (normal direction to ground surface)
@@ -194,7 +193,6 @@ if __name__ == '__main__':
                 
                 error_dict['error_s_hand'] = delta_x_robot_frame * np.sin(theta_start) + delta_y_robot_frame* -np.cos(theta_start)
 
-
             if not rm.state_not_exists_bool:
                 error_dict['error_s_hand'] = s_hand - s_target
         if 's_pivot' in coord_set:
@@ -204,15 +202,18 @@ if __name__ == '__main__':
             if not rm.state_not_exists_bool:
                 error_dict['error_s_pivot'] = pivot[1] - s_pivot_target
 
+        rotation_vector = None
+        if s_hand is not None and l_hand is not None:
+            rotation_vector = np.array([-s_hand, l_hand, 1.])
+            
         # update controller
         pbc.update_controller(
-            mode=mode, 
-            theta_hand=theta_hand, 
-            contact_wrench=rm.measured_contact_wrench,
-            friction_parameter_dict=rm.friction_parameter_dict,
+            mode = mode, 
+            theta_hand = theta_hand, 
+            contact_wrench = rm.measured_contact_wrench,
+            friction_parameter_dict = rm.friction_parameter_dict,
             error_dict = error_dict,
-            l_hand=l_hand, 
-            s_hand=s_hand,
+            rotation_vector = rotation_vector,
             torque_bounds = rm.torque_bounds)
 
         # compute wrench increment

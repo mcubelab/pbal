@@ -91,16 +91,21 @@ if __name__ == '__main__':
            
         # updating robot friction parameters
         if update_robot_friction_cone:
-            robot_friction_estimator.update_estimator()
+            try:
+                robot_friction_estimator.update_estimator()
 
-            param_dict_contact = robot_friction_estimator.return_left_right_friction_dictionary()
-            friction_parameter_dict["acr"] = param_dict_contact["acr"]
-            friction_parameter_dict["acl"] = param_dict_contact["acl"]
-            friction_parameter_dict["bcr"] = param_dict_contact["bcr"]
-            friction_parameter_dict["bcl"] = param_dict_contact["bcl"]
-            friction_parameter_dict["cu"]  = param_dict_contact["cu"]
+                param_dict_contact = robot_friction_estimator.return_left_right_friction_dictionary()
+                friction_parameter_dict["acr"] = param_dict_contact["acr"]
+                friction_parameter_dict["acl"] = param_dict_contact["acl"]
+                friction_parameter_dict["bcr"] = param_dict_contact["bcr"]
+                friction_parameter_dict["bcl"] = param_dict_contact["bcl"]
+                friction_parameter_dict["cu"]  = param_dict_contact["cu"]
 
-            should_publish_robot_friction_cone = True
+                should_publish_robot_friction_cone = True
+
+            except:
+                should_publish_robot_friction_cone = False
+
             update_robot_friction_cone = False
 
 
@@ -108,21 +113,25 @@ if __name__ == '__main__':
         if update_ground_friction_cone and (time.time()- last_update_time > 
             boundary_update_time):
 
-        
-            ground_hull_estimator.generate_convex_hull_closed_polygon()
-            param_dict_ground = ground_hull_estimator.return_left_right_friction_dictionary()
+            try:
+                ground_hull_estimator.generate_convex_hull_closed_polygon()
+                param_dict_ground = ground_hull_estimator.return_left_right_friction_dictionary()
 
-            if param_dict_ground["elu"]:
-                friction_parameter_dict["ael"] = param_dict_ground["ael"]
-                friction_parameter_dict["bel"] = param_dict_ground["bel"]
-                friction_parameter_dict["elu"] = param_dict_ground["elu"]
+                if param_dict_ground["elu"]:
+                    friction_parameter_dict["ael"] = param_dict_ground["ael"]
+                    friction_parameter_dict["bel"] = param_dict_ground["bel"]
+                    friction_parameter_dict["elu"] = param_dict_ground["elu"]
 
-            if param_dict_ground["eru"]:
-                friction_parameter_dict["aer"] = param_dict_ground["aer"]
-                friction_parameter_dict["ber"] = param_dict_ground["ber"]
-                friction_parameter_dict["eru"] = param_dict_ground["eru"]
+                if param_dict_ground["eru"]:
+                    friction_parameter_dict["aer"] = param_dict_ground["aer"]
+                    friction_parameter_dict["ber"] = param_dict_ground["ber"]
+                    friction_parameter_dict["eru"] = param_dict_ground["eru"]
 
-            should_publish_ground_friction_cone = True
+                should_publish_ground_friction_cone = True
+                
+            except:
+                should_publish_ground_friction_cone = False
+
             update_ground_friction_cone = False
 
 
