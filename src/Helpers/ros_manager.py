@@ -262,6 +262,20 @@ class ros_manager(object):
 				Float32MultiArray,  
 				self.torque_bound_callback)
 
+		elif topic == '/qp_debug_message':
+			self.unpack_functions.append(self.qp_debug_unpack)
+			self.qp_debug_buffer = []
+			self.qp_debug_available_index = len(self.data_available)-1
+			self.qp_debug_has_new = False
+
+			self.qp_debug_dict = None
+
+			self.qp_debug_sub = rospy.Subscriber(
+				topic,
+				QPDebugStamped,
+				self.qp_debug_callback)
+
+
 	def spawn_publisher(self,topic):
 
 		if topic == '/ee_pose_in_world_manipulation_from_franka_publisher':
@@ -594,3 +608,22 @@ class ros_manager(object):
 			self.torque_bound_has_new = True
 		else:
 			self.torque_bound_has_new = False
+
+	def qp_debug_callback(self,data):
+		self.qp_debug_buffer.append(data)
+		if len(self.qp_debug_buffer)>1:
+			self.qp_debug_buffer.pop(0)
+		self.data_available[self.qp_debug_available_index]=True
+
+	def qp_debug_unpack(self):
+		if len(self.qp_debug_buffer)>0:
+			data = self.qp_debug_buffer.pop(0)
+
+			if data.qp_debug != '':
+				self.qp_debug_dict = pmh.qp_debug_stamped_to_qp_debug_dict(data)
+				self.qp_debug_has_new = True
+			else:
+				self.qp_debug_has_new = False
+		else:
+			self.qp_debug_has_new = False
+

@@ -117,8 +117,7 @@ if __name__ == '__main__':
             marker_pose_apriltag_frame, base_in_base_pose,
             obj_apriltag_in_world_pose, frame_id = "base")
 
-        update_marker_pose(marker_apriltag_in_world_pose,
-            marker_message)        
+        update_marker_pose(marker_apriltag_in_world_pose,marker_message)        
 
         # publish and sleep
         obj_apriltag_pose_in_world_from_camera_pub.publish(

@@ -1,10 +1,10 @@
 import pdb
 import numpy as np
-from pbal.msg import (SlidingStateStamped, 
-    FrictionParamsStamped, 
-    ControlCommandStamped,
-    QPDebugStamped, 
-    GroundTruthStamped)
+from pbal.msg import   (SlidingStateStamped, 
+                        FrictionParamsStamped, 
+                        ControlCommandStamped,
+                        QPDebugStamped, 
+                        GroundTruthStamped)
 
 
 def sliding_dict_to_sliding_stamped(sliding_dict):

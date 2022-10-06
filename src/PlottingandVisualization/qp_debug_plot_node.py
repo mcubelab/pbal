@@ -1,75 +1,50 @@
 #!/usr/bin/env python
 import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-gparentdir = os.path.dirname(parentdir)
-sys.path.insert(0,parentdir) 
-sys.path.insert(0,gparentdir)
+sys.path.insert(0,os.path.dirname(currentdir))
 
 import rospy
-import pdb
-import json
 import numpy as np
-import Helpers.pbal_msg_helper as pmh
-from pbal.msg import QPDebugStamped
+from Helpers.ros_manager import ros_manager
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-def qp_debug_message_callback(data):
-    global qp_debug_dict
-    if data.qp_debug != '':
-        # qp_debug_dict = json.loads(data.data)
-        qp_debug_dict = pmh.qp_debug_stamped_to_qp_debug_dict(
-            data)
+
+def plot_increment(my_axis,X,dX,color):
+    my_axis.plot([X[0],X[0]+dX[0]],[X[1],X[1]+dX[1]],color)
+
+def plot_constraint(my_axis,offset,normal,color):
+    my_axis.plot([offset[0]+100*normal[1],offset[0]-100*normal[1]],
+                 [offset[1]-100*normal[0],offset[1]+100*normal[0]],
+                 color)
 
 if __name__ == '__main__':
 
-    rospy.init_node("qp_debug_plot")
+    rospy.init_node('qp_debug_plot')
     rospy.sleep(1.0)
 
-    qp_debug_dict = None
-
-    qp_debug_message_sub = rospy.Subscriber(
-       '/qp_debug_message',
-        QPDebugStamped,
-        qp_debug_message_callback)
-
-    print("Waiting for qp debug message")
-    while qp_debug_dict is None:
-        rospy.sleep(0.1)
-
-    measured_wrench = qp_debug_dict['measured_wrench']
+    rm = ros_manager()
+    rm.subscribe_to_list(['/qp_debug_message'])
+    rm.wait_for_necessary_data()
 
     fig, axs = plt.subplots(1,2)
-    axs[0].set_title('Friction Cone')
-    axs[0].plot(measured_wrench[1], measured_wrench[0])
-    axs[0].set_ylim([-10, 50])
-    axs[0].set_xlim([-30, 30])
-
-    axs[1].set_title('Torque Cone')
-    axs[1].plot(measured_wrench[2], measured_wrench[0])
-    axs[1].set_ylim([-10, 50])
-    axs[1].set_xlim([-5, 5])    
 
     while not rospy.is_shutdown():
+        rm.unpack_all()
 
         # unpack variables
-        measured_wrench = qp_debug_dict['measured_wrench']
-        delta_wrench = qp_debug_dict['delta_wrench']
-        delta_wrench_unconstrained = qp_debug_dict[
-            'delta_wrench_unconstrained']
+        measured_wrench = np.array(rm.qp_debug_dict['measured_wrench'])
+        delta_wrench = np.array(rm.qp_debug_dict['delta_wrench'])
+        delta_wrench_unconstrained = np.array(rm.qp_debug_dict['delta_wrench_unconstrained'])
 
-        constraint_normals = qp_debug_dict['constraint_normals']
-        constraint_offsets = qp_debug_dict['constraint_offsets']
-        slacks = qp_debug_dict['slacks']
+        constraint_normals = np.array(rm.qp_debug_dict['constraint_normals'])
+        constraint_offsets = np.array(rm.qp_debug_dict['constraint_offsets'])
+        slacks = rm.qp_debug_dict['slacks']
 
-        proj_vec_list = qp_debug_dict['proj_vec_list']
-        error_list = qp_debug_dict['error_list']
+        proj_vec_list = np.array(rm.qp_debug_dict['proj_vec_list'])
+        error_list = rm.qp_debug_dict['error_list']
 
-        # print qp_debug_dict['label_list_cnstr']
-
-            
         # clear axes
         for ax in axs:
             ax.clear()
@@ -81,83 +56,76 @@ if __name__ == '__main__':
             biq = constraint_offsets[i]
             slacki = slacks[i]
 
+            #If the constraint lies in the Normal Force x Tangential Force Plane
+            #then plot in on the left subplot
+            #the left subplot axes are:
+            #horizontal left = positive tangential force
+            #vertical up = positive normal force
+            #and the constraint/wrench coordinates are [Fn,Ft,Tangential]
+            #we will plot using (Index1,Index0), and the invert the X axis at the end
             if np.abs(Aiq[2])<.0001:
                 constraint_plotted = True
+                
+                #plot the true constraint in the quadratic program (including the slack offset)
+                offset = measured_wrench[[1,0]]+Aiq[[1,0]]*slacki/(Aiq[0]**2+Aiq[1]**2)
+                plot_constraint(axs[0],offset,Aiq[[1,0]],'g')
 
-                alpha = slacki/(Aiq[0]**2+Aiq[1]**2)
-                axs[0].plot(
-                    [measured_wrench[1]+Aiq[1]*alpha+100.*Aiq[0],measured_wrench[1]+Aiq[1]*alpha-100.*Aiq[0]], 
-                    [measured_wrench[0]+Aiq[0]*alpha-100.*Aiq[1],measured_wrench[0]+Aiq[0]*alpha+100.*Aiq[1]], 'g')
+                #plot the original idealized constraint (without the slack offset)
+                offset = Aiq[[1,0]]*biq/(Aiq[0]**2+Aiq[1]**2)
+                plot_constraint(axs[0],offset,Aiq[[1,0]],'m')
 
-
-                alpha = biq/(Aiq[0]**2+Aiq[1]**2)
-
-                axs[0].plot(
-                    [Aiq[1]*alpha+100.*Aiq[0], Aiq[1]*alpha-100.*Aiq[0]], 
-                    [Aiq[0]*alpha-100.*Aiq[1], Aiq[0]*alpha+100.*Aiq[1]], 'm')
-
-
+            #If the constraint lies in the Normal Force x Z Torque Plane
+            #then plot in on the right axis
+            #the right subplot axes are:
+            #horizontal right = positive torque
+            #vertical up = positive normal force
+            #and the constraint/wrench coordinates are [Fn,Ft,Tangential]
+            #we will plot using (Index2,Index0)
             if np.abs(Aiq[1])<.0001:
                 constraint_plotted = True
 
-                alpha = slacki/(Aiq[0]**2+Aiq[2]**2)
-                axs[1].plot(
-                    [measured_wrench[2]+Aiq[2]*alpha+100.*Aiq[0],measured_wrench[2]+Aiq[2]*alpha-100.*Aiq[0]], 
-                    [measured_wrench[0]+Aiq[0]*alpha-100.*Aiq[2],measured_wrench[0]+Aiq[0]*alpha+100.*Aiq[2]], 'g')
+                #plot the true constraint in the quadratic program (including the slack offset)
+                offset = measured_wrench[[2,0]]+Aiq[[2,0]]*slacki/(Aiq[0]**2+Aiq[2]**2)
+                plot_constraint(axs[1],offset,Aiq[[2,0]],'g')
 
-                alpha = biq/(Aiq[0]**2+Aiq[2]**2)
-
-                axs[1].plot(
-                    [Aiq[2]*alpha+100.*Aiq[0], Aiq[2]*alpha-100.*Aiq[0]], 
-                    [Aiq[0]*alpha-100.*Aiq[2], Aiq[0]*alpha+100.*Aiq[2]], 'm')
+                #plot the original idealized constraint (without the slack offset)
+                offset = Aiq[[2,0]]*biq/(Aiq[0]**2+Aiq[2]**2)
+                plot_constraint(axs[1],offset,Aiq[[2,0]],'m')
 
             if not constraint_plotted:
-                print 'constraint not plotted: ', Aiq, "  ", biq
+                print 'constraint not plotted: ', Aiq, '  ', biq
 
+        #plot the minimum of each of the cost terms
         for i in range(len(error_list)):
             proj_veci = proj_vec_list[i]
             errori = error_list[i]
 
             proj_vec_mag_sqr = (proj_veci[0]**2+proj_veci[1]**2+proj_veci[2]**2)
             if proj_vec_mag_sqr>.001:
-                alpha = errori/proj_vec_mag_sqr
+                alpha = -errori/proj_vec_mag_sqr
 
-                axs[0].plot(
-                        [measured_wrench[1],measured_wrench[1]+alpha*proj_veci[1]], 
-                        [measured_wrench[0],measured_wrench[0]+alpha*proj_veci[0]], 'r')
-                axs[1].plot(
-                        [measured_wrench[2],measured_wrench[2]+alpha*proj_veci[2]], 
-                        [measured_wrench[0],measured_wrench[0]+alpha*proj_veci[0]], 'r')
+                plot_increment(axs[0],measured_wrench[[1,0]],alpha*proj_veci[[1,0]],'r')
+                plot_increment(axs[1],measured_wrench[[2,0]],alpha*proj_veci[[2,0]],'r')
 
 
+        #plot the both the constrained and unconstrained solutions for the impedance target
 
-        axs[0].plot(
-            [measured_wrench[1], measured_wrench[1] + delta_wrench_unconstrained[1]], 
-            [measured_wrench[0], measured_wrench[0] + delta_wrench_unconstrained[0]], 'b')
-        
-        axs[0].plot(
-            [measured_wrench[1], measured_wrench[1] + delta_wrench[1]], 
-            [measured_wrench[0], measured_wrench[0] + delta_wrench[0]], 'k')
-
+        plot_increment(axs[0],measured_wrench[[1,0]],delta_wrench_unconstrained[[1,0]],'b')
+        plot_increment(axs[0],measured_wrench[[1,0]],delta_wrench[[1,0]],'k')
         axs[0].plot(measured_wrench[1], measured_wrench[0], 'r*')
 
         axs[0].set_xlim([ 30, -30])
         axs[0].set_ylim([-10, 50])
         axs[0].set_title('Friction Cone')
 
-        axs[1].plot(
-            [measured_wrench[2], measured_wrench[2] + delta_wrench_unconstrained[2]], 
-            [measured_wrench[0], measured_wrench[0] + delta_wrench_unconstrained[0]], 'b')
-        axs[1].plot(
-            [measured_wrench[2], measured_wrench[2] + delta_wrench[2]], 
-            [measured_wrench[0], measured_wrench[0] + delta_wrench[0]], 'k')
 
+        plot_increment(axs[1],measured_wrench[[2,0]],delta_wrench_unconstrained[[2,0]],'b')
+        plot_increment(axs[1],measured_wrench[[2,0]],delta_wrench[[2,0]],'k')
         axs[1].plot(measured_wrench[2], measured_wrench[0], 'r*')
 
         axs[1].set_ylim([-10, 50])
         axs[1].set_xlim([-5, 5])
         axs[1].set_title('Torque Cone')
-        # plt.show()
         plt.pause(0.01)
 
 
