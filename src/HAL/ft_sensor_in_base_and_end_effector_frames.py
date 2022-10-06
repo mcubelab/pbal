@@ -12,8 +12,15 @@
 # units are in Newtons (force component) and Newton-Meters (torque component)
 # the wrench given is in the frame of the sensor
 
-# '/ee_pose_in_world_from_franka_publisher':
-# Cartesian 6 DOF pose of the robot end-effector in the world frame
+# '/ee_pose_in_world_manipulation_from_franka_publisher':
+# Cartesian 6 DOF pose of the robot end-effector in the world manipulation frame
+# (world manipulation frame is a custom defined frame that is static in the world
+# used to defined the manipulation plane of the robot)
+
+
+# '/ee_pose_in_base_from_franka_publisher':
+# Cartesian 6 DOF pose of the robot end-effector in the base frame
+# (base frame is default static world frame given by franka, with origin attached to base of robot, and vertical being Z)
 
 # ROS Static Transforms:
 
@@ -36,21 +43,13 @@
 
 # Outputs:
 
-# /ft_sensor_in_base_frame
-# wrench at the force torque sensor rotated into the base frame
-# Wrench measured by the ATI, multiplied by a rotation matrix (from ATI frame to world)
-
-# /ft_sensor_in_end_effector_frame
-# wrench at the force torque sensor rotated into the end effector frame -Neel 7/5/2022
-# wrench measured by the ATI, multiplied by a rotation matrix (from ATI frame to end-effector)
-
 # /end_effector_sensor_in_end_effector_frame
 # wrench at the end-effector in the end effector coordinates -Neel 7/5/2022
 # wrench measured by the ATI, but the torque has been transformed using a different reference point,
 # specifically, the origin of the end-effector frame (should be palm center), and using end-effector basis
 
-# /end_effector_sensor_in_base_frame
-# wrench at the end-effector in the base coordinates -Neel 7/5/2022
+# /end_effector_sensor_in_world_manipulation_frame
+# wrench at the end-effector in the static world manipulation frame -Orion 9/28/2022
 # wrench measured by the ATI, but the torque has been transformed using a different reference point,
 # specifically, the origin of the end-effector frame (should be palm center), and using BASE FRAME basis
 
@@ -106,7 +105,7 @@ def zero_ft_sensor():
 if __name__ == '__main__':
     
     # initialize node
-    node_name = 'ft_sensor_in_base_frame'
+    node_name = 'ft_sensor_transformations'
     rospy.init_node(node_name)
     sys_params = SystemParams()
     rate = rospy.Rate(sys_params.hal_params["RATE"])     
@@ -123,26 +122,22 @@ if __name__ == '__main__':
     # See /Helpers/ros_manager for the actual code (mostly book-keeping)
     rm = ros_manager()
     rm.subscribe_to_list(['/netft/netft_data',
-                          '/ee_pose_in_world_from_franka_publisher'])
+                          '/ee_pose_in_world_manipulation_from_franka_publisher',
+                          '/ee_pose_in_base_from_franka_publisher'])
     
-    rm.spawn_publisher_list(['/ft_sensor_in_base_frame',
-                             '/ft_sensor_in_end_effector_frame',
-                             '/end_effector_sensor_in_end_effector_frame',
-                             '/end_effector_sensor_in_base_frame',
+    rm.spawn_publisher_list(['/end_effector_sensor_in_end_effector_frame',
+                             '/end_effector_sensor_in_world_manipulation_frame',
                              '/torque_cone_boundary_test',
                              '/torque_cone_boundary_flag'])
 
 
     # wait until messages have been received from all essential ROS topics before proceeding
     rm.wait_for_necessary_data()
+    rm.unpack_all()
+
 
     # panda hand pose in base frame WHEN TARING
-    (panda_hand_in_base_trans0, panda_hand_in_base_rot0) = \
-        rh.lookupTransform('/panda_EE', 'base', listener)
-    rm.panda_hand_in_base_pose0 = rh.list2pose_stamped(panda_hand_in_base_trans0 
-        + panda_hand_in_base_rot0, frame_id="base")
-    rm.base_z_in_panda_hand0 = rh.matrix_from_pose(
-        rm.panda_hand_in_base_pose0)[2, :3]
+    base_z_in_ee_frame0 = np.array(rm.base_z_in_ee_frame)
 
     # ft sensor pose in end effector frame
     (ft_sensor_in_end_effector_trans, ft_sensor_end_effector_in_base_rot) = \
@@ -167,39 +162,25 @@ if __name__ == '__main__':
         tl.reset()
         rm.unpack_all()
 
-
-        # ft sensor pose in base frame
-        T_panda_hand_in_base = rh.matrix_from_pose(rm.panda_hand_in_base_pose)
-        T_ft_sensor_in_base = np.matmul(T_panda_hand_in_base, T_ft_sensor_in_panda_hand)
-        ft_sensor_in_base_pose2 = rh.pose_from_matrix(T_ft_sensor_in_base)
-        
-
         # ft wrench reading in end-effector frame
-        ft_wrench_in_end_effector_reading = rh.rotate_wrench(rm.ft_wrench_in_ft_sensor, 
-            ft_sensor_in_end_effector_pose)
-        ft_wrench_in_end_effector_list = rh.wrench_stamped2list(
-            ft_wrench_in_end_effector_reading)
-        correction = (-rm.base_z_in_panda_hand0 + rm.base_z_in_panda_hand) * 9.81 * END_EFFECTOR_MASS
+        ft_wrench_in_end_effector_reading = rh.rotate_wrench(rm.ft_wrench_in_ft_sensor,ft_sensor_in_end_effector_pose)
+        ft_wrench_in_end_effector_list = rh.wrench_stamped2list(ft_wrench_in_end_effector_reading)
+        correction = (-base_z_in_ee_frame0 + rm.base_z_in_ee_frame) * 9.81 * END_EFFECTOR_MASS
         ft_wrench_in_end_effector_list[0] += correction[0]
         ft_wrench_in_end_effector_list[1] += correction[1]
         ft_wrench_in_end_effector_list[2] += correction[2]
         ft_wrench_in_end_effector = rh.list2wrench_stamped(ft_wrench_in_end_effector_list)
         ft_wrench_in_end_effector.header.frame_id = "/panda_EE"
 
-        # ft wrench in base frame
-        ft_wrench_in_base = rh.rotate_wrench(ft_wrench_in_end_effector, 
-            rm.panda_hand_in_base_pose)
-        ft_wrench_in_base.header.frame_id = 'base'
-
         # end effector wrench in end effector frame
         end_effector_wrench_in_end_effector = rh.wrench_reference_point_change(
             ft_wrench_in_end_effector, ft_sensor_in_end_effector_trans)
         end_effector_wrench_in_end_effector.header.frame_id = "/panda_EE"
 
-        # end effector wrench in base frame
-        end_effector_wrench_in_base = rh.rotate_wrench(end_effector_wrench_in_end_effector, 
-            rm.panda_hand_in_base_pose)
-        end_effector_wrench_in_base.header.frame_id = "base"
+        # end effector wrench in world manipulation frame
+        end_effector_wrench_in_world_manipulation = rh.rotate_wrench(end_effector_wrench_in_end_effector, 
+            rm.ee_pose_in_world_manipulation)
+        end_effector_wrench_in_world_manipulation.header.frame_id = "/world_manipulation_frame"
 
 
         #normal force component of the measured wrench at the end-effector (projected onto the planar system we care about)
@@ -245,10 +226,8 @@ if __name__ == '__main__':
 
 
         # publish and sleep
-        rm.pub_ft_sensor_in_base_frame(ft_wrench_in_base)
-        rm.pub_ft_sensor_in_end_effector_frame(ft_wrench_in_end_effector)
         rm.pub_end_effector_sensor_in_end_effector_frame(end_effector_wrench_in_end_effector)
-        rm.pub_end_effector_sensor_in_base_frame(end_effector_wrench_in_base)
+        rm.pub_end_effector_sensor_in_world_manipulation_frame(end_effector_wrench_in_world_manipulation)
         rm.pub_torque_cone_boundary_test(torque_boundary_boolean)
         rm.pub_torque_cone_boundary_flag(torque_boundary_flag)   
 

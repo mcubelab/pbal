@@ -210,6 +210,14 @@ def lookupTransform(homeFrame, targetFrame, listener):
 
     return None, None
 
+def lookupTransform_homog(homeFrame, targetFrame, listener):
+    trans,rot = lookupTransform(homeFrame, targetFrame, listener)
+
+    if trans is not None and rot is not None:
+        return matrix_from_trans_and_quat(trans,rot)
+    else:
+        return None
+
 def rotate_wrench(wrench_source, pose_transform):
     force_source, torque_source = wrenchstamped_2FT(wrench_source)
     T_transform_source = matrix_from_pose(pose_transform)[:3, :3]
@@ -349,16 +357,28 @@ def transform_tip2tcp(listener,  pose_tip_push_start, tip_name='/apriltag_tip'):
 def quatlist_to_theta(quat_list):
     '''converts fraka quaternion to sagittal plane angle'''
 
+    # pose_homog = matrix_from_trans_and_quat(quat = quat_list)
+
+    # hand_normal_x = pose_homog[0,0]
+    # hand_normal_z = pose_homog[2,0] 
+
+    # return -np.arctan2(hand_normal_x, -hand_normal_z)  
+
     pose_homog = matrix_from_trans_and_quat(quat = quat_list)
 
-    hand_normal_x = pose_homog[0,0]
-    hand_normal_z = pose_homog[2,0] 
+    return np.arctan2(-pose_homog[1,0], -pose_homog[0,0])   
 
-    return -np.arctan2(hand_normal_x, -hand_normal_z)   
-
-##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
+##### CHANGE/EXAMINE TO FIX FRAME ISSUE ##### 
 def theta_to_quatlist(theta):
-    '''converts sagittal plane angle to franka quaternion'''
-    return quat_from_matrix(np.array([[-np.sin(theta), -np.cos(theta), 0.0], 
-                                      [           0.0,            0.0, 1.0], 
-                                      [-np.cos(theta),  np.sin(theta), 0.0]]))
+    # '''converts sagittal plane angle to franka quaternion'''
+    # return quat_from_matrix(np.array([[-np.sin(theta), -np.cos(theta), 0.0], 
+    #                                   [           0.0,            0.0, 1.0], 
+    #                                   [-np.cos(theta),  np.sin(theta), 0.0]]))
+
+
+    #converts sagittal <now in world manipulation frame, which is right-handed, with z axes aligned!! -Orion> plane angle to franka quaternion
+    #note that the quaternion is defined in the world manipulation frame, so it will need to be converted to the base frame in order to be
+    #sent to the robot as an impedance command
+    return quat_from_matrix( np.array([[-np.cos(theta),  np.sin(theta), 0.0], 
+                                      [ -np.sin(theta), -np.cos(theta), 0.0], 
+                                      [            0.0,            0.0, 1.0]]))

@@ -55,13 +55,13 @@ class SystemParams(object):
             "concavity_theta": 60,
             "pure_agnostic_rotation": False,
             
-            "K_s": 1.0, #6.0, #.3,  #1.                                              # objective function parameters: s, line/line plus point/line
-            "s_scale": 0.0005,
-            "concavity_s": 0.3,
+            "K_s_hand": 1.0, #6.0, #.3,  #1.                                              # objective function parameters: s, line/line plus point/line
+            "s_hand_scale": 0.0005,
+            "concavity_s_hand": 0.3,
             
-            "K_x_pivot": 800., #300., #108.,                                             # objective function parameters: s, line/line plus point/line
-            "x_pivot_scale": 0.006,
-            "concavity_x_pivot": 60,
+            "K_s_pivot": 800., #300., #108.,                                             # objective function parameters: s, line/line plus point/line
+            "s_pivot_scale": 0.006,
+            "concavity_s_pivot": 60,
             
             "K_N": .2,                                               # objective function parameters: N, line/line plus point/line
             "N_scale": 8.,
@@ -88,7 +88,7 @@ class SystemParams(object):
             "tr_max_normal_contact": [.3, 3.],
             "Nmax_contact": 32.,#32., #20., #35
 
-            "tr_min_normal_external": [1., 1.],  
+            "tr_min_normal_external":  [1., 1.],  
 
             "tr_min_normal_contact": [1., 1.], 
             "Nmin_contact": 1.,
@@ -100,9 +100,11 @@ class SystemParams(object):
 
 
             ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
-            "IMPEDANCE_STIFFNESS_LIST": [2000, 2000, 2000, 400, 60, 400],
-
-
+            #"IMPEDANCE_STIFFNESS_LIST": [2000, 2000, 2000, 400, 60, 400],
+            "TRANSLATIONAL_IN_PLANE_IMPEDANCE":     2000,
+            "TRANSLATIONAL_OUT_OF_PLANE_IMPEDANCE": 2000,
+            "ROTATIONAL_IN_PLANE_IMPEDANCE":          60,
+            "ROTATIONAL_OUT_OF_PLANE_IMPEDANCE":     400,
             # "IMPEDANCE_STIFFNESS_LIST": [1000, 1000, 1000, 100, 30, 100],
             # "IMPEDANCE_STIFFNESS_LIST": [3000, 3000, 3000, 300, 90, 300],
             # "IMPEDANCE_STIFFNESS_LIST": [3000, 3000, 3000, 300, 90, 300],

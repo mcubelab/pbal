@@ -275,18 +275,17 @@ class ConvexHullEstimator(object):
 
         A2 = np.zeros([0,2])
         B2 = np.zeros(0)
+
         for i in range(len(theta_list)):
-            while theta_list[i]>3*np.pi/2:
+            while theta_list[i]>np.pi:
                 theta_list[i]=theta_list[i]-2*np.pi
-            while theta_list[i]<-np.pi/2:
+            while theta_list[i]<-np.pi:
                 theta_list[i]=theta_list[i]+2*np.pi
 
-            if theta_list[i]>=np.pi/2 and theta_list[i]<np.pi:
-            # if theta_list[i]>=np.pi/2 and theta_list[i]<=3*np.pi/2:
+            if theta_list[i]>=0.0 and theta_list[i]<  np.pi/2:
                 A1 = np.vstack([A1,A[i]])
                 B1 = np.hstack([B1,B[i]])
-            if theta_list[i]<np.pi/2 and theta_list[i]>0:
-            # if theta_list[i]<np.pi/2 and theta_list[i]>=-np.pi/2:
+            if theta_list[i]< 0.0 and theta_list[i]> -np.pi/2:
                 A2 = np.vstack([A2,A[i]])
                 B2 = np.hstack([B2,B[i]])
 
@@ -478,7 +477,7 @@ class ConvexHullEstimator(object):
                     vertex_x_list,
                     vertex_y_list)
 
-                self.A_right,self.B_right,self.A_left,self.B_left = self.split_constraints_left_right(self.theta_final,self.A_final,self.B_final)
+                self.A_left,self.B_left,self.A_right,self.B_right = self.split_constraints_left_right(self.theta_final,self.A_final,self.B_final)
 
 
     def return_left_right_friction_dictionary(self):

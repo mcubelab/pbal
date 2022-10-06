@@ -111,22 +111,42 @@ class ros_manager(object):
 				self.force_callback, 
 				queue_size=1)
 
-		elif topic == '/ee_pose_in_world_from_franka_publisher':
+		elif topic == '/ee_pose_in_world_manipulation_from_franka_publisher':
 			# subscribe to ee pose data
-			self.unpack_functions.append(self.ee_pose_unpack)
-			self.panda_hand_in_base_pose_buffer = []
-			self.panda_hand_in_base_pose_available_index = len(self.data_available)-1
-			self.ee_pose_has_new = False
+			self.unpack_functions.append(self.ee_pose_in_world_manipulation_unpack)
+			self.ee_pose_in_world_manipulation_buffer = []
+			self.ee_pose_in_world_manipulation_available_index = len(self.data_available)-1
+			self.ee_pose_in_world_manipulation_has_new = False
 
-			self.panda_hand_in_base_pose = None
-			self.panda_hand_in_base_pose_list = None
+			self.ee_pose_in_world_manipulation = None
+			self.ee_pose_in_world_manipulation_list = None
+			self.ee_pose_in_world_manipulation_homog = None
 
-			self.base_z_in_panda_hand = None
+			# self.base_z_in_panda_hand = None
 
-			self.panda_hand_in_base_pose_sub = rospy.Subscriber(
+			self.ee_pose_in_world_manipulation_sub = rospy.Subscriber(
 				topic, 
 				PoseStamped, 
-				self.ee_pose_callback, 
+				self.ee_pose_in_world_manipulation_callback, 
+				queue_size=1)
+
+		elif topic == '/ee_pose_in_base_from_franka_publisher':
+			# subscribe to ee pose data
+			self.unpack_functions.append(self.ee_pose_in_base_unpack)
+			self.ee_pose_in_base_buffer = []
+			self.ee_pose_in_base_available_index = len(self.data_available)-1
+			self.ee_pose_in_base_has_new = False
+
+			self.ee_pose_in_base = None
+			self.ee_pose_in_base_list = None
+			self.ee_pose_in_base_homog = None
+
+			# self.base_z_in_panda_hand = None
+
+			self.ee_pose_in_base_sub = rospy.Subscriber(
+				topic, 
+				PoseStamped, 
+				self.ee_pose_in_base_callback, 
 				queue_size=1)
 
 		elif topic == '/end_effector_sensor_in_end_effector_frame':
@@ -142,18 +162,18 @@ class ros_manager(object):
 				WrenchStamped,  
 				self.end_effector_wrench_callback)
 
-		elif topic == '/end_effector_sensor_in_base_frame':
-			self.unpack_functions.append(self.end_effector_wrench_base_frame_unpack)
-			self.measured_base_wrench_buffer = []
-			self.measured_base_wrench_available_index = len(self.data_available)-1
-			self.end_effector_wrench_base_frame_has_new = False
+		elif topic == '/end_effector_sensor_in_world_manipulation_frame':
+			self.unpack_functions.append(self.end_effector_wrench_world_manipulation_frame_unpack)
+			self.measured_world_manipulation_wrench_buffer = []
+			self.measured_world_manipulation_wrench_available_index = len(self.data_available)-1
+			self.end_effector_wrench_world_manipulation_frame_has_new = False
 
-			self.measured_base_wrench = None
+			self.measured_world_manipulation_wrench = None
 
-			self.end_effector_wrench_base_frame_sub = rospy.Subscriber(
+			self.end_effector_wrench_world_manipulation_frame_sub = rospy.Subscriber(
 				topic, 
 				WrenchStamped,  
-				self.end_effector_wrench_base_frame_callback)
+				self.end_effector_wrench_world_manipulation_frame_callback)
 
 		elif topic == '/friction_parameters':
 			self.unpack_functions.append(self.friction_parameter_unpack)
@@ -248,28 +268,16 @@ class ros_manager(object):
 
 	def spawn_publisher(self,topic):
 
-		if topic == '/ee_pose_in_world_from_franka_publisher':
-			self.ee_pose_in_world_from_franka_pub = rospy.Publisher(
+		if topic == '/ee_pose_in_world_manipulation_from_franka_publisher':
+			self.ee_pose_in_world_manipulation_from_franka_pub = rospy.Publisher(
 				topic, 
 				PoseStamped, 
 				queue_size = 10)
 
-		elif topic == '/ft_sensor_in_base_frame':
-
-			#wrench at the force torque sensor rotated into the base frame
-			#Wrench measured by the ATI, multiplied by a rotation matrix (from ATI frame to world)
-			self.ft_sensor_in_base_frame_pub = rospy.Publisher(
+		if topic == '/ee_pose_in_base_from_franka_publisher':
+			self.ee_pose_in_base_from_franka_pub = rospy.Publisher(
 				topic, 
-				WrenchStamped, 
-				queue_size = 10)
-
-		elif topic == '/ft_sensor_in_end_effector_frame':
-
-			#wrench at the force torque sensor rotated into the end effector frame -Neel 7/5/2022
-			#wrench measured by the ATI, multiplied by a rotation matrix (from ATI frame to end-effector)
-			self.ft_sensor_in_end_effector_frame_pub = rospy.Publisher(
-				topic, 
-				WrenchStamped, 
+				PoseStamped, 
 				queue_size = 10)
 
 		elif topic == '/end_effector_sensor_in_end_effector_frame':
@@ -281,11 +289,11 @@ class ros_manager(object):
 				WrenchStamped, 
 				queue_size = 10)
 
-		elif topic == '/end_effector_sensor_in_base_frame':
-			#wrench at the end-effector in the base coordinates -Neel 7/5/2022
+		elif topic == '/end_effector_sensor_in_world_manipulation_frame':
+			#wrench at the end-effector in the static world manipulation frame coordinates 
 			#wrench measured by the ATI, but the torque has been transformed using a different reference point,
 			#specifically, the origin of the end-effector frame (should be palm center), and using BASE FRAME basis
-			self.end_effector_sensor_in_base_frame_pub = rospy.Publisher(
+			self.end_effector_sensor_in_world_manipulation_frame_pub = rospy.Publisher(
 				topic, 
 				WrenchStamped, 
 				queue_size = 10)
@@ -341,21 +349,19 @@ class ros_manager(object):
 
 
 
-	def pub_ee_pose_in_world_from_franka(self,ee_pose_in_world_list):
-		ee_pose_in_world_pose_stamped = rh.list2pose_stamped(ee_pose_in_world_list)
-		self.ee_pose_in_world_from_franka_pub.publish(ee_pose_in_world_pose_stamped)
+	def pub_ee_pose_in_world_manipulation_from_franka(self,ee_pose_in_world_manipulation_list):
+		ee_pose_in_world_manipulation_pose_stamped = rh.list2pose_stamped(ee_pose_in_world_manipulation_list)
+		self.ee_pose_in_world_manipulation_from_franka_pub.publish(ee_pose_in_world_manipulation_pose_stamped)
 
-	def pub_ft_sensor_in_base_frame(self,msg):
-		self.ft_sensor_in_base_frame_pub.publish(msg)
-
-	def pub_ft_sensor_in_end_effector_frame(self,msg):
-		self.ft_sensor_in_end_effector_frame_pub.publish(msg)
+	def pub_ee_pose_in_base_from_franka(self,ee_pose_in_base_list):
+		ee_pose_in_base_pose_stamped = rh.list2pose_stamped(ee_pose_in_base_list)
+		self.ee_pose_in_base_from_franka_pub.publish(ee_pose_in_base_pose_stamped)
 
 	def pub_end_effector_sensor_in_end_effector_frame(self,msg):
 		self.end_effector_sensor_in_end_effector_frame_pub.publish(msg)
 
-	def pub_end_effector_sensor_in_base_frame(self,msg):
-		self.end_effector_sensor_in_base_frame_pub.publish(msg)
+	def pub_end_effector_sensor_in_world_manipulation_frame(self,msg):
+		self.end_effector_sensor_in_world_manipulation_frame_pub.publish(msg)
 
 	def pub_torque_cone_boundary_test(self,torque_boundary_boolean):
 		self.torque_boundary_boolean_message.data = torque_boundary_boolean
@@ -401,24 +407,41 @@ class ros_manager(object):
 		else:
 			self.force_has_new = False	
 
-	def ee_pose_callback(self,data):
-		self.panda_hand_in_base_pose_buffer.append(data)
-		if len(self.panda_hand_in_base_pose_buffer)>1:
-			self.panda_hand_in_base_pose_buffer.pop(0)
-		self.data_available[self.panda_hand_in_base_pose_available_index]=True
+	def ee_pose_in_world_manipulation_callback(self,data):
+		self.ee_pose_in_world_manipulation_buffer.append(data)
+		if len(self.ee_pose_in_world_manipulation_buffer)>1:
+			self.ee_pose_in_world_manipulation_buffer.pop(0)
+		self.data_available[self.ee_pose_in_world_manipulation_available_index]=True
 		
-	def ee_pose_unpack(self):
-		if len(self.panda_hand_in_base_pose_buffer)>0:
+	def ee_pose_in_world_manipulation_unpack(self):
+		if len(self.ee_pose_in_world_manipulation_buffer)>0:
 
-			self.panda_hand_in_base_pose = self.panda_hand_in_base_pose_buffer.pop(0)
-			self.panda_hand_in_base_pose_list = rh.pose_stamped2list(self.panda_hand_in_base_pose)
+			self.ee_pose_in_world_manipulation = self.ee_pose_in_world_manipulation_buffer.pop(0)
+			self.ee_pose_in_world_manipulation_list = rh.pose_stamped2list(self.ee_pose_in_world_manipulation)
+			self.ee_pose_in_world_manipulation_homog = rh.matrix_from_pose_list(self.ee_pose_in_world_manipulation_list)
 
-			self.base_z_in_panda_hand = rh.matrix_from_pose(
-				self.panda_hand_in_base_pose)[2, :3]
-
-			self.ee_pose_has_new = True
+			self.ee_pose_in_world_manipulation_has_new = True
 		else:
-			self.ee_pose_has_new = False
+			self.ee_pose_in_world_manipulation_has_new = False
+
+	def ee_pose_in_base_callback(self,data):
+		self.ee_pose_in_base_buffer.append(data)
+		if len(self.ee_pose_in_base_buffer)>1:
+			self.ee_pose_in_base_buffer.pop(0)
+		self.data_available[self.ee_pose_in_base_available_index]=True
+		
+	def ee_pose_in_base_unpack(self):
+		if len(self.ee_pose_in_base_buffer)>0:
+
+			self.ee_pose_in_base = self.ee_pose_in_base_buffer.pop(0)
+			self.ee_pose_in_base_list = rh.pose_stamped2list(self.ee_pose_in_base)
+			self.ee_pose_in_base_homog = rh.matrix_from_pose_list(self.ee_pose_in_base_list)
+
+			self.base_z_in_ee_frame = self.ee_pose_in_base_homog[2, :3]
+
+			self.ee_pose_in_base_has_new = True
+		else:
+			self.ee_pose_in_base_has_new = False
 
 	def end_effector_wrench_callback(self,data):
 		self.measured_contact_wrench_buffer.append(data)
@@ -434,7 +457,6 @@ class ros_manager(object):
 			measured_contact_wrench_6D = rh.wrench_stamped2list(
 				end_effector_wrench)
 
-			##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
 			self.measured_contact_wrench = -np.array([
 				measured_contact_wrench_6D[0], 
 				measured_contact_wrench_6D[1],
@@ -444,28 +466,27 @@ class ros_manager(object):
 		else:
 			self.end_effector_wrench_has_new = False
 
-	def end_effector_wrench_base_frame_callback(self,data):
-		self.measured_base_wrench_buffer.append(data)
-		if len(self.measured_base_wrench_buffer)>1:
-			self.measured_base_wrench_buffer.pop(0)
-		self.data_available[self.measured_base_wrench_available_index]=True
+	def end_effector_wrench_world_manipulation_frame_callback(self,data):
+		self.measured_world_manipulation_wrench_buffer.append(data)
+		if len(self.measured_world_manipulation_wrench_buffer)>1:
+			self.measured_world_manipulation_wrench_buffer.pop(0)
+		self.data_available[self.measured_world_manipulation_wrench_available_index]=True
 
-	def end_effector_wrench_base_frame_unpack(self):
-		if len(self.measured_base_wrench_buffer)>0:
-			base_wrench = self.measured_base_wrench_buffer.pop(0)
+	def end_effector_wrench_world_manipulation_frame_unpack(self):
+		if len(self.measured_world_manipulation_wrench_buffer)>0:
+			world_manipulation_wrench = self.measured_world_manipulation_wrench_buffer.pop(0)
 
-			measured_base_wrench_6D = rh.wrench_stamped2list(
-				base_wrench)
+			measured_world_manipulation_wrench_6D = rh.wrench_stamped2list(
+				world_manipulation_wrench)
 
-			##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
-			self.measured_base_wrench = -np.array([
-				measured_base_wrench_6D[0], 
-				measured_base_wrench_6D[2],
-				measured_base_wrench_6D[-2]])
+			self.measured_world_manipulation_wrench = -np.array([
+				measured_world_manipulation_wrench_6D[0], 
+				measured_world_manipulation_wrench_6D[1],
+				measured_world_manipulation_wrench_6D[-1]])
 
-			self.end_effector_wrench_base_frame_has_new = True
+			self.end_effector_wrench_world_manipulation_frame_has_new = True
 		else:
-			self.end_effector_wrench_base_frame_has_new = False
+			self.end_effector_wrench_world_manipulation_frame_has_new = False
 
 	def friction_parameter_callback(self,data):
 		self.friction_parameter_buffer.append(data)

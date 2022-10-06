@@ -3,32 +3,18 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(currentdir))
 
-import collections
-import json
 from livestats import livestats
-from matplotlib import cm
-import matplotlib.lines as lines
-import matplotlib.pyplot as plt
 import numpy as np
-import pdb
 import rospy
-from scipy.spatial import ConvexHull, convex_hull_plot_2d
 import time
 
-from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
-from pbal.msg import FrictionParamsStamped
-from std_msgs.msg import Float32MultiArray, Float32, Bool, String
-
-import Helpers.ros_helper as rh
 from Helpers.time_logger import time_logger
-import Helpers.pbal_msg_helper as pmh
 from Helpers.ros_manager import ros_manager
 
 from Modelling.system_params import SystemParams
 from Modelling.convex_hull_estimator import ConvexHullEstimator
-
 from robot_friction_cone_estimator import RobotFrictionConeEstimator
-
+from numpy import random
 
 if __name__ == '__main__':
     
@@ -37,39 +23,24 @@ if __name__ == '__main__':
     sys_params = SystemParams()
     rate = rospy.Rate(sys_params.estimator_params["RATE"])
 
-    # theta_min_contact = np.arctan(
-    #     sys_params.controller_params["pivot_params"]["mu_contact"])
-    # theta_min_external = np.arctan(
-    #     sys_params.controller_params["pivot_params"]["mu_ground"])
-
-    theta_min_contact = np.arctan(
-        sys_params.pivot_params["mu_contact"])
-    theta_min_external = np.arctan(
-        sys_params.pivot_params["mu_ground"])
+    theta_min_contact = np.arctan(sys_params.pivot_params["mu_contact"])
+    theta_min_external = np.arctan(sys_params.pivot_params["mu_ground"])
 
     rm = ros_manager()
     rm.subscribe('/end_effector_sensor_in_end_effector_frame')
-    rm.subscribe('/end_effector_sensor_in_base_frame')
+    rm.subscribe('/end_effector_sensor_in_world_manipulation_frame')
     rm.spawn_publisher('/friction_parameters')
 
 
-    friction_parameter_dict = {}
-    friction_parameter_dict["aer"] = []
-    friction_parameter_dict["ber"] = []
-    friction_parameter_dict["ael"] = []
-    friction_parameter_dict["bel"] = []
-    friction_parameter_dict["elu"] = False
-    friction_parameter_dict["eru"] = False
+    friction_parameter_dict = {"aer":[], "ber":[], "ael":[], "bel":[], "elu":False, "eru":False}
 
     num_divisions = 64
     theta_range = 2*np.pi*(1.0*np.array(range(num_divisions)))/num_divisions
 
-    ground_hull_estimator = ConvexHullEstimator(
-        theta_range=theta_range, quantile_value=.99, 
-        distance_threshold=.5, closed = False)
+    ground_hull_estimator = ConvexHullEstimator(theta_range=theta_range, quantile_value=.99, 
+                                                distance_threshold=.5,   closed = False)
 
-    robot_friction_estimator = RobotFrictionConeEstimator(
-        .95,3,theta_min_contact)
+    robot_friction_estimator = RobotFrictionConeEstimator(.95,3,theta_min_contact)
 
     boundary_update_time = .2 # NEEL: what is this?
     last_update_time = time.time()
@@ -99,27 +70,24 @@ if __name__ == '__main__':
             hand_data_point_count +=1
             update_robot_friction_cone = hand_data_point_count%hand_update_number == 0
 
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
-            robot_friction_estimator.add_data_point(
-                    rm.measured_contact_wrench)
+            robot_friction_estimator.add_data_point(rm.measured_contact_wrench)
 
 
-        if rm.end_effector_wrench_base_frame_has_new:
+        if rm.end_effector_wrench_world_manipulation_frame_has_new:
             ground_data_point_count +=1
             update_ground_friction_cone = ground_data_point_count%ground_update_number == 0
 
             if (ground_data_point_count % 2) == 0:
 
-                ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
                 ground_hull_estimator.add_data_point(
-                    rm.measured_base_wrench[[0,1]])
+                    np.array([rm.measured_world_manipulation_wrench[0],
+                              rm.measured_world_manipulation_wrench[1]]))
 
-                ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
                 ground_hull_estimator.add_data_point(
-                    np.array([-rm.measured_base_wrench[0],
-                        rm.measured_base_wrench[1]]))
+                    np.array([ rm.measured_world_manipulation_wrench[0],
+                              -rm.measured_world_manipulation_wrench[1]]))
 
-                ground_hull_estimator.add_data_point(np.array([0,0]))
+                ground_hull_estimator.add_data_point((10**-7)*np.array([random.random()-.5,random.random()-.5]))
            
         # updating robot friction parameters
         if update_robot_friction_cone:
@@ -162,7 +130,6 @@ if __name__ == '__main__':
             rm.pub_friction_parameter(friction_parameter_dict)
             should_publish_robot_friction_cone = False
             should_publish_ground_friction_cone = False
-            # print 'published!'
 
         # log timing info
         tl.log_time()

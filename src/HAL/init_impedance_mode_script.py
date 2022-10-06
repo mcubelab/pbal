@@ -24,14 +24,10 @@ if __name__ == '__main__':
 
     sys_params = SystemParams()
     # controller params
-    IMPEDANCE_STIFFNESS_LIST = sys_params.controller_params[
-        "IMPEDANCE_STIFFNESS_LIST"]
 
     # IMPEDANCE_STIFFNESS_LIST = [100.0, 100.0, 100.0, 10.0, 10.0, 10.0]
     torque_upper = sys_params.controller_params["TORQUE_UPPER"] 
     force_upper = sys_params.controller_params["FORCE_UPPER"]
 
-    # IMH.test_set_impedance_with_topic(IMPEDANCE_STIFFNESS_LIST)
     my_impedance_mode_helper = IMH.impedance_mode_helper(True)
     my_impedance_mode_helper.initialize_impedance_mode(torque_upper,force_upper)
-    # my_impedance_mode_helper.set_cart_impedance_stiffness(IMPEDANCE_STIFFNESS_LIST)

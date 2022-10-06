@@ -13,16 +13,14 @@ solvers.options['feastol'] = 1e-6
 solvers.options['maxiters'] = 10
 
 
-def contact2robot(contact_pose):
-
-    # unpack
-    theta = contact_pose[2]
-
+def robot2contact(contact_pose):
     # define sine and cosine
-    sint, cost = np.sin(theta), np.cos(theta)
+    sint, cost = np.sin(contact_pose[2]), np.cos(contact_pose[2])
 
     # line contact orientation in world frame
-    return np.array([[-sint, -cost, 0], [-cost, sint, 0], [0., 0., 1.]])
+    return np.array([[-cost, sint, 0.], 
+                     [-sint,-cost, 0.], 
+                     [   0.,   0., 1.]])
 
 class ModularBarrierController(object):
     def __init__(self, pivot_params,object_params):
@@ -43,7 +41,7 @@ class ModularBarrierController(object):
             delta_wrench = self.solve_quadratic_program(P, q, Aiq, slacks)
         except Exception as e:            
            self.prev_sol = None
-           print("couldn't find solution")
+           print('could not find solution')
            print(e.message)
            delta_wrench = np.array([0,0,0])
         tsol = time.time() - t0;
@@ -61,17 +59,17 @@ class ModularBarrierController(object):
 
 
         debug_dict = {
-            "mode" : self.mode,
-            "delta_wrench" : delta_wrench.tolist(),
-            "delta_wrench_unconstrained" : delta_wrench_unconstrained.tolist(),
-            "proj_vec_list" : [proj_veci.tolist() for proj_veci in proj_vec_list],
-            "error_list": error_list,
-            "constraint_normals": Aiq.tolist(),
-            "constraint_offsets" : biq.tolist(),
-            "slacks" : slacks.tolist(),
-            "measured_wrench" : self.contact_wrench.tolist(),
-            "error_dict": self.err_dict,
-            "label_list_cnstr": label_list_cnstr,
+            'mode' : self.mode,
+            'delta_wrench' : delta_wrench.tolist(),
+            'delta_wrench_unconstrained' : delta_wrench_unconstrained.tolist(),
+            'proj_vec_list' : [proj_veci.tolist() for proj_veci in proj_vec_list],
+            'error_list': error_list,
+            'constraint_normals': Aiq.tolist(),
+            'constraint_offsets' : biq.tolist(),
+            'slacks' : slacks.tolist(),
+            'measured_wrench' : self.contact_wrench.tolist(),
+            'error_dict': self.error_dict,
+            'label_list_cnstr': label_list_cnstr,
             'solve_time' : solve_time,
             'quadratic_cost_term': quadratic_cost_term.tolist(), 
             'linear_cost_term': linear_cost_term.tolist(),
@@ -150,12 +148,12 @@ class ModularBarrierController(object):
         
         return np.squeeze(np.array(result['x']))
 
-    def update_controller(self, mode, theta_hand, contact_wrench, friction_parameter_dict, err_dict,
+    def update_controller(self, mode, theta_hand, contact_wrench, friction_parameter_dict, error_dict,
     	l_hand = None,
     	s_hand = None,
         torque_bounds = None):
 
-    	self.err_dict=err_dict
+    	self.error_dict=error_dict
 
         self.friction_parameter_dict = friction_parameter_dict
 
@@ -170,13 +168,13 @@ class ModularBarrierController(object):
     	self.theta_hand, self.l_hand, self.s_hand = theta_hand, l_hand, s_hand
 
     	# update_mode
-        if (mode == 0 or mode == 12) and err_dict["err_s"] < 0:
+        if (mode == 0 or mode == 12) and error_dict['error_s_hand'] > 0:
             mode = -1
-        if (mode == 1 or mode == 13) and err_dict["err_s"] > 0:
+        if (mode == 1 or mode == 13) and error_dict['error_s_hand'] < 0:
             mode = -1
-        if mode == 2 and err_dict["err_x_pivot"] < 0:
+        if mode == 2 and error_dict['error_s_pivot'] > 0:
             mode = -1
-        if mode == 3 and err_dict["err_x_pivot"] > 0:
+        if mode == 3 and error_dict['error_s_pivot'] < 0:
             mode = -1
 
     	self.mode = mode
@@ -184,8 +182,7 @@ class ModularBarrierController(object):
     	# update contact wrench
     	self.contact_wrench = contact_wrench
 
-
-        self.R2C = contact2robot(np.array([
+        self.R2C = robot2contact(np.array([
             self.l_hand, self.s_hand, self.theta_hand]))
 
         if self.mode == -1:  # line/line stick and point/line stick
@@ -327,139 +324,88 @@ class ModularBarrierController(object):
             ]
 
     def compute_error_theta(self):
-        self.err_theta = self.compute_general_error(
-            error_value=self.err_dict['err_theta'],
+        self.error_theta = self.compute_general_error(
+            error_value=self.error_dict['error_theta'],
             scale_value=self.pivot_params['theta_scale'])
 
     def compute_error_N(self):
-        self.err_N = self.compute_general_error(
+        self.error_N = self.compute_general_error(
             error_value=(self.pivot_params['N_tar'] - self.contact_wrench[0]),
             scale_value=self.pivot_params['N_scale'])
 
     def compute_error_tau(self):
-        self.err_tau = self.compute_general_error(
+        self.error_tau = self.compute_general_error(
             error_value=(self.pivot_params['tau_tar'] - self.contact_wrench[2]),
             scale_value=self.pivot_params['tau_scale'])
 
-    def compute_error_s(self):
-        self.err_s = self.compute_general_error(
-            error_value=self.err_dict['err_s'],
-            scale_value=self.pivot_params['s_scale'])
+    def compute_error_s_hand(self):
+        self.error_s_hand = self.compute_general_error(
+            error_value=self.error_dict['error_s_hand'],
+            scale_value=self.pivot_params['s_hand_scale'])
 
-    def compute_error_x_pivot(self):    
-        self.err_x_pivot = self.compute_general_error(
-            error_value=self.err_dict['err_x_pivot'],
-            scale_value=self.pivot_params['x_pivot_scale'])
-
-    def compute_error_xhand(self):
-        self.err_xhand = self.compute_general_error(
-            error_value=self.err_dict['err_xhand'],
-            scale_value=self.pivot_params['hand_pos_scale'])
-
-    def compute_error_zhand(self):
-        self.err_zhand = self.compute_general_error(
-            error_value=self.err_dict['err_zhand'],
-            scale_value=self.pivot_params['hand_pos_scale'])
-
+    def compute_error_s_pivot(self):    
+        self.error_s_pivot = self.compute_general_error(
+            error_value=self.error_dict['error_s_pivot'],
+            scale_value=self.pivot_params['s_pivot_scale'])
 
     def compute_general_error(self, error_value, scale_value):
         return (2./np.pi)* np.arctan(error_value/scale_value)
 
     def slide_right_robot_cost(self):
         ''' cost term for sliding right at robot '''
-        self.compute_error_s()
-
-        measured_friction_available = False
-        if (self.friction_parameter_dict is not None):
-            measured_friction_available = self.friction_parameter_dict["cu"]
-            aiq = np.array(self.friction_parameter_dict["acr"])
-
-        if self.pivot_params['use_measured_mu_contact'] and measured_friction_available:
-            mu_c = np.abs(aiq[0]/aiq[1])
-        else:
-            mu_c = self.pivot_params['mu_contact']
+        self.compute_error_s_hand()
 
         return self.general_cost(
-            base_error=self.err_s,
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
-            base_vec=np.array([0., 1., 0.]), #base_vec=np.array([-mu_c, 1., 0.]),
-
-            K=self.pivot_params['K_s'],
-            concavity=self.pivot_params['concavity_s'])
+            base_error=self.error_s_hand,
+            base_vec=np.array([0., 1., 0.]), 
+            K=self.pivot_params['K_s_hand'],
+            concavity=self.pivot_params['concavity_s_hand'])
 
     def slide_left_robot_cost(self):
         ''' cost term for sliding left at robot '''
-        self.compute_error_s()
-
-        measured_friction_available = False
-        if (self.friction_parameter_dict is not None):
-            measured_friction_available = self.friction_parameter_dict["cu"]
-            aiq = np.array(self.friction_parameter_dict["acl"])
-          
-        if self.pivot_params['use_measured_mu_contact'] and measured_friction_available:
-            mu_c = np.abs(aiq[0]/aiq[1])
-
-        else:
-            mu_c = self.pivot_params['mu_contact']
+        self.compute_error_s_hand()
 
         return self.general_cost(
-            base_error=-self.err_s,
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
-            base_vec=np.array([0., -1., 0.]), #base_vec=np.array([-mu_c, -1., 0.]),
-
-            K=self.pivot_params['K_s'],
-            concavity=self.pivot_params['concavity_s'])
+            base_error=-self.error_s_hand,
+            base_vec=np.array([0., -1., 0.]), 
+            K=self.pivot_params['K_s_hand'],
+            concavity=self.pivot_params['concavity_s_hand'])
 
     def slide_agnostic_robot_cost(self):
         ''' cost term for sliding right at robot '''
-        self.compute_error_s()
+        self.compute_error_s_hand()
 
         return self.general_cost(
-            base_error=self.err_s,
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
+            base_error=self.error_s_hand,
             base_vec=np.array([0, 1., 0.]),
-
-            K=self.pivot_params['K_s'],
-            concavity=self.pivot_params['concavity_s'])
+            K=self.pivot_params['K_s_hand'],
+            concavity=self.pivot_params['concavity_s_hand'])
 
     def slide_right_external_cost(self):
         ''' cost term for sliding right at external '''
-        self.compute_error_x_pivot()
-
-        mu_g = self.pivot_params['mu_ground']
+        self.compute_error_s_pivot()
 
         return self.general_cost(
-            base_error=-self.err_x_pivot,
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
-            base_vec=np.dot(np.array([-1., -mu_g, 0.]), self.R2C),
-
-            K=self.pivot_params['K_x_pivot'],
-            concavity=self.pivot_params['concavity_x_pivot'])
+            base_error=-self.error_s_pivot,
+            base_vec=np.dot(np.array([0.0, -1.0, 0.0]), self.R2C),
+            K=self.pivot_params['K_s_pivot'],
+            concavity=self.pivot_params['concavity_s_pivot'])
 
     def slide_left_external_cost(self):
         ''' cost term for sliding left at external '''
-        self.compute_error_x_pivot()
-
-        mu_g = self.pivot_params['mu_ground']
+        self.compute_error_s_pivot()
 
         return self.general_cost(
-            base_error=self.err_x_pivot,
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
-            base_vec=np.dot(np.array([1., -mu_g, 0.]), self.R2C),
-
-            K=self.pivot_params['K_x_pivot'],
-            concavity=self.pivot_params['concavity_x_pivot'])
+            base_error=self.error_s_pivot,
+            base_vec=np.dot(np.array([0.0, 1.0, 0.0]), self.R2C),
+            K=self.pivot_params['K_s_pivot'],
+            concavity=self.pivot_params['concavity_s_pivot'])
 
     def normal_force_cost(self):
         ''' cost encouraging normal force to be at N_tar '''
         self.compute_error_N()
         return self.general_cost(
-            base_error=self.err_N,
+            base_error=self.error_N,
             base_vec=np.array([1., 0, 0.]),
             K=self.pivot_params['K_N'],
             concavity=self.pivot_params['concavity_N'])
@@ -468,7 +414,7 @@ class ModularBarrierController(object):
         ''' cost encouraging contact torque to be at tau_tar '''
         self.compute_error_tau()
         return self.general_cost(
-            base_error=self.err_tau,
+            base_error=self.error_tau,
             base_vec=np.array([0., 0, 1.]),
             K=self.pivot_params['K_tau'],
             concavity=self.pivot_params['concavity_tau'])
@@ -479,42 +425,18 @@ class ModularBarrierController(object):
         return self.pivot_params['wrench_regularization_constant'] * np.identity(
             3), np.zeros(3), np.zeros(3), 0.
 
-    # def xhand_cost(self):
-    #     ''' cost minimizing x-error in free move in world frame '''
-    #     self.compute_error_xhand()               
-    #     return self.general_cost(
-    #         base_error=self.err_xhand,
-    #         base_vec= np.dot(np.array([1., 0., 0.]), self.R2C),
-    #         K=self.pivot_params['K_pos_hand'],
-    #         concavity=self.pivot_params['concavity_pos_hand'])
-
-    # def zhand_cost(self):
-    #     ''' cost minimizing z-error in free move in world frame '''
-    #     self.compute_error_zhand()
-    #     return self.general_cost(
-    #         base_error=self.err_zhand,
-    #         base_vec= np.dot(np.array([0., 1., 0.]), self.R2C),
-    #         K=self.pivot_params['K_pos_hand'],
-    #         concavity=self.pivot_params['concavity_pos_hand'])
-
     def theta_cost(self):
         ''' cost term for rotating about pivot '''
         self.compute_error_theta()
         if self.s_hand is None or self.l_hand is None:
             if self.pivot_params['pure_agnostic_rotation'] == True:
-
-                ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
                 base_vec = np.array([0., 0., 1.])
             else: 
-
-                ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
                 base_vec = np.array([0., -self.pivot_params['DEFAULT_PIVOT_LOCATION'], 1.])
-
-                # base_vec = np.array([0., -.15, 1.])
         else:
             base_vec = np.array([-self.s_hand, self.l_hand, 1.])
         return self.general_cost(
-            base_error=self.err_theta,
+            base_error=self.error_theta,
             base_vec=base_vec,
             K=self.pivot_params['K_theta'],
             concavity=self.pivot_params['concavity_theta'])
@@ -522,29 +444,21 @@ class ModularBarrierController(object):
     def general_cost(self, base_error, base_vec, K, concavity):
         proj_vec = base_vec*concavity
         error = base_error*K
-        return np.outer(proj_vec, proj_vec
-            ), -2 * proj_vec * error, proj_vec, error
+        return np.outer(proj_vec, proj_vec), 2 * proj_vec * error, proj_vec, error
 
     def friction_right_contact_constraint(self):
         ''' right (i.e., positive) boundary of friction cone '''
 
         measured_friction_available = False
         if (self.friction_parameter_dict is not None):
-            measured_friction_available = self.friction_parameter_dict["cu"]
+            measured_friction_available = self.friction_parameter_dict['cu']
 
         if self.pivot_params['use_measured_mu_contact'] and measured_friction_available:
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
-            aiq = np.array(self.friction_parameter_dict["acr"])
-            biq = self.friction_parameter_dict["bcr"]-self.pivot_params['friction_margin']
+            aiq = np.array(self.friction_parameter_dict['acr'])
+            biq = self.friction_parameter_dict['bcr']-self.pivot_params['friction_margin']
         else:
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
             mu_c = self.pivot_params['mu_contact']
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
             aiq = np.array([-mu_c, 1., 0.])/np.sqrt(1 + mu_c ** 2)
-            # biq = -self.pivot_params['friction_margin']
             biq = 0.0
 
         return aiq, biq, self.pivot_params['tr_friction'], ['frc']
@@ -554,21 +468,14 @@ class ModularBarrierController(object):
 
         measured_friction_available = False
         if (self.friction_parameter_dict is not None):
-            measured_friction_available = self.friction_parameter_dict["cu"]
+            measured_friction_available = self.friction_parameter_dict['cu']
 
         if self.pivot_params['use_measured_mu_contact'] and measured_friction_available:
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
-            aiq = np.array(self.friction_parameter_dict["acl"])
-            biq = self.friction_parameter_dict["bcl"]-self.pivot_params['friction_margin']
+            aiq = np.array(self.friction_parameter_dict['acl'])
+            biq = self.friction_parameter_dict['bcl']-self.pivot_params['friction_margin']
         else:
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
             mu_c = self.pivot_params['mu_contact']
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
             aiq = np.array([-mu_c, -1., 0.])/np.sqrt(1 + mu_c ** 2)
-            # biq = -self.pivot_params['friction_margin']
             biq = 0.0
 
         return aiq, biq, self.pivot_params['tr_friction'], ['flc']
@@ -603,13 +510,13 @@ class ModularBarrierController(object):
     def normal_force_min_contact_constraint(self):
         ''' maximum applied normal force at contact constraint '''
         Nm = self.pivot_params['Nmin_contact']
-        aiq = np.array([-1., 0., 0.])
+        aiq = np.array([1., 0., 0.])
         biq = -Nm
         return aiq, biq, self.pivot_params['tr_min_normal_contact'], ['ncmn']
 
     def normal_force_min_external_constraint(self):
         ''' normal force at external contact must be above 0 '''
-        aiq = np.dot(np.array([0., 1., 0.]), self.R2C)
+        aiq = np.dot(np.array([1., 0., 0.]), self.R2C)
         biq = 0.
         return aiq, biq, self.pivot_params['tr_min_normal_external'], ['nemn']
 
@@ -617,24 +524,17 @@ class ModularBarrierController(object):
         ''' right (i.e., positive) boundary of friction cone '''
         measured_friction_available = False
         if (self.friction_parameter_dict is not None):
-            measured_friction_available = self.friction_parameter_dict["eru"]
+            measured_friction_available = self.friction_parameter_dict['eru']
 
         lbiq = 1
         if self.pivot_params['use_measured_mu_ground'] and measured_friction_available:
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
-            aiq = np.dot(self.friction_parameter_dict["aer"], self.R2C)
-            biq = np.array(self.friction_parameter_dict["ber"])-self.pivot_params['friction_ground_margin']
+            aiq = np.dot(self.friction_parameter_dict['aer'], self.R2C)
+            biq = np.array(self.friction_parameter_dict['ber'])-self.pivot_params['friction_ground_margin']
             lbiq = len(biq)
-            # print 'num_friction_right= ', len(biq)
         else:
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
             mu_g = self.pivot_params['mu_ground']
-            aiq = np.dot(np.array([-1., mu_g, 0.]), self.R2C)
-            # biq = -self.pivot_params['friction_ground_margin']
+            aiq = np.dot(np.array([mu_g, -1., 0.]), self.R2C)
             biq = 0.0
-            # print 'using default friction'
 
         return aiq, biq, self.pivot_params['tr_friction_external'], ['fer']*lbiq
 
@@ -642,23 +542,16 @@ class ModularBarrierController(object):
         ''' left (i.e., negative) boundary of friction cone '''
         measured_friction_available = False
         if (self.friction_parameter_dict is not None):
-            measured_friction_available = self.friction_parameter_dict["elu"]
+            measured_friction_available = self.friction_parameter_dict['elu']
 
         lbiq = 1
         if self.pivot_params['use_measured_mu_ground'] and measured_friction_available:
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
-            aiq = np.dot(self.friction_parameter_dict["ael"], self.R2C)
-            biq = np.array(self.friction_parameter_dict["bel"])-self.pivot_params['friction_ground_margin']
+            aiq = np.dot(self.friction_parameter_dict['ael'], self.R2C)
+            biq = np.array(self.friction_parameter_dict['bel'])-self.pivot_params['friction_ground_margin']
             lbiq = len(biq)
-            # print 'num_friction_left= ', len(biq)
         else:
-
-            ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
             mu_g = self.pivot_params['mu_ground']
-            aiq = np.dot(np.array([1., mu_g, 0.]), self.R2C)
-            # biq = -self.pivot_params['friction_ground_margin']
+            aiq = np.dot(np.array([mu_g, 1., 0.]), self.R2C)
             biq = 0.0
-            # print 'using default friction'
 
         return aiq, biq, self.pivot_params['tr_friction_external'], ['fel']*lbiq

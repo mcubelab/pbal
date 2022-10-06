@@ -91,7 +91,7 @@ if __name__ == '__main__':
 
     # wait until messages have been received from all essential ROS topics before proceeding
     rm.wait_for_necessary_data()
-    rm.ee_pose_unpack()
+    rm.ee_pose_in_base_unpack()
     rm.panda_hand_in_base_pose
 
     time.sleep(.5)

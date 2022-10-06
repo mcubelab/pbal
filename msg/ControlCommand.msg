@@ -4,10 +4,10 @@ int8 mode                       # primitive
 
 # relative commands
 float32 delta_theta
-float32 delta_x_pivot
-float32 delta_s
+float32 delta_s_pivot
+float32 delta_s_hand
 
 # absolute commands
 float32 theta
-float32 x_pivot
-float32 s
+float32 s_pivot
+float32 s_hand

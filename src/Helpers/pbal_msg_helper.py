@@ -102,23 +102,19 @@ def command_stamped_to_command_dict(command_msg):
     
     command_dict = {}
 
-    command_dict['name'] = command_msg.control_command.name
-    command_dict[
-        'command_flag'] = command_msg.control_command.command_flag
-    command_dict['mode'] = command_msg.control_command.mode
+    command_dict['name']            = command_msg.control_command.name
+    command_dict['command_flag']    = command_msg.control_command.command_flag
+    command_dict['mode']            = command_msg.control_command.mode
 
     # relative commands
-    command_dict[
-        'delta_theta'] = command_msg.control_command.delta_theta
-    command_dict[
-        'delta_x_pivot'] = command_msg.control_command.delta_x_pivot
-    command_dict[
-        'delta_s'] = command_msg.control_command.delta_s
+    command_dict['delta_theta']     = command_msg.control_command.delta_theta
+    command_dict['delta_s_pivot']   = command_msg.control_command.delta_s_pivot
+    command_dict['delta_s_hand']    = command_msg.control_command.delta_s_hand
 
     # aboluste commands
-    command_dict['theta'] = command_msg.control_command.theta
-    command_dict['x_pivot'] = command_msg.control_command.x_pivot
-    command_dict['s'] = command_msg.control_command.s
+    command_dict['theta']           = command_msg.control_command.theta
+    command_dict['s_pivot']         = command_msg.control_command.s_pivot
+    command_dict['s_hand']          = command_msg.control_command.s_hand
 
 
     return command_dict
@@ -127,38 +123,31 @@ def command_dict_to_command_stamped(command_dict):
 
     command_msg = ControlCommandStamped()
 
-    command_msg.control_command.name = command_dict['name']
-    command_msg.control_command.command_flag = command_dict[
-        'command_flag']
-    command_msg.control_command.mode = command_dict['mode']
+    command_msg.control_command.name            = command_dict['name']
+    command_msg.control_command.command_flag    = command_dict['command_flag']
+    command_msg.control_command.mode            = command_dict['mode']
 
 
-    if 'delta_theta' in command_dict:
+    if   'delta_theta' in command_dict:
         command_msg.control_command.delta_theta = command_dict['delta_theta']
-        # command_msg.control_command.theta = None
     elif 'theta' in command_dict:
-        # command_msg.control_command.delta_theta = None
         command_msg.control_command.theta = command_dict['theta']
     else:
         raise RuntimeError("theta unspecified")
 
-    if 'delta_x_pivot' in command_dict:
-        command_msg.control_command.delta_x_pivot = command_dict['delta_x_pivot']
-        # command_msg.control_command.x_pivot = None
-    elif 'x_pivot' in command_dict:
-        # command_msg.control_command.delta_x_pivot = None
-        command_msg.control_command.x_pivot = command_dict['x_pivot']
+    if   'delta_s_pivot' in command_dict:
+        command_msg.control_command.delta_s_pivot = command_dict['delta_s_pivot']
+    elif 's_pivot' in command_dict:
+        command_msg.control_command.s_pivot = command_dict['s_pivot']
     else:
-        raise RuntimeError("x pivot unspecified")
+        raise RuntimeError("s pivot unspecified")
 
-    if 'delta_s' in command_dict:
-        command_msg.control_command.delta_s = command_dict['delta_s']
-        # command_msg.control_command.s = None
-    elif 's' in command_dict:
-        # command_msg.control_command.delta_s = None
-        command_msg.control_command.s = command_dict['s']
+    if   'delta_s_hand' in command_dict:
+        command_msg.control_command.delta_s_hand = command_dict['delta_s_hand']
+    elif 's_hand' in command_dict:
+        command_msg.control_command.s_hand = command_dict['s_hand']
     else:
-        raise RuntimeError("s unspecified")
+        raise RuntimeError("s hand unspecified")
 
     return command_msg
 

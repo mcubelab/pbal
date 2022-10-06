@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
     rm = ros_manager()
     rm.subscribe_to_list([  '/end_effector_sensor_in_end_effector_frame',
-                            '/end_effector_sensor_in_base_frame',
+                            '/end_effector_sensor_in_world_manipulation_frame',
                             '/friction_parameters'])
 
     rm.spawn_publisher('/sliding_state')
@@ -61,11 +61,11 @@ if __name__ == '__main__':
                 sliding_state_dict,rm.friction_parameter_dict,last_slide_time_dict,
                 t0,rm.measured_contact_wrench,contact_friction_cone_boundary_margin,reset_time_length)
   
-        if rm.end_effector_wrench_base_frame_has_new:
+        if rm.end_effector_wrench_world_manipulation_frame_has_new:
             update_and_publish = True
-            friction_reasoning.compute_sliding_state_base(
+            friction_reasoning.compute_sliding_state_world_manipulation(
                 sliding_state_dict,rm.friction_parameter_dict,last_slide_time_dict,
-                t0,rm.measured_base_wrench,external_friction_cone_boundary_margin,reset_time_length)
+                t0,rm.measured_world_manipulation_wrench,external_friction_cone_boundary_margin,reset_time_length)
 
         if update_and_publish:
             rm.pub_sliding_state(sliding_state_dict)   

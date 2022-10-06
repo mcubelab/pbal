@@ -1,18 +1,10 @@
 #!/usr/bin/env python
-import os
-import sys
-import inspect
-currentdir = os.path.dirname(os.path.abspath(
-    inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-gparentdir = os.path.dirname(parentdir)
-sys.path.insert(0, parentdir)
-sys.path.insert(0, gparentdir)
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+sys.path.insert(0,os.path.dirname(currentdir))
 
-import copy
 from livestats import livestats
 import numpy as np
-import pdb
 
 
 class RobotFrictionConeEstimator(object):
@@ -23,8 +15,6 @@ class RobotFrictionConeEstimator(object):
         self.theta_threshold = theta_threshold
 
     def add_data_point(self,measured_contact_wrench):
-
-        ##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
         f_tangential = np.abs(measured_contact_wrench[1])
         f_normal     =        measured_contact_wrench[0]
 

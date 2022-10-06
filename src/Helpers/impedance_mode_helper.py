@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-gparentdir = os.path.dirname(parentdir)
-sys.path.insert(0,parentdir) 
-sys.path.insert(0,gparentdir)
+sys.path.insert(0,os.path.dirname(currentdir))
 
 import collections
 import pdb
 import rospy
 import time
 import tf
-
+import numpy as np
 from geometry_msgs.msg import PoseStamped, TransformStamped
 
 from franka_interface import ArmInterface 
@@ -44,6 +41,35 @@ class impedance_mode_helper():
     def _clean_shutdown(self):
         self.Cartesian_stiffness_publisher.unregister()
         self.Cartesian_impedance_pose_publisher.unregister()
+
+    def set_matrices_pbal_mode(self,TIPI,TOOPI,RIPI,ROOPI,rot_mat):
+
+        IMPEDANCE_STIFFNESS_TRANS = np.array([[ TIPI,    0.0,    0.0],
+                                              [  0.0,   TIPI,    0.0],
+                                              [  0.0,    0.0,  TOOPI]])
+
+        IMPEDANCE_STIFFNESS_ROT   = np.array([[ ROOPI,   0.0,   0.0],
+                                              [   0.0, ROOPI,   0.0],
+                                              [   0.0,   0.0,  RIPI]])
+
+
+        IMPEDANCE_DAMPING_TRANS   = np.array([[ .5*np.sqrt(TIPI),              0.0,               0.0],
+                                              [              0.0, .5*np.sqrt(TIPI),               0.0],
+                                              [              0.0,              0.0, .5*np.sqrt(TOOPI)]])
+
+        IMPEDANCE_DAMPING_ROT     = np.array([[ .5*np.sqrt(RIPI),              0.0,               0.0],
+                                              [              0.0, .5*np.sqrt(RIPI),               0.0],
+                                              [              0.0,              0.0, .5*np.sqrt(ROOPI)]])
+
+        IMPEDANCE_STIFFNESS_TRANS = np.dot(np.dot(rot_mat,IMPEDANCE_STIFFNESS_TRANS),rot_mat.T)
+        IMPEDANCE_STIFFNESS_ROT   = np.dot(np.dot(rot_mat,IMPEDANCE_STIFFNESS_ROT),rot_mat.T)
+        IMPEDANCE_DAMPING_TRANS   = np.dot(np.dot(rot_mat,IMPEDANCE_DAMPING_TRANS),rot_mat.T)
+        IMPEDANCE_DAMPING_ROT     = np.dot(np.dot(rot_mat,IMPEDANCE_DAMPING_ROT),rot_mat.T)
+
+        self.set_cart_imepedance_stiffness_matrix(stiffness_trans=IMPEDANCE_STIFFNESS_TRANS, 
+                                                   stiffness_rot=IMPEDANCE_STIFFNESS_ROT, 
+                                                   damping_trans=IMPEDANCE_DAMPING_TRANS,   
+                                                   damping_rot=IMPEDANCE_DAMPING_ROT)
 
     def set_cart_impedance_pose(self, pose):
 

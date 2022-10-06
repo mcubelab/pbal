@@ -19,6 +19,7 @@ Panels:
         - /Axes1
         - /Axes2
         - /Axes3
+        - /Pose1
       Splitter Ratio: 0.488469601
     Tree Height: 397
   - Class: rviz/Selection
@@ -39,7 +40,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Image
+    SyncSource: ""
 Toolbars:
   toolButtonStyle: 2
 Visualization Manager:
@@ -241,29 +242,11 @@ Visualization Manager:
         All Enabled: false
         base:
           Value: false
-        camera_color_optical_frame:
-          Value: false
-        far_cam_color_frame:
-          Value: true
-        far_cam_color_optical_frame:
-          Value: true
-        far_cam_depth_frame:
-          Value: true
-        far_cam_depth_optical_frame:
-          Value: true
-        far_cam_link:
+        far_camera_color_optical_frame:
           Value: true
         ft_sensor:
           Value: false
-        near_cam_color_frame:
-          Value: true
-        near_cam_color_optical_frame:
-          Value: true
-        near_cam_depth_frame:
-          Value: true
-        near_cam_depth_optical_frame:
-          Value: true
-        near_cam_link:
+        near_camera_color_optical_frame:
           Value: true
         panda_EE:
           Value: false
@@ -295,6 +278,8 @@ Visualization Manager:
           Value: false
         world:
           Value: false
+        world_manipulation_frame:
+          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: false
@@ -303,7 +288,9 @@ Visualization Manager:
       Tree:
         world:
           base:
-            camera_color_optical_frame:
+            far_camera_color_optical_frame:
+              {}
+            near_camera_color_optical_frame:
               {}
             panda_link0:
               panda_link1:
@@ -323,6 +310,8 @@ Visualization Manager:
                                 {}
                               panda_hand:
                                 {}
+            world_manipulation_frame:
+              {}
           pbal_origin:
             {}
       Update Interval: 0
@@ -347,6 +336,21 @@ Visualization Manager:
       Name: Axes
       Radius: 0.00999999978
       Reference Frame: <Fixed Frame>
+      Value: true
+    - Alpha: 1
+      Axes Length: 0.100000001
+      Axes Radius: 0.00999999978
+      Class: rviz/Pose
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0
+      Head Radius: 0
+      Name: Pose
+      Shaft Length: 0.100000001
+      Shaft Radius: 0.00999999978
+      Shape: Axes
+      Topic: /ee_pose_in_base_from_franka_publisher
+      Unreliable: false
       Value: true
   Enabled: true
   Global Options:
@@ -373,25 +377,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.16289568
+      Distance: 1.06909716
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.503581524
-        Y: 0.124556668
-        Z: 0.159649462
+        X: 0.387553841
+        Y: 0.130680561
+        Z: -0.0345899686
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.0500000007
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.0197977386
+      Pitch: 0.155203208
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.62041187
+      Yaw: 0.725394905
     Saved: ~
 Window Geometry:
   Displays:
@@ -411,5 +415,5 @@ Window Geometry:
   Views:
     collapsed: true
   Width: 1855
-  X: 1986
+  X: 1985
   Y: 40

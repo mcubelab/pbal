@@ -141,7 +141,7 @@ if __name__ == '__main__':
 
         axs[0].plot(measured_wrench[1], measured_wrench[0], 'r*')
 
-        axs[0].set_xlim([-30, 30])
+        axs[0].set_xlim([ 30, -30])
         axs[0].set_ylim([-10, 50])
         axs[0].set_title('Friction Cone')
 
