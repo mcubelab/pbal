@@ -1,0 +1,120 @@
+cmd "00-roscore" {
+    exec = "roscore";
+    host = "localhost";
+}
+
+cmd "01-franka" {
+    exec = "roslaunch pbal robot.launch";
+    host = "localhost";
+}
+
+cmd "02-rviz" {
+    exec = "roslaunch pbal rviz.launch";
+    host = "localhost";
+}
+
+cmd "03-realsense" {
+    exec = "roslaunch realsense2_camera rs_camera.launch serial_no:=811112060770 color_width:=1280 color_height:=720 color_fps:=30";
+    host = "localhost";
+}
+
+cmd "04a-apriltag-tracking-near" {
+    exec = "roslaunch apriltag_ros continuous_detection_near.launch";
+    host = "172.16.0.3";
+}
+
+cmd "04b-apriltag-tracking-far" {
+    exec = "roslaunch apriltag_ros continuous_detection_far.launch";
+    host = "172.16.0.3";
+}
+
+cmd "05-FT-sensor" {
+    exec = "roslaunch netft_rdt_driver force.launch";
+    host = "localhost";
+}
+
+cmd "06-publishers" {
+    exec = "roslaunch pbal publishers.launch";
+    host = "localhost";
+}
+
+cmd "07-impedance-mode" {
+    exec = "python /home/oneills/Documents/panda/base_ws/src/pbal/src/HAL/init_impedance_mode_script.py";
+    host = "localhost";
+}
+
+cmd "08-pivot-estimate" {
+    exec = "python /home/oneills/Documents/panda/base_ws/src/pbal/src/Estimation/pivot_estimation.py";
+    host = "localhost";
+}
+
+cmd "09-gen-coord-estimate" {
+    exec = "python /home/oneills/Documents/panda/base_ws/src/pbal/src/Estimation/gen_coord_estimation.py";
+    host = "localhost";
+}
+
+cmd "10-wrench-cone-estimate" {
+    exec = "python /home/oneills/Documents/panda/base_ws/src/pbal/src/Estimation/wrench_cone_estimation.py";
+    host = "localhost";
+}
+
+cmd "11-wrench-based-sliding-estimate" {
+    exec = "python /home/oneills/Documents/panda/base_ws/src/pbal/src/Estimation/sliding_estimation_wrench_cone.py";
+    host = "localhost";
+}
+
+cmd "12-ground-truth"{
+    exec = "python /home/oneills/Documents/panda/base_ws/src/pbal/src/Modelling/ground_truth_state_pub.py";
+    host = "localhost"; 
+}
+
+cmd "13-controller" {
+    exec = "python /home/oneills/Documents/panda/base_ws/src/pbal/src/ControlandExecution/impedance_control_barrier_function.py";
+    host = "localhost";
+}
+
+cmd "14-qp-debug-plotter" {
+    exec = "python /home/oneills/Documents/panda/base_ws/src/pbal/src/PlottingandVisualization/qp_debug_plot_node.py";
+    host = "localhost";
+}
+
+cmd "15-rosbag-record" {
+    exec = "python /home/oneills/Documents/panda/base_ws/src/pbal/src/PlottingandVisualization/rosbag_recording_script.py";
+    host = "localhost";
+}
+
+
+script "run_real" {
+    start cmd "00-roscore";
+    wait ms 1000;
+    start cmd "01-franka";
+    start cmd "03-realsense";
+    start cmd "04a-apriltag-tracking-near";
+    start cmd "05-FT-sensor";
+    start cmd "06-publishers";
+    wait ms 1000;
+    start cmd "07-impedance-mode";
+}
+
+
+script "run_experiments" {
+    start cmd "08-pivot-estimate";
+    start cmd "09-gen-coord-estimate";
+    start cmd "10-wrench-cone-estimate";
+    start cmd "11-wrench-based-sliding-estimate";
+    start cmd "12-ground-truth";
+    start cmd "13-controller";
+    start cmd "14-qp-debug-plotter";
+    start cmd "15-rosbag-record";
+}
+
+script "stop_experiments" {
+    stop cmd "08-pivot-estimate";
+    stop cmd "09-gen-coord-estimate";
+    stop cmd "10-wrench-cone-estimate";
+    stop cmd "11-wrench-based-sliding-estimate";
+    stop cmd "12-ground-truth";
+    stop cmd "13-controller";
+    stop cmd "14-qp-debug-plotter";
+    stop cmd "15-rosbag-record";
+}

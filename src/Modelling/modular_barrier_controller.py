@@ -492,9 +492,9 @@ class ModularBarrierController(object):
         return aiq, biq, self.pivot_params['tr_max_normal_contact'], ['ncmx']
 
     def normal_force_min_contact_constraint(self):
-        ''' maximum applied normal force at contact constraint '''
+        ''' minimum applied normal force at contact constraint '''
         Nm = self.pivot_params['Nmin_contact']
-        aiq = np.array([1., 0., 0.])
+        aiq = np.array([-1., 0., 0.])
         biq = -Nm
         return aiq, biq, self.pivot_params['tr_min_normal_contact'], ['ncmn']
 

@@ -275,6 +275,20 @@ class ros_manager(object):
 				QPDebugStamped,
 				self.qp_debug_callback)
 
+		elif topic =='/target_frame':
+			self.unpack_functions.append(self.target_frame_unpack)
+			self.target_frame_buffer = []
+			self.target_frame_available_index = len(self.data_available)-1
+			self.target_frame_has_new = False
+
+			self.target_frame = None
+			self.target_frame_homog = None
+
+			self.target_frame_sub = rospy.Subscriber(
+				topic,
+				TransformStamped,
+				self.target_frame_callback)
+
 
 	def spawn_publisher(self,topic):
 
@@ -627,3 +641,19 @@ class ros_manager(object):
 		else:
 			self.qp_debug_has_new = False
 
+	def target_frame_callback(self,data):
+		self.target_frame_buffer.append(data)
+		if len(self.target_frame_buffer)>1:
+			self.target_frame_buffer.pop(0)
+		self.data_available[self.target_frame_available_index]=True
+
+	def target_frame_unpack(self):
+		if len(self.target_frame_buffer)>0:
+			data = self.target_frame_buffer.pop(0)
+
+			self.target_frame = rh.transform_stamped2list(data)
+			self.target_frame_homog =  rh.matrix_from_pose_list(self.target_frame)
+
+			self.target_frame_has_new = True
+		else:
+			self.target_frame_has_new = False
