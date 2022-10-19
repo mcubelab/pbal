@@ -78,7 +78,7 @@ class SystemParams(object):
 
             "tr_torque": [.8 , 6.], #[.8 , 6.], #[.2 , 6.], #[.2, 4.]
             "torque_margin": 0.03,
-            "l_contact_multiplier": .95, #.9
+            "l_contact_multiplier": .84, #.95, #.9
             
             "tr_friction_external": [.9 , 1],
             "friction_ground_margin": 1.5, #.6, #.4, #.8

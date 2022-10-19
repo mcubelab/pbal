@@ -117,29 +117,33 @@ def quat_from_matrix(M):
     r21 = M[2,1]
     r22 = M[2,2]
 
-    qw = np.sqrt((r00+r11+r22)+1.0)/2.0
-    qx = np.sqrt(1.0+r00-r11-r22)/2.0
-    qy = np.sqrt(1.0+r11-r00-r22)/2.0
-    qz = np.sqrt(1.0+r22-r11-r00)/2.0
+    a = 1.0+r00+r11+r22
+    b = 1.0+r00-r11-r22
+    c = 1.0-r00+r11-r22
+    d = 1.0-r00-r11+r22
 
-    max_index  = np.argmax( [qw,qx,qy,qz] )
+    max_index  = np.argmax( [a,b,c,d] )
 
     if max_index == 0:
+        qw = np.sqrt(a)/2.0
         qx = (r21-r12 )/(4.0*qw)
         qy = (r02-r20 )/(4.0*qw)
         qz = (r10-r01 )/(4.0*qw)
 
     if max_index == 1:
+        qx = np.sqrt(b)/2.0
         qw = (r21-r12 )/(4.0*qx)
         qy = (r01+r10 )/(4.0*qx)
         qz = (r20+r02 )/(4.0*qx)
 
     if max_index == 2:
+        qy = np.sqrt(c)/2.0
         qw = (r02-r20 )/(4.0*qy)
         qx = (r01+r10 )/(4.0*qy)
         qz = (r12+r21 )/(4.0*qy)
 
     if max_index == 3:
+        qz = np.sqrt(d)/2.0
         qw = (r10-r01 )/(4.0*qz)
         qx = (r20+r02 )/(4.0*qz)
         qy = (r12+r21 )/(4.0*qz)

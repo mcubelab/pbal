@@ -29,9 +29,8 @@ class PCA_manager(object):
         else:
             self.sum_XXt+=np.dot(X,X.T)
 
-
     def pop(self):
-        if len(data_queue)==0:
+        if len(self.data_queue)==0:
             print('error: no data in queue, cannot pop')
             return
 
@@ -41,8 +40,16 @@ class PCA_manager(object):
         self.sum_X-=X
         self.sum_XXt-=np.dot(X,X.T)
 
+    def diff_first(self,X):
+        dX = np.array(X)-(self.data_queue[0].T)[0]
+        return dX,np.linalg.norm(dX)
+
+    def diff_last(self,X):
+        dX = np.array(X)-(self.data_queue[-1].T)[0]
+        return dX,np.linalg.norm(dX)
+
     def compute_PCA(self):
-        if len(data_queue)==0:
+        if len(self.data_queue)==0:
             print('error: no data in queue, cannot compute anything')
             return None,None
 
