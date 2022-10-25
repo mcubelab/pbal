@@ -3,13 +3,11 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(currentdir))
 
+import cv2
 from cv_bridge import CvBridge
 import pickle
 import rosbag
-
 import Helpers.pbal_msg_helper as pmh
-
-
 
 def parse_wrench_stamped(msg):
     return [
@@ -83,6 +81,8 @@ def parse_apriltag_detection_array(msg_in):
         return detection_dict
     else:
         return None
+
+
 msg_types = []
 if __name__ == "__main__":
 
@@ -111,6 +111,9 @@ if __name__ == "__main__":
         bridge = CvBridge()
         data = {}
         
+        #dictionary of video writers to store each video feed in its own .avi
+        video_feed_dict= {}
+
         # fill out topics
         with rosbag.Bag(fpath, 'r') as bag:
             for topic, msg, time, in bag.read_messages():
@@ -132,8 +135,22 @@ if __name__ == "__main__":
                     msg = msg.data
                 
                 elif msg._type == 'sensor_msgs/Image':
-                    msg = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-                           
+                    #put meesage into the cv2 framework
+                    cv_image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+                    
+                    #if we haven't seen topic yet, create a new video writer for it
+                    #and add it to the dictionary
+                    if topic not in video_feed_dict:
+                        image_height, image_width, image_layers = cv_image.shape
+                        image_size = (image_width, image_height)
+                        save_name = fpath.split('.')[0]+'_'+topic.split('/')[1]+'.avi'
+                        video_feed_dict[topic]=cv2.VideoWriter(save_name, cv2.VideoWriter_fourcc(*'DIVX'), 30, image_size)
+                       
+                    #have the video writer associated with the topic write the new frame
+                    video_feed_dict[topic].write(cv_image)
+
+                    msg = None
+
                 elif msg._type == 'apriltag_ros/AprilTagDetectionArray':
                     msg = parse_apriltag_detection_array(msg)
 
@@ -155,6 +172,9 @@ if __name__ == "__main__":
                 else:
                     data[topic[1:]].extend([{'time': time.to_sec(), 'msg': msg}])
                 
+        #close all video writers, since we are done with the .bag file
+        for my_key in video_feed_dict:
+            video_feed_dict[my_key].release() 
 
         print(msg_types)
 

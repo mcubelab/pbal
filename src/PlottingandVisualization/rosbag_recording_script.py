@@ -1,72 +1,40 @@
+#!/usr/bin/env python
 import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-gparentdir = os.path.dirname(parentdir)
-sys.path.insert(0,parentdir) 
-sys.path.insert(0,gparentdir)
+sys.path.insert(0,os.path.dirname(currentdir))
 
 import argparse
 import rospy
-import pdb
 import numpy as np
-import json
-import time
 import Helpers.ros_helper as ros_helper
 
 from std_msgs.msg import String
 from Modelling.system_params import SystemParams
 
-# def parse_args():
-
-#     parser = argparse.ArgumentParser(description="")
-#     parser.add_argument('exp_name', type=str, help='experiment name')
-#     args = parser.parse_args()
-#     return args
-
-
 if __name__ == '__main__':
 
-    rospy.init_node("rospy_recording_node")
+    rospy.init_node('rospy_recording_node')
     rate = rospy.Rate(30)
 
-    # start rosbag
-    # rostopic_list = [
-    #     "/camera/color/image_raw/compressed",
-    #     "/ground_truth_message",
-    #     "/gravity_torque", 
-    #     "/pivot_frame_realsense",
-    #     "/pivot_frame_estimated", 
-    #     "/generalized_positions", 
-    #     '/barrier_func_control_command', 
-    #     '/qp_debug_message',
-    #     "/end_effector_sensor_in_end_effector_frame", 
-    #     "/end_effector_sensor_in_base_frame", 
-    #     '/friction_parameters', 
-    #     '/sliding_state'
-    # ]
-
-    # rostopic_list = [
-    #     "/processed_image"
-    # ]
-
     rostopic_list = [
-        "/far_cam/color/image_raw",
-        "/ground_truth_message",
-        # "/gravity_torque", 
-        "/pivot_frame_realsense",
-        "/pivot_frame_estimated", 
-        "/generalized_positions", 
+        '/ee_pose_in_world_manipulation_from_franka_publisher',
+        '/ee_pose_in_base_from_franka_publisher',
+        '/end_effector_sensor_in_end_effector_frame',
+        '/end_effector_sensor_in_world_manipulation_frame',
+        '/torque_cone_boundary_test',
+        '/torque_cone_boundary_flag',
+        '/ground_truth_message',
+        '/pivot_frame_realsense',
+        '/pivot_frame_estimated', 
+        '/generalized_positions', 
         '/barrier_func_control_command',
         '/qp_debug_message',
-        '/ee_pose_in_world_from_franka_publisher',
-        "/end_effector_sensor_in_end_effector_frame", 
-        "/end_effector_sensor_in_base_frame", 
         '/friction_parameters',
         '/target_frame', 
         '/sliding_state',
+        '/far_cam/color/image_raw',
+        '/near_cam/color/image_raw',
         '/tag_detections',
-        '/torque_cone_boundary_test',
-        '/torque_cone_boundary_flag',
     ]
 
     experiment_label = 'test_data'
@@ -75,18 +43,18 @@ if __name__ == '__main__':
 
     # find shape name
     # sys_params = SystemParams()
-    # shape_name = sys_params.ground_truth_params["SHAPE_NAME"]
+    # shape_name = sys_params.ground_truth_params['SHAPE_NAME']
 
     # find previous experiment number
-    # dir_save_bagfile = os.path.join(os.environ["CODE_BASE"], "data")
+    # dir_save_bagfile = os.path.join(os.environ['CODE_BASE'], 'data')
     dir_save_bagfile = '/home/thecube/Documents/pbal_experiments/gtsam_test_data'
 
     experiment_nums = []
     for file in os.listdir(dir_save_bagfile):
-        if file.endswith(".bag"):
+        if file.endswith('.bag'):
             fname = os.path.splitext(file)
             fname_tokens = fname[0].split('-')
-            experiment_token = [token for token in fname_tokens if "experiment" in token ]
+            experiment_token = [token for token in fname_tokens if 'experiment' in token ]
 
             if not experiment_token:
                 continue
@@ -99,11 +67,11 @@ if __name__ == '__main__':
         new_experiment_num = np.amax(np.array(experiment_nums, dtype=int)) + 1
 
     # experiment name
-    exp_name = "experiment{:04d}".format(new_experiment_num) 
+    exp_name = 'experiment{:04d}'.format(new_experiment_num) 
     if experiment_label != '':
         exp_name = experiment_label+'-'+exp_name    
 
-    print("Starting rosbag recording...")
+    print('Starting rosbag recording...')
     print(exp_name)
     ros_helper.initialize_rosbag(rostopic_list, dir_save_bagfile, exp_name)
     
