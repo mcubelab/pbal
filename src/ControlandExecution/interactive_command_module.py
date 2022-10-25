@@ -81,7 +81,7 @@ delta_super_slide_robot_left = {
     'mode' : 5,
     'delta_theta' : 0.0,
     'delta_s_pivot' : 0.00,
-    'delta_s_hand' : -0.001,
+    'delta_s_hand' : -0.015,
 }
 
 delta_super_slide_robot_right = {
@@ -90,7 +90,7 @@ delta_super_slide_robot_right = {
     'mode' : 4,
     'delta_theta' : 0.0,
     'delta_s_pivot' : 0.00,
-    'delta_s_hand' : 0.001,
+    'delta_s_hand' : 0.015,
 }
 
 delta_slide_pivot_left = {

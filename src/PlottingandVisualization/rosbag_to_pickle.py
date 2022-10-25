@@ -1,50 +1,43 @@
+#!/usr/bin/env python
 import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-gparentdir = os.path.dirname(parentdir)
-sys.path.insert(0,parentdir) 
-sys.path.insert(0,gparentdir)
+sys.path.insert(0,os.path.dirname(currentdir))
 
-import argparse
 from cv_bridge import CvBridge
-import json
-import pdb
 import pickle
 import rosbag
 
 import Helpers.pbal_msg_helper as pmh
 
 
-# def argument_parser():
-#     parser = argparse.ArgumentParser(description='')
-
-#     # experiment setup
-#     parser.add_argument('bagfile_name', default="", type=str,
-#                         help='name of bag file to load')
-
-#     args = parser.parse_args()
-
-#     return args
-
-# def parse_json_string(msg):
-#     return json.loads(msg.data)
-
 
 def parse_wrench_stamped(msg):
     return [
-        msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, 
-        msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]
+        msg.wrench.force.x, 
+        msg.wrench.force.y, 
+        msg.wrench.force.z, 
+        msg.wrench.torque.x, 
+        msg.wrench.torque.y, 
+        msg.wrench.torque.z]
 
 def parse_pose_stamped(msg):
     return [
-        msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 
-        msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z,
+        msg.pose.position.x, 
+        msg.pose.position.y, 
+        msg.pose.position.z, 
+        msg.pose.orientation.x, 
+        msg.pose.orientation.y, 
+        msg.pose.orientation.z,
         msg.pose.orientation.w]
 
 def parse_transform_stamped(msg):
     return [
-        msg.transform.translation.x, msg.transform.translation.y, msg.transform.translation.z, 
-        msg.transform.rotation.x, msg.transform.rotation.y, msg.transform.rotation.z,
+        msg.transform.translation.x, 
+        msg.transform.translation.y, 
+        msg.transform.translation.z, 
+        msg.transform.rotation.x, 
+        msg.transform.rotation.y, 
+        msg.transform.rotation.z,
         msg.transform.rotation.w]
 
 def parse_custom_pbal_message(msg):
@@ -73,8 +66,6 @@ def parse_apriltag_detection_Bool(msg):
     
 def parse_apriltag_detection_array(msg_in):
 
-    
-
     if len(msg_in.detections)>0:
         detection_dict = {}
         for i in range(len(msg_in.detections)):
@@ -94,10 +85,6 @@ def parse_apriltag_detection_array(msg_in):
         return None
 msg_types = []
 if __name__ == "__main__":
-
-    # args = argument_parser()
-    # bagfile_name = args.bagfile_name
-    # bagfile_name = '2022-06-22-23-13-19-test_data-experiment0001.bag'
 
     dir_save_bagfile = '/home/thecube/Documents/pbal_experiments/gtsam_test_data'
     # dir_save_bagfile = os.environ['CODE_BASE'] + '/data/rosbag_data/'
@@ -180,5 +167,3 @@ if __name__ == "__main__":
 
         with open(spath + '.pickle', 'rb') as handle:
             b = pickle.load(handle)
-
-    # # pdb.set_trace()

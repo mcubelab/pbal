@@ -53,40 +53,6 @@ if __name__ == '__main__':
     pca1 = PCA_manager()
     pca2 = PCA_manager()
 
-    # fig, axs = plt.subplots(1,3)
-
-    # n_tar_plot, = axs[0].plot([0,1],[0,0],'r')
-    # n_cur_plot, = axs[0].plot([0,1],[0,0],'b')
-    # n_adj_plot, = axs[0].plot([0,1],[0,0],'g')
-
-    # t_tar_plot, = axs[1].plot([0,1],[0,0],'r')
-    # t_cur_plot, = axs[1].plot([0,1],[0,0],'b')
-    # t_adj_plot, = axs[1].plot([0,1],[0,0],'g')
-
-    # theta_tar_plot, = axs[2].plot([0,1],[0,0],'r')
-    # theta_cur_plot, = axs[2].plot([0,1],[0,0],'b')
-    # theta_adj_plot, = axs[2].plot([0,1],[0,0],'g')
-
-
-
-    # t0 = time.time()
-
-    # t_queue = []
-    # t_window = 10.0
-
-    # n_tar_queue = []
-    # n_cur_queue = []
-    # n_adj_queue = []
-
-    # t_tar_queue = []
-    # t_cur_queue = []
-    # t_adj_queue = []
-
-    # theta_tar_queue = []
-    # theta_cur_queue = []
-    # theta_adj_queue = []
-
-
     count=0
     while not rospy.is_shutdown():
         # tl.reset()
@@ -157,84 +123,8 @@ if __name__ == '__main__':
             print('eig_vecs0:')
             print(eig_vecs0)
 
-        # t_queue.append(time.time()-t0)
-        # n_tar_queue.append(n_target)
-        # n_cur_queue.append(n_current)
-        # n_adj_queue.append(n_target-w_n/TIPI)
-
-        # t_tar_queue.append(t_target)
-        # t_cur_queue.append(t_current)
-        # t_adj_queue.append(t_target-w_t/TIPI)
-
-        # theta_tar_queue.append(theta_target)
-        # theta_cur_queue.append(theta_current)
-        # theta_adj_queue.append(theta_target-w_tau/RIPI)
-
-        # while len(t_queue)>1 and t_queue[-1]-t_queue[0]>t_window:
-        #     t_queue.pop(0)
-
-        #     n_tar_queue.pop(0)
-        #     n_cur_queue.pop(0)
-        #     n_adj_queue.pop(0)
-
-        #     t_tar_queue.pop(0)
-        #     t_cur_queue.pop(0)
-        #     t_adj_queue.pop(0)
-
-        #     theta_tar_queue.pop(0)
-        #     theta_cur_queue.pop(0)
-        #     theta_adj_queue.pop(0)
-
-        # theta_current_str = "{:.2f}".format(theta_current)
-        # theta_target_str = "{:.2f}".format(theta_target)
-
-
-
-        # print('theta target: '+theta_target_str+' theta current: '+theta_current_str)
-
-        # n_tar_plot.set_xdata(t_queue)
-        # n_tar_plot.set_ydata(n_tar_queue)
-
-        # n_cur_plot.set_xdata(t_queue)
-        # n_cur_plot.set_ydata(n_cur_queue)
-
-        # n_adj_plot.set_xdata(t_queue)
-        # n_adj_plot.set_ydata(n_adj_queue)
-       
-        # t_tar_plot.set_xdata(t_queue)
-        # t_tar_plot.set_ydata(t_tar_queue)
-
-        # t_cur_plot.set_xdata(t_queue)
-        # t_cur_plot.set_ydata(t_cur_queue)
-
-        # t_adj_plot.set_xdata(t_queue)
-        # t_adj_plot.set_ydata(t_adj_queue)
-
-        # theta_tar_plot.set_xdata(t_queue)
-        # theta_tar_plot.set_ydata(theta_tar_queue)
-
-        # theta_cur_plot.set_xdata(t_queue)
-        # theta_cur_plot.set_ydata(theta_cur_queue)
-
-        # theta_adj_plot.set_xdata(t_queue)
-        # theta_adj_plot.set_ydata(theta_adj_queue)
-
-        # axs[0].set_xlim([t_queue[0], t_queue[-1]])
-        # axs[0].set_ylim([0.0,.3])
-        # axs[0].set_title('N-motion')
-
-        # axs[1].set_xlim([t_queue[0], t_queue[-1]])
-        # axs[1].set_ylim([-.3,.3])
-        # axs[1].set_title('T-motion')
-        
-        # axs[2].set_xlim([t_queue[0], t_queue[-1]])
-        # axs[2].set_ylim([-np.pi/3,np.pi/3])
-        # axs[2].set_title('theta-motion')
-
-        # plt.pause(0.01)
-        # plt.show()
         # log timing info
-        # tl.log_time()
+        tl.log_time()
 
         rate.sleep()
         

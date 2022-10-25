@@ -236,12 +236,6 @@ if __name__ == '__main__':
         impedance_target[3]+= impedance_increment_robot[2]*INTEGRAL_MULTIPLIER/(RIPI*RATE)
         waypoint_pose_list_world_manipulation = robot2_pose_list(impedance_target[:3].tolist(),impedance_target[3])
 
-        # noisy_impedance_target = np.array(impedance_target)
-        # noisy_impedance_target[0]+=.0015*(np.random.rand()-.5)
-        # noisy_impedance_target[1]+=.0015*(np.random.rand()-.5)
-        # noisy_impedance_target[3]+=.03*(np.random.rand()-.5)
-        # waypoint_pose_list_world_manipulation = robot2_pose_list(noisy_impedance_target[:3].tolist(),noisy_impedance_target[3])
-
         waypoint_pose_list = rh.pose_list_from_matrix(np.dot(wm_to_base, rh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
         my_impedance_mode_helper.set_cart_impedance_pose(waypoint_pose_list)
 
