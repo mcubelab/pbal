@@ -357,29 +357,12 @@ def transform_tip2tcp(listener,  pose_tip_push_start, tip_name='/apriltag_tip'):
     pose_map_list = convert_ros2abb(pose_tcp_map)
     return pose_map_list
   
-##### CHANGE/EXAMINE TO FIX FRAME ISSUE #####
 def quatlist_to_theta(quat_list):
-    '''converts fraka quaternion to sagittal plane angle'''
-
-    # pose_homog = matrix_from_trans_and_quat(quat = quat_list)
-
-    # hand_normal_x = pose_homog[0,0]
-    # hand_normal_z = pose_homog[2,0] 
-
-    # return -np.arctan2(hand_normal_x, -hand_normal_z)  
-
+    #converts fraka quaternion to sagittal plane angle
     pose_homog = matrix_from_trans_and_quat(quat = quat_list)
-
     return np.arctan2(-pose_homog[1,0], -pose_homog[0,0])   
 
-##### CHANGE/EXAMINE TO FIX FRAME ISSUE ##### 
 def theta_to_quatlist(theta):
-    # '''converts sagittal plane angle to franka quaternion'''
-    # return quat_from_matrix(np.array([[-np.sin(theta), -np.cos(theta), 0.0], 
-    #                                   [           0.0,            0.0, 1.0], 
-    #                                   [-np.cos(theta),  np.sin(theta), 0.0]]))
-
-
     #converts sagittal <now in world manipulation frame, which is right-handed, with z axes aligned!! -Orion> plane angle to franka quaternion
     #note that the quaternion is defined in the world manipulation frame, so it will need to be converted to the base frame in order to be
     #sent to the robot as an impedance command
