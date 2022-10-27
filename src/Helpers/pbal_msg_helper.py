@@ -19,7 +19,7 @@ def parse_torque_cone_boundary_flag_stamped(torque_boundary_flag_message):
     return torque_boundary_flag_message.boundary_flag
 
 def generate_torque_cone_boundary_test_stamped(torque_boundary_boolean):
-    torque_boundary_boolean_message = TorqueConeBoundaryFlagStamped()
+    torque_boundary_boolean_message = TorqueConeBoundaryTestStamped()
     torque_boundary_boolean_message.boundary_test = torque_boundary_boolean
     return torque_boundary_boolean_message
 

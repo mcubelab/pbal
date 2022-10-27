@@ -11,8 +11,8 @@ from pbal.msg import   (SlidingStateStamped,
 						FrictionParamsStamped, 
 						ControlCommandStamped, 
 						QPDebugStamped,
-						PivotSlidingCommandedFlagStamped, 
-						TorqueConeBoundaryFlagStamped, 
+						TorqueConeBoundaryFlagStamped,
+						PivotSlidingCommandedFlagStamped,
 						TorqueConeBoundaryTestStamped,
  						TorqueBoundsStamped, 
  						GeneralizedPositionsStamped)
@@ -59,13 +59,13 @@ class ros_manager(object):
 		self.record_mode = record_mode
 		
 		if self.record_mode:
-			self.self.max_queue_size=np.inf
+			self.max_queue_size=np.inf
 		else: 
-			self.self.max_queue_size=1
+			self.max_queue_size=1
 
 	def activate_record_mode():
 		self.record_mode = True
-		self.self.max_queue_size=np.inf
+		self.max_queue_size=np.inf
 
 	def wait_for_necessary_data(self):
 		print("Waiting to hear from essential subscribers")
