@@ -60,6 +60,11 @@ add_message_files(
   QPDebugStamped.msg
   SlidingState.msg
   SlidingStateStamped.msg
+  GeneralizedPositionsStamped.msg
+  PivotSlidingCommandedFlagStamped.msg
+  TorqueConeBoundaryFlagStamped.msg
+  TorqueConeBoundaryTestStamped.msg
+  TorqueBoundsStamped.msg
 #   Message2.msg
 )
 
