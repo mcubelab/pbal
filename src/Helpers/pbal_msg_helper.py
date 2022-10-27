@@ -2,9 +2,53 @@ import pdb
 import numpy as np
 from pbal.msg import   (SlidingStateStamped, 
                         FrictionParamsStamped, 
-                        ControlCommandStamped,
-                        QPDebugStamped, 
-                        GroundTruthStamped)
+                        ControlCommandStamped, 
+                        QPDebugStamped,
+                        PivotSlidingCommandedFlagStamped, 
+                        TorqueConeBoundaryFlagStamped, 
+                        TorqueConeBoundaryTestStamped,
+                        TorqueBoundsStamped, 
+                        GeneralizedPositionsStamped)
+
+def generate_torque_cone_boundary_flag_stamped(torque_boundary_flag):
+    torque_boundary_flag_message = TorqueConeBoundaryFlagStamped()
+    torque_boundary_flag_message.boundary_flag = torque_boundary_flag
+    return torque_boundary_flag_message
+
+def parse_torque_cone_boundary_flag_stamped(torque_boundary_flag_message):
+    return torque_boundary_flag_message.boundary_flag
+
+def generate_torque_cone_boundary_test_stamped(torque_boundary_boolean):
+    torque_boundary_boolean_message = TorqueConeBoundaryFlagStamped()
+    torque_boundary_boolean_message.boundary_test = torque_boundary_boolean
+    return torque_boundary_boolean_message
+
+def parse_torque_cone_boundary_test_stamped(torque_boundary_boolean_message):
+    return torque_boundary_boolean_message.boundary_test
+
+def generate_pivot_sliding_commanded_flag(pivot_sliding_commanded_flag):
+    pivot_sliding_commanded_flag_message = PivotSlidingCommandedFlagStamped()
+    pivot_sliding_commanded_flag_message.command_flag = pivot_sliding_commanded_flag
+    return pivot_sliding_commanded_flag_message
+
+def parse_pivot_sliding_commanded_flag(pivot_sliding_commanded_flag_message):
+    return pivot_sliding_commanded_flag_message.command_flag
+
+def generate_torque_bounds_stamped(torque_bounds):
+    torque_bounds_message = TorqueBoundsStamped()
+    torque_bounds_message.torque_bounds = torque_bounds
+    return torque_bounds_message
+
+def parse_torque_bounds_stamped(torque_bounds_message):
+    return torque_bounds_message.torque_bounds
+
+def generate_generalized_positions_stamped(generalized_positions):
+    generalized_positions_message = GeneralizedPositionsStamped()
+    generalized_positions_message.generalized_positions = generalized_positions
+    return generalized_positions_message
+
+def parse_generalized_positions_stamped(generalized_positions_message):
+    return generalized_positions_message.generalized_positions
 
 
 def sliding_dict_to_sliding_stamped(sliding_dict):
@@ -285,3 +329,23 @@ def ground_truth_dict_to_ground_truth_stamped(ground_truth_dict):
     ground_truth_msg.ground_truth.object_dectected = ground_truth_dict['od']
 
     return ground_truth_msg
+
+def parse_apriltag_detection_array(apriltag_message):
+
+    if len(apriltag_message.detections)>0:
+        detection_dict = {}
+        for i in range(len(apriltag_message.detections)):
+
+            msg = apriltag_message.detections[i]
+            
+            detection_dict[msg.id[0]] = {
+            'id': msg.id[0],
+            'size': msg.size[0],
+            'position': [msg.pose.pose.pose.position.x, msg.pose.pose.pose.position.y, 
+                msg.pose.pose.pose.position.z],
+            'orientation': [msg.pose.pose.pose.orientation.x, msg.pose.pose.pose.orientation.y, 
+                msg.pose.pose.pose.orientation.z, msg.pose.pose.pose.orientation.w]
+            }
+        return detection_dict
+    else:
+        return None

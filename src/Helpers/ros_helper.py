@@ -1,7 +1,6 @@
 import numpy as np
 import time
-from geometry_msgs.msg import PoseStamped, Pose2D, WrenchStamped, PointStamped
-
+from geometry_msgs.msg import PoseStamped, TransformStamped, Pose2D, WrenchStamped, PointStamped
 
 def list2pose_stamped(pose, frame_id="world"):
     msg = PoseStamped()
@@ -15,22 +14,38 @@ def list2pose_stamped(pose, frame_id="world"):
     msg.pose.orientation.w = pose[6]
     return msg
 
-def wrenchstamped_2FT(wrench):
+def pose_stamped2list(msg):
+    return [float(msg.pose.position.x),
+            float(msg.pose.position.y),
+            float(msg.pose.position.z),
+            float(msg.pose.orientation.x),
+            float(msg.pose.orientation.y),
+            float(msg.pose.orientation.z),
+            float(msg.pose.orientation.w)]
 
-    force = [
-        wrench.wrench.force.x,
-        wrench.wrench.force.y,
-        wrench.wrench.force.z]
+def list2transform_stamped(transform, header_frame_id = 'base', child_frame_id = 'hand_estimate'):
+    msg = FrameStamped()
+    msg.header.frame_id = header_frame_id
+    msg.child_frame_id = child_frame_id
+    msg.transform.translation.x = transform[0]
+    msg.transform.translation.y = transform[1]
+    msg.transform.translation.z = transform[2]
+    msg.transform.rotation.x = transform[3]
+    msg.transform.rotation.y = transform[4]
+    msg.transform.rotation.z = transform[5]
+    msg.transform.rotation.w = transform[6]
+    return msg
 
-    torque = [
-        wrench.wrench.torque.x,
-        wrench.wrench.torque.y,
-        wrench.wrench.torque.z]
+def transform_stamped2list(msg):
+    return [float(msg.transform.translation.x),
+            float(msg.transform.translation.y),
+            float(msg.transform.translation.z),
+            float(msg.transform.rotation.x),
+            float(msg.transform.rotation.y),
+            float(msg.transform.rotation.z),
+            float(msg.transform.rotation.w)]
 
-    return force, torque
-
-def list2wrench_stamped(wrench, frame_id="base"):
-
+def list2wrench_stamped(wrench, frame_id='base'):
     msg = WrenchStamped()
     msg.header.frame_id = frame_id
     msg.wrench.force.x = wrench[0]
@@ -42,31 +57,23 @@ def list2wrench_stamped(wrench, frame_id="base"):
     return msg
 
 def wrench_stamped2list(msg):
-    
-    force, torque = wrenchstamped_2FT(msg)
-    return force + torque
+    return [float(msg.wrench.force.x), 
+            float(msg.wrench.force.y), 
+            float(msg.wrench.force.z), 
+            float(msg.wrench.torque.x), 
+            float(msg.wrench.torque.y), 
+            float(msg.wrench.torque.z)]
 
-def pose_stamped2list(msg):
+def wrenchstamped_2FT(msg):
+    force = [float(msg.wrench.force.x),
+             float(msg.wrench.force.y),
+             float(msg.wrench.force.z)]
 
-    return [float(msg.pose.position.x),
-            float(msg.pose.position.y),
-            float(msg.pose.position.z),
-            float(msg.pose.orientation.x),
-            float(msg.pose.orientation.y),
-            float(msg.pose.orientation.z),
-            float(msg.pose.orientation.w),
-            ]
+    torque = [float(msg.wrench.torque.x),
+              float(msg.wrench.torque.y),
+              float(msg.wrench.torque.z)]
 
-def transform_stamped2list(msg):
-
-    return [float(msg.transform.translation.x),
-            float(msg.transform.translation.y),
-            float(msg.transform.translation.z),
-            float(msg.transform.rotation.x),
-            float(msg.transform.rotation.y),
-            float(msg.transform.rotation.z),
-            float(msg.transform.rotation.w),
-            ]
+    return force, torque
 
 def list2point_stamped(xyz):
     msg = PointStamped()
@@ -76,7 +83,7 @@ def list2point_stamped(xyz):
     return msg
 
 def point_stamped2list(msg):
-    return [msg.point.x, msg.point.y, msg.point.z]
+    return [float(msg.point.x), float(msg.point.y), float(msg.point.z)]
 
 def list2pose_twod(pose):
     msg = Pose2D()
@@ -86,13 +93,13 @@ def list2pose_twod(pose):
     return msg
 
 def pose_twod2list(msg):
-    return [msg.x, msg.y, msg.theta]
+    return [float(msg.x), float(msg.y), float(msg.theta)]
 
 def quat2list(quat):
-    return [quat.x, quat.y, quat.z, quat.w]
+    return [float(quat.x), float(quat.y), float(quat.z), float(quat.w)]
 
 def unit_pose():
-    return list2pose_stamped([0,0,0,0,0,0,1])
+    return list2pose_stamped([0.0,0.0,0.0,0.0,0.0,0.0,1.0])
 
 def pose_from_matrix(matrix, frame_id="world"):
     return list2pose_stamped(pose_list_from_matrix(matrix), frame_id=frame_id)
