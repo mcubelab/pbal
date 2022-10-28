@@ -24,7 +24,7 @@ def pose_stamped2list(msg):
             float(msg.pose.orientation.w)]
 
 def list2transform_stamped(transform, header_frame_id = 'base', child_frame_id = 'hand_estimate'):
-    msg = FrameStamped()
+    msg = TransformStamped()
     msg.header.frame_id = header_frame_id
     msg.child_frame_id = child_frame_id
     msg.transform.translation.x = transform[0]
