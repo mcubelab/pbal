@@ -167,6 +167,9 @@ def command_dict_to_command_stamped(command_dict):
 
     command_msg = ControlCommandStamped()
 
+    if command_dict is None:
+        return command_msg
+
     command_msg.control_command.name            = command_dict['name']
     command_msg.control_command.command_flag    = command_dict['command_flag']
     command_msg.control_command.mode            = command_dict['mode']

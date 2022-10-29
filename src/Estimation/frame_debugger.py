@@ -4,16 +4,15 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 sys.path.insert(0,os.path.dirname(currentdir))
 
 import numpy as np
-import rospy
 
-import Helpers.ros_helper as rh
-from Helpers.ros_manager import ros_manager
+import Helpers.kinematics_helper as kh
 from Modelling.system_params import SystemParams
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.lines as lines
 
+from Helpers.ros_manager import ros_manager
 
 def update_basic_friction_constraint_plots(plot_list,A,B,axs,color):
     for i in range(max(len(plot_list),len(B))):
@@ -80,13 +79,13 @@ def update_hand_friction_constraints(plot_list,A,B,axs,color,homog,force_scale):
 if __name__ == '__main__':
 
     node_name = 'frame_debugger'
-    rospy.init_node(node_name)
     sys_params = SystemParams()
-    rate = rospy.Rate(sys_params.estimator_params['RATE'])
 
     l_contact =  sys_params.object_params['L_CONTACT_MAX']
 
     rm = ros_manager()
+    rm.init_node(node_name)
+    rm.setRate(sys_params.estimator_params['RATE'])
     rm.subscribe_to_list(['/end_effector_sensor_in_end_effector_frame',
                           '/end_effector_sensor_in_world_manipulation_frame',
                           '/ee_pose_in_world_manipulation_from_franka_publisher'])
@@ -144,7 +143,7 @@ if __name__ == '__main__':
     right_hand_constraint_with_hand_plots = []
 
     #Run node at rate    
-    while not rospy.is_shutdown():
+    while not rm.is_shutdown():
         rm.unpack_all()
 
 
@@ -228,7 +227,7 @@ if __name__ == '__main__':
                                                rm.ee_pose_in_world_manipulation_homog,
                                                force_scale)
 
-        angle_string = '%.2f' % rh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
+        angle_string = '%.2f' % kh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
         angle_text.set_text('theta: '+angle_string)
 
         quat_string = ('%.2f' % rm.ee_pose_in_world_manipulation_list[3] + ' , ' +
@@ -238,7 +237,7 @@ if __name__ == '__main__':
 
         quat_text1.set_text('OG  quat: '+quat_string)
 
-        quat2 = rh.theta_to_quatlist(rh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:]))
+        quat2 = kh.theta_to_quatlist(kh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:]))
 
         quat_string = ( '%.2f' % quat2[0] + ' , ' +
                         '%.2f' % quat2[1] + ' , ' +
@@ -271,4 +270,4 @@ if __name__ == '__main__':
 
         plt.pause(0.01)
 
-        rate.sleep()
+        rm.sleep()

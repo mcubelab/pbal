@@ -4,37 +4,38 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 sys.path.insert(0,os.path.dirname(currentdir))
 
 import numpy as np
-import rospy
 import tf
 
 from Modelling.PCA_manager import PCA_manager
 from Modelling.system_params import SystemParams
-from Helpers.ros_manager import ros_manager
-import Helpers.ros_helper as rh
-from Helpers.time_logger import time_logger
+import Helpers.kinematics_helper as kh
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import time
 
+from Helpers.ros_manager import ros_manager
+
 if __name__ == '__main__':
     #initialize rosnode and load params
     node_name = 'impedance_model_test'
-    rospy.init_node(node_name)
+    
     sys_params = SystemParams()
     controller_params = sys_params.controller_params
 
     RATE = controller_params['RATE']
-    rate = rospy.Rate(RATE)
 
     rm = ros_manager()
+    rm.init_node(node_name)
+    rm.setRate(RATE)
     rm.subscribe_to_list(['/end_effector_sensor_in_world_manipulation_frame',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/target_frame'])
 
-    listener = tf.TransformListener()
+    rm.spawn_transform_listener()
 
-    base_to_wm = rh.lookupTransform_homog('base','/world_manipulation_frame', listener)
+    (base_to_wm_trans, base_to_wm_rot) = rm.lookupTransform('base','/world_manipulation_frame')
+    base_to_wm = kh.matrix_from_trans_and_quat(base_to_wm_trans,base_to_wm_rot)
 
     # impedance parameters
     TIPI        = controller_params['TRANSLATIONAL_IN_PLANE_IMPEDANCE']
@@ -44,7 +45,7 @@ if __name__ == '__main__':
 
     r_contact = sys_params.object_params['L_CONTACT_MAX']/2.0
 
-    tl = time_logger(node_name)
+    rm.init_time_logger()
 
     # wait until messages have been received from all essential ROS topics before proceeding
     rm.wait_for_necessary_data()
@@ -101,17 +102,17 @@ if __name__ == '__main__':
     update_time = .25
     t_last_update = 0.0
 
-    while not rospy.is_shutdown():
+    while not rm.is_shutdown():
         rm.unpack_all()
 
-        theta_current = rh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
+        theta_current = kh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
         n_current = rm.ee_pose_in_world_manipulation_list[0]
         t_current = rm.ee_pose_in_world_manipulation_list[1]
 
         impedance_target_homog_wm = np.dot(base_to_wm,rm.target_frame_homog)
-        impedance_target_pose_list_wm = rh.pose_list_from_matrix(impedance_target_homog_wm)
+        impedance_target_pose_list_wm = kh.pose_list_from_matrix(impedance_target_homog_wm)
 
-        theta_target = rh.quatlist_to_theta(impedance_target_pose_list_wm[3:])
+        theta_target = kh.quatlist_to_theta(impedance_target_pose_list_wm[3:])
         n_target = impedance_target_pose_list_wm[0]
         t_target = impedance_target_pose_list_wm[1]
 
@@ -213,5 +214,5 @@ if __name__ == '__main__':
             plt.pause(0.000001)
 
         else:
-            rate.sleep()
+            rm.sleep()
         

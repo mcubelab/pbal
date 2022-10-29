@@ -3,14 +3,10 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(currentdir))
 
-import Helpers.pbal_msg_helper as pmh
+from Helpers.ros_manager import ros_manager
 import numpy as np
-import rospy
-import pdb
 from pynput import keyboard
-import time
 
-from pbal.msg import ControlCommandStamped
 
 command_pause = {
     'name': 'pause',
@@ -141,7 +137,7 @@ absolute_rotate_right = {
 
 def on_press(key):
 
-    global control_command_pub, command_msg
+    global rm
 
     command_msg_dict = None
     
@@ -189,18 +185,7 @@ def on_press(key):
         command_msg_dict = delta_slide_pivot_right
         print('delta_slide_pivot_right')
 
-
-
-
-    if command_msg_dict is not None:
-        command_msg = pmh.command_dict_to_command_stamped(
-            command_msg_dict)
-    else: 
-        command_msg = None
-
-    if command_msg is not None:
-        control_command_pub.publish(command_msg)
-
+    rm.pub_barrier_func_control_command(command_msg_dict)
 
 
 if __name__ == '__main__':
@@ -220,15 +205,9 @@ if __name__ == '__main__':
     print('Space: pause')
     print('-----------------------------')
 
-    rospy.init_node('barrier_func_commands')
-    rospy.sleep(1.0)
-
-    command_msg = ControlCommandStamped()
-
- 
-    control_command_pub = rospy.Publisher('/barrier_func_control_command', 
-        ControlCommandStamped, queue_size=10)
-
+    rm = ros_manager()
+    rm.init_node('barrier_func_commands')
+    rm.spawn_publisher('/barrier_func_control_command')
 
     listener = keyboard.Listener(on_press=on_press)
 

@@ -1,32 +1,16 @@
 #!/usr/bin/env python
-import os
-import sys
-import inspect
-currentdir = os.path.dirname(os.path.abspath(
-    inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-gparentdir = os.path.dirname(parentdir)
-sys.path.insert(0, parentdir)
-sys.path.insert(0, gparentdir)
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+sys.path.insert(0,os.path.dirname(currentdir))
 
-# import rospy
-# import pdb
-import json
 import numpy as np
-# from std_msgs.msg import Float32MultiArray, Float32, Bool, String
-# from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
-
-import time
-# import Helpers.ros_helper as ros_helper
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.lines as lines
 from livestats import livestats
-# from LiveStatsFolder.livestats import livestats
 from Modelling.system_params import SystemParams
-import copy
 
 from cvxopt import matrix, solvers
 solvers.options['show_progress'] = False
@@ -108,7 +92,7 @@ class ConvexHullEstimator(object):
         # index_CW  = np.max([dual_value_index_list[-1],dual_value_index_list[-2]])
         # index_CCW = np.min([dual_value_index_list[-1],dual_value_index_list[-2]])
         
-        theta_copy = copy.deepcopy(theta_list)
+        theta_copy = np.array(theta_list)
         CW_index_list = []
         CW_dual_list = []
         CCW_index_list = []
@@ -206,17 +190,13 @@ class ConvexHullEstimator(object):
         
         self.theta_middle_list = theta_middle_list
         self.slope_list = slope_list
-        self.theta_select_list = copy.deepcopy(theta_select_list)
-        self.slope_select_list = copy.deepcopy(slope_select_list)
-
+        self.theta_select_list = np.array(theta_select_list)
+        self.slope_select_list = np.array(slope_select_list)
 
         A_final = A[index_select_list]
         B_final = B[index_select_list]
 
-
-
         vertex_x_final_list,vertex_y_final_list= self.enumerate_vertices_of_constraint_polygon(theta_select_list,B_final,closed=True)
-
 
         return theta_select_list, A_final, B_final, vertex_x_final_list, vertex_y_final_list
 

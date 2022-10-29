@@ -75,6 +75,9 @@ def wrenchstamped_2FT(msg):
 
     return force, torque
 
+def wrench_list_2FT(wrench):
+    return wrench[0:3], wrench[3:6]
+
 def list2point_stamped(xyz):
     msg = PointStamped()
     msg.point.x = xyz[0]
@@ -205,7 +208,6 @@ def matrix_from_trans_and_quat(trans=None,quat=None):
 def matrix_from_pose_list(pose_list):
     return matrix_from_trans_and_quat(pose_list[0:3],pose_list[3:7])
 
-
 def lookupTransform(homeFrame, targetFrame, listener):
     ntfretry = 100
     retryTime = .05
@@ -219,7 +221,7 @@ def lookupTransform(homeFrame, targetFrame, listener):
                   (targetFrame, homeFrame, i))
             time.sleep(retryTime)
 
-    return None, None
+    return (None, None)
 
 def lookupTransform_homog(homeFrame, targetFrame, listener):
     trans,rot = lookupTransform(homeFrame, targetFrame, listener)
@@ -229,20 +231,20 @@ def lookupTransform_homog(homeFrame, targetFrame, listener):
     else:
         return None
 
-def rotate_wrench(wrench_source, pose_transform):
-    force_source, torque_source = wrenchstamped_2FT(wrench_source)
-    T_transform_source = matrix_from_pose(pose_transform)[:3, :3]
+def rotate_wrench(wrench_source, pose_homog):
+    force_source, torque_source = wrench_list_2FT(wrench_source)
+    T_transform_source = pose_homog[:3, :3]
     force_transformed = np.matmul(T_transform_source, np.array(force_source))
     torque_transformed = np.matmul(T_transform_source, np.array(torque_source))
 
-    return list2wrench_stamped(force_transformed.tolist() + torque_transformed.tolist())
+    return force_transformed.tolist() + torque_transformed.tolist()
 
 def wrench_reference_point_change(wrench_source, vector_from_new_ref):
     # wrench source and vector_from_new_ref need in the same frame
-    force_source, torque_source = wrenchstamped_2FT(wrench_source)
+    force_source, torque_source = wrench_list_2FT(wrench_source)
     torque_transformed = np.array(torque_source) + np.cross(np.array(vector_from_new_ref), np.array(force_source))
 
-    return list2wrench_stamped(force_source + torque_transformed.tolist())
+    return force_source + torque_transformed.tolist()
 
 
 def transform_pose(pose_source, pose_transform):

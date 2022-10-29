@@ -4,22 +4,19 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 sys.path.insert(0,os.path.dirname(currentdir))
 
 import numpy as np
-import rospy
-import tf
 import time
 
-import Helpers.ros_helper as rh
-from Helpers.time_logger import time_logger
+import Helpers.kinematics_helper as kh
 from Modelling.system_params import SystemParams
 from Modelling.modular_barrier_controller import ModularBarrierController
-import Helpers.impedance_mode_helper as IMH
+
 from Helpers.ros_manager import ros_manager
 
 def robot2_pose_list(xyz_list, theta):
-    return xyz_list + rh.theta_to_quatlist(theta)
+    return xyz_list + kh.theta_to_quatlist(theta)
 
 def get_robot_world_manipulation_xyz_theta2(pose_list):
-    return np.array([pose_list[0], pose_list[1], pose_list[2], rh.quatlist_to_theta(pose_list[3:])])
+    return np.array([pose_list[0], pose_list[1], pose_list[2], kh.quatlist_to_theta(pose_list[3:])])
 
 def wrench_transform_contact2world_manipulation(theta):
     return np.array([[-np.cos(theta),  np.sin(theta), 0.0], 
@@ -30,14 +27,13 @@ if __name__ == '__main__':
 
     #initialize rosnode and load params
     node_name = 'impedance_control_test'
-    rospy.init_node(node_name)
     sys_params = SystemParams()
     controller_params = sys_params.controller_params
-
     RATE = controller_params['RATE']
-    rate = rospy.Rate(RATE)
 
     rm = ros_manager()
+    rm.init_node(node_name)
+    rm.setRate(RATE)
     rm.subscribe_to_list(['/end_effector_sensor_in_end_effector_frame',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/barrier_func_control_command'])
@@ -52,13 +48,13 @@ if __name__ == '__main__':
                              '/qp_debug_message',
                              '/target_frame'])
 
-    listener = tf.TransformListener()
+    rm.spawn_transform_listener()
 
-    wm_to_base = rh.lookupTransform_homog('/world_manipulation_frame','base', listener)
+    (wm_to_base_trans, wm_to_base_rot) = rm.lookupTransform('/world_manipulation_frame','base')
+    wm_to_base = kh.matrix_from_trans_and_quat(wm_to_base_trans,wm_to_base_rot)
 
-    my_impedance_mode_helper = IMH.impedance_mode_helper()
+    rm.impedance_mode_helper()
     
-
     # wait until messages have been received from all essential ROS topics before proceeding
     rm.wait_for_necessary_data()
     rm.ee_pose_in_world_manipulation_unpack()
@@ -69,10 +65,9 @@ if __name__ == '__main__':
     RIPI        = controller_params['ROTATIONAL_IN_PLANE_IMPEDANCE']
     ROOPI       = controller_params['ROTATIONAL_OUT_OF_PLANE_IMPEDANCE']
 
-
     INTEGRAL_MULTIPLIER = controller_params['INTEGRAL_MULTIPLIER']
 
-    my_impedance_mode_helper.set_matrices_pbal_mode(TIPI,TOOPI,RIPI,ROOPI,wm_to_base[0:3,0:3])
+    rm.set_matrices_pbal_mode(TIPI,TOOPI,RIPI,ROOPI,wm_to_base[0:3,0:3])
 
     # initialize solver
     pbc = ModularBarrierController(sys_params.pivot_params,sys_params.object_params)
@@ -85,23 +80,23 @@ if __name__ == '__main__':
 
 
     waypoint_pose_list_world_manipulation = robot2_pose_list(impedance_target[:3].tolist(),impedance_target[3])
-    waypoint_pose_list = rh.pose_list_from_matrix(np.dot(wm_to_base, rh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
-    my_impedance_mode_helper.set_cart_impedance_pose(waypoint_pose_list)
+    waypoint_pose_list = kh.pose_list_from_matrix(np.dot(wm_to_base, kh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
+    rm.set_cart_impedance_pose(waypoint_pose_list)
 
     time.sleep(1.0)
 
     # object for computing loop frequnecy
-    tl = time_logger(node_name)
-    tl.init_qp_time()
+    rm.init_time_logger()
+    rm.init_qp_time()
 
     print('starting control loop')
-    while not rospy.is_shutdown():
-        tl.reset()
+    while not rm.is_shutdown():
+        rm.tl_reset()
         rm.unpack_all()
 
         # snapshot of current generalized position estimate
         if rm.state_not_exists_bool:
-            l_hand, s_hand, theta_hand = None, None, rh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
+            l_hand, s_hand, theta_hand = None, None, kh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
         else:
             l_hand, s_hand, theta_hand = rm.l_hand, rm.s_hand, rm.theta_hand
 
@@ -236,15 +231,15 @@ if __name__ == '__main__':
         impedance_target[3]+= impedance_increment_robot[2]*INTEGRAL_MULTIPLIER/(RIPI*RATE)
         waypoint_pose_list_world_manipulation = robot2_pose_list(impedance_target[:3].tolist(),impedance_target[3])
 
-        waypoint_pose_list = rh.pose_list_from_matrix(np.dot(wm_to_base, rh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
-        my_impedance_mode_helper.set_cart_impedance_pose(waypoint_pose_list)
+        waypoint_pose_list = kh.pose_list_from_matrix(np.dot(wm_to_base, kh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
+        rm.set_cart_impedance_pose(waypoint_pose_list)
 
         rm.pub_pivot_sliding_commanded_flag(pivot_sliding_commanded_flag)
         rm.pub_target_frame(waypoint_pose_list)
         rm.pub_qp_debug_message(debug_dict)
 
         # log timing info
-        tl.log_time()
-        tl.log_qp_time(debug_dict['solve_time'])
+        rm.log_time()
+        rm.log_qp_time(debug_dict['solve_time'])
 
-        rate.sleep()
+        rm.sleep()

@@ -3,7 +3,6 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(currentdir))
 
-import json
 import rospy
 from geometry_msgs.msg import PoseStamped, WrenchStamped, TransformStamped
 from sensor_msgs.msg import CameraInfo, Image
@@ -21,6 +20,9 @@ from pbal.msg import   (SlidingStateStamped,
 import Helpers.ros_helper as rh
 import Helpers.pbal_msg_helper as pmh
 from Helpers.pickle_manager import pickle_manager
+from Helpers.time_logger import time_logger
+import Helpers.impedance_mode_helper as IMH
+import tf
 import time
 import numpy as np
 from Estimation import friction_reasoning
@@ -28,32 +30,9 @@ import tf2_ros
 from cv_bridge import CvBridge
 import cv2
 
-	# '/ee_pose_in_world_from_franka_publisher'
-
-	# '/ft_sensor_in_base_frame'
-	# '/ft_sensor_in_end_effector_frame'
-	# '/end_effector_sensor_in_end_effector_frame'
-	# '/end_effector_sensor_in_base_frame'
-	# '/torque_cone_boundary_test'
-	# '/torque_cone_boundary_flag'
-
-	# '/friction_parameters'
-	
-
-	# '/pivot_frame_realsense'
-	# '/pivot_frame_estimated'
-	# '/generalized_positions'
-	# '/end_effector_sensor_in_end_effector_frame'
-	# '/barrier_func_control_command'
-	
-	# '/torque_bound_message'
-	
-	# '/pivot_sliding_commanded_flag'
-	# '/qp_debug_message'
-	# '/target_frame'
 
 class ros_manager(object):
-	def __init__(self,record_mode=False,path=None,experiment_label=None):
+	def __init__(self,record_mode=False,path=None,experiment_label=None,load_mode=False,fname=None):
 		self.data_available = []
 		self.available_mask = []
 		self.unpack_functions = []
@@ -65,6 +44,14 @@ class ros_manager(object):
 		self.record_mode = record_mode
 		self.path = path
 		self.experiment_label=experiment_label
+		self.rate = None
+
+		self.tl = None
+		self.qp_time_on=False
+
+		self.my_impedance_mode_helper=None
+
+		self.listener = None
 		
 		if self.record_mode:
 			self.max_queue_size=np.inf
@@ -75,7 +62,24 @@ class ros_manager(object):
 			self.max_queue_size=1
 			self.subscriber_queue_size = 1
 
-	def activate_record_mode(path,experiment_label=None):
+		self.load_mode = load_mode
+
+		if self.load_mode:
+			if fname is not None:
+				self.fname_load = fname.split('.')[0]
+			else:
+				print('Error! No fname given!')
+			
+
+	def init_node(self,node_name):
+		self.node_name = node_name
+		rospy.init_node(self.node_name)
+		time.sleep(.25)
+
+	def is_shutdown(self):
+		return rospy.is_shutdown()
+
+	def activate_record_mode(self,path,experiment_label=None):
 		self.record_mode = True
 		self.path = path
 		self.pkm = pickle_manager(self.path)
@@ -83,6 +87,11 @@ class ros_manager(object):
 		self.fname = self.pkm.generate_experiment_name(experiment_label=self.experiment_label)
 		self.max_queue_size=np.inf
 		self.subscriber_queue_size = 100
+
+	def activate_load_mode(self,path,fname):
+		self.load_mode = True
+		self.path = path
+		self.fname_load = fname.split('.')[0]
 
 	def store_in_pickle(self):
 		self.pkm.store_in_pickle(self.topic_list,self.buffer_dict,self.message_type_dict,experiment_label=self.experiment_label)
@@ -122,7 +131,72 @@ class ros_manager(object):
 		if '/near_cam/color/image_raw' in self.subscriber_dict and self.near_came_video_writer is not None:
 			time.sleep(.3)
 			self.near_came_video_writer.release()
+
+	def setRate(self,RATE):
+		self.rate = rospy.Rate(RATE)
 				
+	def sleep(self):
+		if self.rate is not None:
+			self.rate.sleep()
+
+	def init_time_logger(self):
+		self.tl = time_logger(self.node_name)
+
+	def init_qp_time(self):
+		if self.tl is not None:
+			self.tl.init_qp_time()
+			self.qp_time_on=True
+
+	def tl_reset(self):
+		if self.tl is not None:
+			self.tl.reset()
+
+	def log_time(self):
+		if self.tl is not None:
+			self.tl.log_time()
+
+	def log_qp_time(self,solve_time):
+		if self.tl is not None and self.qp_time_on:
+			self.tl.log_qp_time(solve_time)
+
+	def impedance_mode_helper(self):
+		self.my_impedance_mode_helper = IMH.impedance_mode_helper()
+
+	def set_matrices_pbal_mode(self,TIPI,TOOPI,RIPI,ROOPI,rot_mat):
+		if self.my_impedance_mode_helper is not None:
+			self.my_impedance_mode_helper.set_matrices_pbal_mode(TIPI,TOOPI,RIPI,ROOPI,rot_mat)
+
+	def set_cart_impedance_pose(self, pose):
+		if self.my_impedance_mode_helper is not None:
+			self.my_impedance_mode_helper.set_cart_impedance_pose(pose)
+
+	def spawn_transform_listener(self):
+		self.listener = tf.TransformListener()
+
+	# calls the ROS service that tares (zeroes) the force-torque sensor
+	def zero_ft_sensor(self):
+		import netft_rdt_driver.srv as srv
+		rospy.wait_for_service('/netft/zero', timeout=0.5)
+		zero_ft = rospy.ServiceProxy('/netft/zero', srv.Zero)
+		zero_ft()
+
+	def lookupTransform(self, homeFrame, targetFrame):
+		if self.listener is not None:
+			ntfretry = 100
+			retryTime = .05
+			for i in range(ntfretry):
+				try:
+					(trans, rot) = self.listener.lookupTransform(targetFrame, homeFrame, self.listener.getLatestCommonTime(targetFrame, homeFrame))
+					return (trans, rot)
+				except:  
+					print('[lookupTransform] failed to transform')
+					print('[lookupTransform] targetFrame %s homeFrame %s, retry %d' %
+						(targetFrame, homeFrame, i))
+					time.sleep(retryTime)
+
+			return (None, None)
+		else:
+			return (None, None)
 
 	def subscribe(self,topic, isNecessary = True):
 		self.available_mask.append(not isNecessary)
@@ -610,14 +684,20 @@ class ros_manager(object):
 				QPDebugStamped,
 				queue_size=10)
 
+		elif topic == '/barrier_func_control_command':
+			self.barrier_func_control_command_pub = rospy.Publisher(
+				topic,
+				ControlCommandStamped,
+				queue_size=10)
+
 		elif topic == '/target_frame':
 			# intialize impedance target frame
-			self.target_frame_pub = rospy.Publisher(topic, 
+			self.target_frame_pub = rospy.Publisher(
+				topic, 
 				TransformStamped, 
 				queue_size=10) 
 			# set up transform broadcaster
 			self.target_frame_broadcaster = tf2_ros.TransformBroadcaster()
-
 
 
 	def pub_ee_pose_in_world_manipulation_from_franka(self,ee_pose_in_world_manipulation_list):
@@ -630,11 +710,13 @@ class ros_manager(object):
 		ee_pose_in_base_pose_stamped.header.stamp = rospy.Time.now()
 		self.ee_pose_in_base_from_franka_pub.publish(ee_pose_in_base_pose_stamped)
 
-	def pub_end_effector_sensor_in_end_effector_frame(self,msg):
+	def pub_end_effector_sensor_in_end_effector_frame(self,end_effector_wrench_in_end_effector_list,frame_id):
+		msg = rh.list2wrench_stamped(end_effector_wrench_in_end_effector_list,frame_id)
 		msg.header.stamp = rospy.Time.now()
 		self.end_effector_sensor_in_end_effector_frame_pub.publish(msg)
 
-	def pub_end_effector_sensor_in_world_manipulation_frame(self,msg):
+	def pub_end_effector_sensor_in_world_manipulation_frame(self,end_effector_wrench_in_world_manipulation_list,frame_id):
+		msg = rh.list2wrench_stamped(end_effector_wrench_in_world_manipulation_list,frame_id)
 		msg.header.stamp = rospy.Time.now()
 		self.end_effector_sensor_in_world_manipulation_frame_pub.publish(msg)
 
@@ -663,9 +745,16 @@ class ros_manager(object):
 		pivot_sliding_commanded_flag_message.header.stamp = rospy.Time.now()
 		self.pivot_sliding_commanded_flag_pub.publish(pivot_sliding_commanded_flag_message)
 
+	def pub_barrier_func_control_command(self,command_msg_dict):
+		command_msg = pmh.command_dict_to_command_stamped(command_msg_dict)
+		command_msg.header.stamp = rospy.Time.now()
+		self.barrier_func_control_command_pub.publish(command_msg)
+
+
 	def pub_target_frame(self,waypoint_pose_list):
-		waypoint_pose_list_stamped = rh.list2transform_stamped(waypoint_pose_list,header_frame_id = 'base', child_frame_id = 'hand_estimate')
+		waypoint_pose_list_stamped = rh.list2transform_stamped(waypoint_pose_list, header_frame_id = 'base', child_frame_id = 'hand_estimate')
 		waypoint_pose_list_stamped.header.stamp = rospy.Time.now()
+		self.target_frame_pub.publish(waypoint_pose_list_stamped)
 		self.target_frame_broadcaster.sendTransform(waypoint_pose_list_stamped)
 
 	def pub_qp_debug_message(self,debug_dict):

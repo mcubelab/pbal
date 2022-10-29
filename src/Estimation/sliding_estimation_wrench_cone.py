@@ -4,29 +4,22 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 sys.path.insert(0,os.path.dirname(currentdir))
 
 import numpy as np
-import pdb
-import rospy
 import time
-
-import Helpers.pbal_msg_helper as pmh
-import Helpers.ros_helper as rh
-from Helpers.time_logger import time_logger
-from Helpers.ros_manager import ros_manager
 
 from Modelling.system_params import SystemParams
 import friction_reasoning
 
+from Helpers.ros_manager import ros_manager
+
 if __name__ == '__main__':
 
     node_name = 'sliding_estimation_wrench_cone'
-    rospy.init_node(node_name)
+    
     sys_params = SystemParams()
-    rate = rospy.Rate(sys_params.estimator_params["RATE"])
-
-    rospy.init_node("sliding_estimation_wrench_cone")
-    rospy.sleep(1.0)
 
     rm = ros_manager()
+    rm.init_node(node_name)
+    rm.setRate(sys_params.estimator_params["RATE"])
     rm.subscribe_to_list([  '/end_effector_sensor_in_end_effector_frame',
                             '/end_effector_sensor_in_world_manipulation_frame',
                             '/friction_parameters'])
@@ -45,12 +38,12 @@ if __name__ == '__main__':
     dummy, last_slide_time_dict, sliding_state_dict = friction_reasoning.initialize_friction_dictionaries()
 
     # object for computing loop frequency
-    tl = time_logger(node_name)
+    rm.init_time_logger()
    
     print("Starting sliding state estimation from wrench cone")
-    while not rospy.is_shutdown():
+    while not rm.is_shutdown():
         t0 = time.time()
-        tl.reset()
+        rm.tl_reset()
         rm.unpack_all()
 
         update_and_publish = False
@@ -71,6 +64,5 @@ if __name__ == '__main__':
             rm.pub_sliding_state(sliding_state_dict)   
 
         # log timing info       
-        tl.log_time()
-
-        rate.sleep()
+        rm.log_time()
+        rm.sleep()

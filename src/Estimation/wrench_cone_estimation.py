@@ -5,10 +5,8 @@ sys.path.insert(0,os.path.dirname(currentdir))
 
 from livestats import livestats
 import numpy as np
-import rospy
 import time
 
-from Helpers.time_logger import time_logger
 from Helpers.ros_manager import ros_manager
 
 from Modelling.system_params import SystemParams
@@ -19,14 +17,15 @@ from numpy import random
 if __name__ == '__main__':
     
     node_name = "wrench_cone_estimation"
-    rospy.init_node(node_name)
+    
     sys_params = SystemParams()
-    rate = rospy.Rate(sys_params.estimator_params["RATE"])
 
     theta_min_contact = np.arctan(sys_params.pivot_params["mu_contact"])
     theta_min_external = np.arctan(sys_params.pivot_params["mu_ground"])
 
     rm = ros_manager()
+    rm.init_node(node_name)
+    rm.setRate(sys_params.estimator_params["RATE"])
     rm.subscribe('/end_effector_sensor_in_end_effector_frame')
     rm.subscribe('/end_effector_sensor_in_world_manipulation_frame')
     rm.spawn_publisher('/friction_parameters')
@@ -49,7 +48,7 @@ if __name__ == '__main__':
     should_publish_ground_friction_cone = False
 
     # object for computing loop frequnecy
-    tl = time_logger(node_name)
+    rm.init_time_logger()
 
     update_robot_friction_cone = False
     update_ground_friction_cone = False
@@ -61,8 +60,8 @@ if __name__ == '__main__':
     ground_update_number = 100
 
     print("Starting wrench cone estimation")
-    while not rospy.is_shutdown():
-        tl.reset()
+    while not rm.is_shutdown():
+        rm.tl_reset()
         rm.unpack_all()
 
         # updating quantiles for robot friction cone
@@ -141,7 +140,8 @@ if __name__ == '__main__':
             should_publish_ground_friction_cone = False
 
         # log timing info
-        tl.log_time()
+        rm.log_time()
+        rm.sleep()
 
 
 

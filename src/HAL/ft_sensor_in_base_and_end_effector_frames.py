@@ -38,7 +38,7 @@
 
 # base
 # This is the world frame, with the origin located at the base of the robot arm
-# It is at "ground" level (i.e. on the level of the table the arm is attached to)
+# It is at 'ground' level (i.e. on the level of the table the arm is attached to)
 # Z corresponds to the vertical direction
 
 # Outputs:
@@ -78,49 +78,32 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(currentdir))
 
-import netft_rdt_driver.srv as srv
 import numpy as np
-import pdb
-import rospy
 import time
-import tf
 
-import Helpers.ros_helper as rh
-from Helpers.time_logger import time_logger
-from Helpers.ros_manager import ros_manager
+import Helpers.kinematics_helper as kh
 from Modelling.system_params import SystemParams
 
-sys_params = SystemParams()
-LCONTACT = sys_params.object_params["L_CONTACT_MAX"]                                        # length of the end effector 
-NORMAL_FORCE_THRESHOLD = sys_params.estimator_params["NORMAL_FORCE_THRESHOLD_FORCE"]        # Minimum required normal force
-TORQUE_BOUNDARY_MARGIN = sys_params.object_params["TORQUE_BOUNDARY_MARGIN"]                 # in yaml
-END_EFFECTOR_MASS = sys_params.object_params["END_EFFECTOR_MASS"]                           # mass of end effectors
+from Helpers.ros_manager import ros_manager
 
-# calls the ROS service that tares (zeroes) the force-torque sensor
-def zero_ft_sensor():
-    rospy.wait_for_service('/netft/zero', timeout=0.5)
-    zero_ft = rospy.ServiceProxy('/netft/zero', srv.Zero)
-    zero_ft()
+sys_params = SystemParams()
+LCONTACT = sys_params.object_params['L_CONTACT_MAX']                                        # length of the end effector 
+NORMAL_FORCE_THRESHOLD = sys_params.estimator_params['NORMAL_FORCE_THRESHOLD_FORCE']        # Minimum required normal force
+TORQUE_BOUNDARY_MARGIN = sys_params.object_params['TORQUE_BOUNDARY_MARGIN']                 # in yaml
+END_EFFECTOR_MASS = sys_params.object_params['END_EFFECTOR_MASS']                           # mass of end effectors
 
 if __name__ == '__main__':
     
     # initialize node
     node_name = 'ft_sensor_transformations'
-    rospy.init_node(node_name)
-    sys_params = SystemParams()
-    rate = rospy.Rate(sys_params.hal_params["RATE"])     
 
-
-    # Make listener and get ft sensor in hand frame
-    listener = tf.TransformListener()
-
-    # ft sensor in the hand frame
-    (ft_sensor_in_end_effector_trans, ft_sensor_in_end_effector_rot) = \
-        rh.lookupTransform('/ft_sensor', '/panda_EE', listener)
+    sys_params = SystemParams()   
 
     # Initialize all publishers and subscribers. 
     # See /Helpers/ros_manager for the actual code (mostly book-keeping)
     rm = ros_manager()
+    rm.init_node(node_name)
+    rm.setRate(sys_params.estimator_params['RATE'])
     rm.subscribe_to_list(['/netft/netft_data',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/ee_pose_in_base_from_franka_publisher'])
@@ -130,67 +113,54 @@ if __name__ == '__main__':
                              '/torque_cone_boundary_test',
                              '/torque_cone_boundary_flag'])
 
+    rm.spawn_transform_listener()
+    # ft sensor in the hand frame
+    (ft_sensor_in_end_effector_trans, ft_sensor_in_end_effector_rot) = rm.lookupTransform('/ft_sensor', '/panda_EE')
 
     # wait until messages have been received from all essential ROS topics before proceeding
     rm.wait_for_necessary_data()
     rm.unpack_all()
 
-
     # panda hand pose in base frame WHEN TARING
     base_z_in_ee_frame0 = np.array(rm.base_z_in_ee_frame)
 
     # ft sensor pose in end effector frame
-    (ft_sensor_in_end_effector_trans, ft_sensor_end_effector_in_base_rot) = \
-        rh.lookupTransform('/ft_sensor', '/panda_EE', listener)
-    ft_sensor_in_end_effector_pose = rh.list2pose_stamped(ft_sensor_in_end_effector_trans 
-        + ft_sensor_end_effector_in_base_rot, frame_id="/panda_EE")
-    T_ft_sensor_in_panda_hand = rh.matrix_from_pose(
-        ft_sensor_in_end_effector_pose)
+    (ft_sensor_in_end_effector_trans, ft_sensor_end_effector_in_base_rot) = rm.lookupTransform('/ft_sensor', '/panda_EE')
+    T_ft_sensor_in_panda_hand = kh.matrix_from_pose_list(ft_sensor_in_end_effector_trans + ft_sensor_end_effector_in_base_rot)
 
-    # base frame in base frame
-    base_in_base_pose = rh.unit_pose()
-    
     # zero sensor
-    zero_ft_sensor()
-    print("Zeroing sensor")
+    rm.zero_ft_sensor()
+    print('Zeroing sensor')
 
     # object for computing loop frequnecy
-    tl = time_logger(node_name)
+    rm.init_time_logger()
 
     # Run node at rate
-    while not rospy.is_shutdown():
-        tl.reset()
+    while not rm.is_shutdown():
+        rm.tl_reset()
         rm.unpack_all()
 
         # ft wrench reading in end-effector frame
-        ft_wrench_in_end_effector_reading = rh.rotate_wrench(rm.ft_wrench_in_ft_sensor,ft_sensor_in_end_effector_pose)
-        ft_wrench_in_end_effector_list = rh.wrench_stamped2list(ft_wrench_in_end_effector_reading)
+        ft_wrench_in_end_effector_list = kh.rotate_wrench(rm.ft_wrench_in_ft_sensor_list,T_ft_sensor_in_panda_hand)
         correction = (-base_z_in_ee_frame0 + rm.base_z_in_ee_frame) * 9.81 * END_EFFECTOR_MASS
         ft_wrench_in_end_effector_list[0] += correction[0]
         ft_wrench_in_end_effector_list[1] += correction[1]
         ft_wrench_in_end_effector_list[2] += correction[2]
-        ft_wrench_in_end_effector = rh.list2wrench_stamped(ft_wrench_in_end_effector_list)
-        ft_wrench_in_end_effector.header.frame_id = "/panda_EE"
 
         # end effector wrench in end effector frame
-        end_effector_wrench_in_end_effector = rh.wrench_reference_point_change(
-            ft_wrench_in_end_effector, ft_sensor_in_end_effector_trans)
-        end_effector_wrench_in_end_effector.header.frame_id = "/panda_EE"
-
-        # end effector wrench in world manipulation frame
-        end_effector_wrench_in_world_manipulation = rh.rotate_wrench(end_effector_wrench_in_end_effector, 
-            rm.ee_pose_in_world_manipulation)
-        end_effector_wrench_in_world_manipulation.header.frame_id = "/world_manipulation_frame"
-
+        end_effector_wrench_in_end_effector_list = kh.wrench_reference_point_change(ft_wrench_in_end_effector_list, ft_sensor_in_end_effector_trans)
+ 
+        end_effector_wrench_in_world_manipulation_list = kh.rotate_wrench(end_effector_wrench_in_end_effector_list, 
+            rm.ee_pose_in_world_manipulation_homog)
 
         #normal force component of the measured wrench at the end-effector (projected onto the planar system we care about)
-        normal_force = end_effector_wrench_in_end_effector.wrench.force.x
+        normal_force = end_effector_wrench_in_end_effector_list[0]
 
         #friction force component of the measured wrench at the end-effector (projected onto the planar system we care about)
-        friction_force = end_effector_wrench_in_end_effector.wrench.force.y
+        friction_force = end_effector_wrench_in_end_effector_list[1]
 
         #torque of the measured wrench at the end-effector (projected onto the planar system we care about)
-        torque =  end_effector_wrench_in_end_effector.wrench.torque.z
+        torque =  end_effector_wrench_in_end_effector_list[5]
 
         #evaluate torque_boundary_boolean which is output as the rostopic /torque_cone_boundary_test
         #torque_boundary_boolean is TRUE when the measured torque is on the interior of the torque cone (for the planar system)
@@ -224,14 +194,12 @@ if __name__ == '__main__':
                     #if torque value is on or past the negative boundary, set flag to 2
                     torque_boundary_flag=2
 
-
         # publish and sleep
-        rm.pub_end_effector_sensor_in_end_effector_frame(end_effector_wrench_in_end_effector)
-        rm.pub_end_effector_sensor_in_world_manipulation_frame(end_effector_wrench_in_world_manipulation)
+        rm.pub_end_effector_sensor_in_end_effector_frame(end_effector_wrench_in_end_effector_list,'/panda_EE')
+        rm.pub_end_effector_sensor_in_world_manipulation_frame(end_effector_wrench_in_world_manipulation_list,'/world_manipulation_frame')
         rm.pub_torque_cone_boundary_test(torque_boundary_boolean)
         rm.pub_torque_cone_boundary_flag(torque_boundary_flag)   
 
         # log timing info
-        tl.log_time()
-
-        rate.sleep()
+        rm.log_time()
+        rm.sleep()
