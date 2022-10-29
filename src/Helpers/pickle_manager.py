@@ -6,9 +6,7 @@ sys.path.insert(0,os.path.dirname(currentdir))
 import cv2
 from cv_bridge import CvBridge
 import pickle
-import rosbag
 import Helpers.pbal_msg_helper as pmh
-import Helpers.ros_helper as rh
 import numpy as np
 
 class pickle_manager(object):
@@ -16,9 +14,9 @@ class pickle_manager(object):
         self.path = path
 
         self.parse_dict = {
-            'WrenchStamped': rh.wrench_stamped2list,
-            'PoseStamped': rh.pose_stamped2list,
-            'TransformStamped': rh.transform_stamped2list,
+            'WrenchStamped': pmh.wrench_stamped2list,
+            'PoseStamped': pmh.pose_stamped2list,
+            'TransformStamped': pmh.transform_stamped2list,
             'ControlCommandStamped': pmh.command_stamped_to_command_dict,
             'FrictionParamsStamped': pmh.friction_stamped_to_friction_dict,
             'GeneralizedPositionsStamped': pmh.parse_generalized_positions_stamped,

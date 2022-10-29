@@ -1,4 +1,3 @@
-import pdb
 import numpy as np
 from pbal.msg import   (SlidingStateStamped, 
                         FrictionParamsStamped, 
@@ -9,6 +8,111 @@ from pbal.msg import   (SlidingStateStamped,
                         TorqueConeBoundaryTestStamped,
                         TorqueBoundsStamped, 
                         GeneralizedPositionsStamped)
+
+from geometry_msgs.msg import   (PoseStamped, 
+                                TransformStamped, 
+                                Pose2D, 
+                                WrenchStamped,
+                                PointStamped)
+
+def list2pose_stamped(pose, frame_id="world"):
+    msg = PoseStamped()
+    msg.header.frame_id = frame_id
+    msg.pose.position.x = pose[0]
+    msg.pose.position.y = pose[1]
+    msg.pose.position.z = pose[2]
+    msg.pose.orientation.x = pose[3]
+    msg.pose.orientation.y = pose[4]
+    msg.pose.orientation.z = pose[5]
+    msg.pose.orientation.w = pose[6]
+    return msg
+
+def pose_stamped2list(msg):
+    return [float(msg.pose.position.x),
+            float(msg.pose.position.y),
+            float(msg.pose.position.z),
+            float(msg.pose.orientation.x),
+            float(msg.pose.orientation.y),
+            float(msg.pose.orientation.z),
+            float(msg.pose.orientation.w)]
+
+def list2transform_stamped(transform, header_frame_id = 'base', child_frame_id = 'hand_estimate'):
+    msg = TransformStamped()
+    msg.header.frame_id = header_frame_id
+    msg.child_frame_id = child_frame_id
+    msg.transform.translation.x = transform[0]
+    msg.transform.translation.y = transform[1]
+    msg.transform.translation.z = transform[2]
+    msg.transform.rotation.x = transform[3]
+    msg.transform.rotation.y = transform[4]
+    msg.transform.rotation.z = transform[5]
+    msg.transform.rotation.w = transform[6]
+    return msg
+
+def transform_stamped2list(msg):
+    return [float(msg.transform.translation.x),
+            float(msg.transform.translation.y),
+            float(msg.transform.translation.z),
+            float(msg.transform.rotation.x),
+            float(msg.transform.rotation.y),
+            float(msg.transform.rotation.z),
+            float(msg.transform.rotation.w)]
+
+def list2wrench_stamped(wrench, frame_id='base'):
+    msg = WrenchStamped()
+    msg.header.frame_id = frame_id
+    msg.wrench.force.x = wrench[0]
+    msg.wrench.force.y = wrench[1]
+    msg.wrench.force.z = wrench[2]
+    msg.wrench.torque.x = wrench[3]
+    msg.wrench.torque.y = wrench[4]
+    msg.wrench.torque.z = wrench[5]
+    return msg
+
+def wrench_stamped2list(msg):
+    return [float(msg.wrench.force.x), 
+            float(msg.wrench.force.y), 
+            float(msg.wrench.force.z), 
+            float(msg.wrench.torque.x), 
+            float(msg.wrench.torque.y), 
+            float(msg.wrench.torque.z)]
+
+def wrenchstamped_2FT(msg):
+    force = [float(msg.wrench.force.x),
+             float(msg.wrench.force.y),
+             float(msg.wrench.force.z)]
+
+    torque = [float(msg.wrench.torque.x),
+              float(msg.wrench.torque.y),
+              float(msg.wrench.torque.z)]
+
+    return force, torque
+
+def list2point_stamped(xyz):
+    msg = PointStamped()
+    msg.point.x = xyz[0]
+    msg.point.y = xyz[1]
+    msg.point.z = xyz[2]
+    return msg
+
+def point_stamped2list(msg):
+    return [float(msg.point.x), float(msg.point.y), float(msg.point.z)]
+
+def list2pose_twod(pose):
+    msg = Pose2D()
+    msg.x = pose[0]
+    msg.y = pose[1]
+    msg.theta = pose[2]
+    return msg
+
+def pose_twod2list(msg):
+    return [float(msg.x), float(msg.y), float(msg.theta)]
+
+def quat2list(quat):
+    return [float(quat.x), float(quat.y), float(quat.z), float(quat.w)]
+
+def unit_pose_stamped():
+    return list2pose_stamped([0.0,0.0,0.0,0.0,0.0,0.0,1.0])
 
 def generate_torque_cone_boundary_flag_stamped(torque_boundary_flag):
     torque_boundary_flag_message = TorqueConeBoundaryFlagStamped()

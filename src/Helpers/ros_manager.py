@@ -3,26 +3,6 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(currentdir))
 
-import rospy
-from geometry_msgs.msg import PoseStamped, WrenchStamped, TransformStamped
-from sensor_msgs.msg import CameraInfo, Image
-from apriltag_ros.msg import AprilTagDetectionArray
-
-from pbal.msg import   (SlidingStateStamped, 
-						FrictionParamsStamped, 
-						ControlCommandStamped, 
-						QPDebugStamped,
-						TorqueConeBoundaryFlagStamped,
-						PivotSlidingCommandedFlagStamped,
-						TorqueConeBoundaryTestStamped,
- 						TorqueBoundsStamped, 
- 						GeneralizedPositionsStamped)
-import Helpers.ros_helper as rh
-import Helpers.pbal_msg_helper as pmh
-from Helpers.pickle_manager import pickle_manager
-from Helpers.time_logger import time_logger
-import Helpers.impedance_mode_helper as IMH
-import tf
 import time
 import numpy as np
 from Estimation import friction_reasoning
@@ -30,9 +10,9 @@ import tf2_ros
 from cv_bridge import CvBridge
 import cv2
 
-
 class ros_manager(object):
 	def __init__(self,record_mode=False,path=None,experiment_label=None,load_mode=False,fname=None):
+		self.ros_imports()
 		self.data_available = []
 		self.available_mask = []
 		self.unpack_functions = []
@@ -69,8 +49,41 @@ class ros_manager(object):
 				self.fname_load = fname.split('.')[0]
 			else:
 				print('Error! No fname given!')
-			
 
+	def ros_imports(self):
+		global rospy
+		global PoseStamped, WrenchStamped, TransformStamped
+		global CameraInfo, Image
+		global AprilTagDetectionArray
+
+		global SlidingStateStamped, FrictionParamsStamped, ControlCommandStamped, QPDebugStamped
+		global TorqueConeBoundaryFlagStamped, PivotSlidingCommandedFlagStamped, TorqueConeBoundaryTestStamped
+		global TorqueBoundsStamped, GeneralizedPositionsStamped
+
+		global kh, pmh, IMH, tf, pickle_manager, time_logger
+
+		import rospy
+		from geometry_msgs.msg import PoseStamped, WrenchStamped, TransformStamped
+		from sensor_msgs.msg import CameraInfo, Image
+		from apriltag_ros.msg import AprilTagDetectionArray
+
+		from pbal.msg import   (SlidingStateStamped, 
+								FrictionParamsStamped, 
+								ControlCommandStamped, 
+								QPDebugStamped,
+								TorqueConeBoundaryFlagStamped,
+								PivotSlidingCommandedFlagStamped,
+								TorqueConeBoundaryTestStamped,
+		 						TorqueBoundsStamped, 
+		 						GeneralizedPositionsStamped)
+
+		import Helpers.kinematics_helper as kh
+		import Helpers.pbal_msg_helper as pmh
+		from Helpers.pickle_manager import pickle_manager
+		from Helpers.time_logger import time_logger
+		import Helpers.impedance_mode_helper as IMH
+		import tf
+			
 	def init_node(self,node_name):
 		self.node_name = node_name
 		rospy.init_node(self.node_name)
@@ -169,6 +182,18 @@ class ros_manager(object):
 	def set_cart_impedance_pose(self, pose):
 		if self.my_impedance_mode_helper is not None:
 			self.my_impedance_mode_helper.set_cart_impedance_pose(pose)
+
+	def set_cart_impedance_stiffness(self,stiffness=None, damping=None):
+			if self.my_impedance_mode_helper is not None:
+				self.my_impedance_mode_helper.set_cart_impedance_stiffness(stiffness=stiffness, damping=damping)
+
+	def initialize_impedance_mode(self,torque_upper=None,force_upper=None):
+		if torque_upper is None or force_upper is None:
+		    torque_upper = [40.0, 40.0, 36.0, 36.0, 32.0, 28.0, 24.0]
+    		force_upper = [100.0, 100.0, 100.0, 25.0, 25.0, 25.0]
+
+		if self.my_impedance_mode_helper is not None:
+			self.my_impedance_mode_helper.initialize_impedance_mode(torque_upper=torque_upper,force_upper=force_upper)
 
 	def spawn_transform_listener(self):
 		self.listener = tf.TransformListener()
@@ -701,22 +726,22 @@ class ros_manager(object):
 
 
 	def pub_ee_pose_in_world_manipulation_from_franka(self,ee_pose_in_world_manipulation_list):
-		ee_pose_in_world_manipulation_pose_stamped = rh.list2pose_stamped(ee_pose_in_world_manipulation_list)
+		ee_pose_in_world_manipulation_pose_stamped = pmh.list2pose_stamped(ee_pose_in_world_manipulation_list)
 		ee_pose_in_world_manipulation_pose_stamped.header.stamp = rospy.Time.now()
 		self.ee_pose_in_world_manipulation_from_franka_pub.publish(ee_pose_in_world_manipulation_pose_stamped)
 
 	def pub_ee_pose_in_base_from_franka(self,ee_pose_in_base_list):
-		ee_pose_in_base_pose_stamped = rh.list2pose_stamped(ee_pose_in_base_list)
+		ee_pose_in_base_pose_stamped = pmh.list2pose_stamped(ee_pose_in_base_list)
 		ee_pose_in_base_pose_stamped.header.stamp = rospy.Time.now()
 		self.ee_pose_in_base_from_franka_pub.publish(ee_pose_in_base_pose_stamped)
 
 	def pub_end_effector_sensor_in_end_effector_frame(self,end_effector_wrench_in_end_effector_list,frame_id):
-		msg = rh.list2wrench_stamped(end_effector_wrench_in_end_effector_list,frame_id)
+		msg = pmh.list2wrench_stamped(end_effector_wrench_in_end_effector_list,frame_id)
 		msg.header.stamp = rospy.Time.now()
 		self.end_effector_sensor_in_end_effector_frame_pub.publish(msg)
 
 	def pub_end_effector_sensor_in_world_manipulation_frame(self,end_effector_wrench_in_world_manipulation_list,frame_id):
-		msg = rh.list2wrench_stamped(end_effector_wrench_in_world_manipulation_list,frame_id)
+		msg = pmh.list2wrench_stamped(end_effector_wrench_in_world_manipulation_list,frame_id)
 		msg.header.stamp = rospy.Time.now()
 		self.end_effector_sensor_in_world_manipulation_frame_pub.publish(msg)
 
@@ -752,7 +777,7 @@ class ros_manager(object):
 
 
 	def pub_target_frame(self,waypoint_pose_list):
-		waypoint_pose_list_stamped = rh.list2transform_stamped(waypoint_pose_list, header_frame_id = 'base', child_frame_id = 'hand_estimate')
+		waypoint_pose_list_stamped = pmh.list2transform_stamped(waypoint_pose_list, header_frame_id = 'base', child_frame_id = 'hand_estimate')
 		waypoint_pose_list_stamped.header.stamp = rospy.Time.now()
 		self.target_frame_pub.publish(waypoint_pose_list_stamped)
 		self.target_frame_broadcaster.sendTransform(waypoint_pose_list_stamped)
@@ -771,7 +796,7 @@ class ros_manager(object):
 	def force_unpack(self):
 		if len(self.ft_wrench_in_ft_sensor_buffer)>0:
 			self.ft_wrench_in_ft_sensor = self.ft_wrench_in_ft_sensor_buffer.pop(0)
-			self.ft_wrench_in_ft_sensor_list = rh.wrench_stamped2list(self.ft_wrench_in_ft_sensor)
+			self.ft_wrench_in_ft_sensor_list = pmh.wrench_stamped2list(self.ft_wrench_in_ft_sensor)
 
 			self.force_has_new = True
 		else:
@@ -787,8 +812,8 @@ class ros_manager(object):
 		if len(self.ee_pose_in_world_manipulation_buffer)>0:
 
 			self.ee_pose_in_world_manipulation = self.ee_pose_in_world_manipulation_buffer.pop(0)
-			self.ee_pose_in_world_manipulation_list = rh.pose_stamped2list(self.ee_pose_in_world_manipulation)
-			self.ee_pose_in_world_manipulation_homog = rh.matrix_from_pose_list(self.ee_pose_in_world_manipulation_list)
+			self.ee_pose_in_world_manipulation_list = pmh.pose_stamped2list(self.ee_pose_in_world_manipulation)
+			self.ee_pose_in_world_manipulation_homog = kh.matrix_from_pose_list(self.ee_pose_in_world_manipulation_list)
 
 			self.ee_pose_in_world_manipulation_has_new = True
 		else:
@@ -804,8 +829,8 @@ class ros_manager(object):
 		if len(self.ee_pose_in_base_buffer)>0:
 
 			self.ee_pose_in_base = self.ee_pose_in_base_buffer.pop(0)
-			self.ee_pose_in_base_list = rh.pose_stamped2list(self.ee_pose_in_base)
-			self.ee_pose_in_base_homog = rh.matrix_from_pose_list(self.ee_pose_in_base_list)
+			self.ee_pose_in_base_list = pmh.pose_stamped2list(self.ee_pose_in_base)
+			self.ee_pose_in_base_homog = kh.matrix_from_pose_list(self.ee_pose_in_base_list)
 
 			self.base_z_in_ee_frame = self.ee_pose_in_base_homog[2, :3]
 
@@ -824,7 +849,7 @@ class ros_manager(object):
 
 			end_effector_wrench = self.measured_contact_wrench_buffer.pop(0)
 
-			measured_contact_wrench_6D = rh.wrench_stamped2list(
+			measured_contact_wrench_6D = pmh.wrench_stamped2list(
 				end_effector_wrench)
 
 			self.measured_contact_wrench = -np.array([
@@ -846,7 +871,7 @@ class ros_manager(object):
 		if len(self.measured_world_manipulation_wrench_buffer)>0:
 			world_manipulation_wrench = self.measured_world_manipulation_wrench_buffer.pop(0)
 
-			measured_world_manipulation_wrench_6D = rh.wrench_stamped2list(
+			measured_world_manipulation_wrench_6D = pmh.wrench_stamped2list(
 				world_manipulation_wrench)
 
 			self.measured_world_manipulation_wrench = -np.array([
@@ -1056,8 +1081,8 @@ class ros_manager(object):
 		if len(self.target_frame_buffer)>0:
 			data = self.target_frame_buffer.pop(0)
 
-			self.target_frame = rh.transform_stamped2list(data)
-			self.target_frame_homog =  rh.matrix_from_pose_list(self.target_frame)
+			self.target_frame = pmh.transform_stamped2list(data)
+			self.target_frame_homog =  kh.matrix_from_pose_list(self.target_frame)
 
 			self.target_frame_has_new = True
 		else:

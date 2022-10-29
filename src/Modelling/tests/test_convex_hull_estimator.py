@@ -3,7 +3,6 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(os.path.dirname(currentdir)))
 
-import pdb
 import numpy as np
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt

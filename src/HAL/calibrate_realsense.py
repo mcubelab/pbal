@@ -1,26 +1,139 @@
 #!/usr/bin/env python
 import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-gparentdir = os.path.dirname(parentdir)
-sys.path.insert(0,parentdir) 
-sys.path.insert(0,gparentdir)
+sys.path.insert(0,os.path.dirname(currentdir))
 
-# this is to find out the transform between the webcam frame and robot frame
-import numpy as np
-import tf.transformations as tfm
-import rospy
 import copy
-import pdb;
+import cv2
+from cv_bridge import CvBridge, CvBridgeError
+from cvxopt import matrix, solvers
+import json
+import numpy as np
+import pdb
+import rospy
+import time
 import tf
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+import tf.transformations as tfm
 
-from math import sqrt
-import Modelling.ros_helper as ros_helper
-import franka_helper
-from franka_interface import ArmInterface 
 from apriltag_ros.msg import AprilTagDetectionArray
+from geometry_msgs.msg import TransformStamped, PoseStamped, WrenchStamped
+from pbal.msg import FrictionParamsStamped, QPDebugStamped
+from sensor_msgs.msg import CameraInfo, Image
+from std_msgs.msg import Float32MultiArray
+
+from Modelling.system_params import SystemParams
+import Helpers.ros_helper as rh
+import Helpers.pbal_msg_helper as pmh
+import Helpers.impedance_mode_helper as IMH
+
+def initialize_frame():
+    frame_message = TransformStamped()
+    frame_message.header.frame_id = "base"
+    frame_message.header.stamp = rospy.Time.now()
+    frame_message.child_frame_id = "hand_estimate"
+    frame_message.transform.translation.x = 0.0
+    frame_message.transform.translation.y = 0.0
+    frame_message.transform.translation.z = 0.0
+
+    frame_message.transform.rotation.x = 0.0
+    frame_message.transform.rotation.y = 0.0
+    frame_message.transform.rotation.z = 0.0
+    frame_message.transform.rotation.w = 1.0
+    return frame_message
+
+def update_frame(frame_pose_stamped, frame_message):
+    frame_message.header.stamp = rospy.Time.now()
+    frame_message.transform.translation.x = frame_pose_stamped.pose.position.x
+    frame_message.transform.translation.y = frame_pose_stamped.pose.position.y
+    frame_message.transform.translation.z = frame_pose_stamped.pose.position.z
+    frame_message.transform.rotation.x = frame_pose_stamped.pose.orientation.x
+    frame_message.transform.rotation.y = frame_pose_stamped.pose.orientation.y
+    frame_message.transform.rotation.z = frame_pose_stamped.pose.orientation.z
+    frame_message.transform.rotation.w = frame_pose_stamped.pose.orientation.w
+
+def robot2_pose_list(xyz_list, theta):
+    return xyz_list + rh.theta_to_quatlist(theta)
+
+def apriltag_message_callback(apriltag_array):
+    global apriltag_id
+
+    global object_detected
+    global obj_pose_homog
+
+    obj_apriltag_list = [
+        detection for detection in apriltag_array.detections
+        if detection.id == (apriltag_id, )
+    ]
+
+    if obj_apriltag_list:
+        object_detected = True
+
+        obj_pose_homog = rh.matrix_from_pose(obj_apriltag_list[0].pose.pose)
+
+    else:
+        object_detected = False
+
+
+# def camera_info_callback(data):
+#     global camera_info
+
+#     camera_info = data
+
+# def get_pix(xyz, transformation_matrix):
+#     # xyz should be n x 3
+
+#     # Project trajectories into pixel space
+#     vector = np.hstack([xyz, np.ones([xyz.shape[0], 1])])
+#     pixels = np.dot(transformation_matrix, vector.T)
+#     pix_x = np.divide(pixels[0], pixels[2])
+#     pix_y = np.divide(pixels[1], pixels[2])
+
+#     return pix_x, pix_y
+
+def ee_pose_callback(data):
+    global panda_hand_in_base_pose
+    panda_hand_in_base_pose = data
+
+def get_pix_easier(xyz, transformation_matrix):
+    pixels = np.dot(transformation_matrix, xyz)
+    pix_x = np.divide(pixels[0], pixels[2])
+    pix_y = np.divide(pixels[1], pixels[2])
+
+    return np.round(pix_x).astype(int), np.round(pix_y).astype(int)
+
+def generate_winding_indices(height,width):
+    my_E_matrix = np.zeros([height,width])
+    index_list = []
+    index_A=0
+    index_B=1
+    
+    count = 1
+
+    index_list.append([0,0])
+    while count<=(width-1)*height:
+        my_E_matrix[index_A,index_B]=count
+        
+        index_list.append([index_A,index_B])
+        if index_A%2==0:
+            if index_B==width-1:
+                index_A+=1
+            else:
+                index_B+=1
+        else:
+            if index_B==1:
+                index_A+=1
+            else:
+                index_B-=1
+        count+=1
+
+    index_A-=1
+    while index_A>0:
+        my_E_matrix[index_A,0]=count
+        index_list.append([index_A,0])
+        count+=1
+        index_A-=1
+
+    return index_list
 
 def rigid_transform_3D(A, B):
     assert len(A) == len(B)
@@ -59,136 +172,293 @@ def rigid_transform_3D(A, B):
 
     err = np.multiply(err, err)
     err = np.sum(err)
-    rmse = sqrt(err/N);
+    rmse = np.sqrt(err/N);
 
     return R, t, rmse
 
-def move_to_endpoint_pose(arm, endpoint_pose, 
-    stiffness=[50, 50, 50, 10, 10, 10]):
-    
-    arm.set_cart_impedance_pose(endpoint_pose, 
-      stiffness=stiffness) 
-    rospy.sleep(3.0)
-
-def detect_april_tag():
-
-    apriltag_array = rospy.wait_for_message("/tag_detections", AprilTagDetectionArray, timeout=2.)
-    rospy.sleep(0.2)
-    try:
-        apriltag_position = apriltag_array.detections[0].pose.pose.pose.position
-        apriltag_xyz_list = [apriltag_position.x, apriltag_position.y,
-            apriltag_position.z]
-        return apriltag_xyz_list
-    except:
-        print 'apriltag pos is bad, not using this data'
-        return []
-
-
-def endpoint_xyz(arm):
-    arm_pose = arm.endpoint_pose()
-    return arm_pose['position'].tolist()
-
-
 if __name__ == '__main__':
 
-    rospy.init_node("calibrate_realsense")
-    arm = ArmInterface()
-    rospy.sleep(0.5)
+    panda_hand_in_base_pose = None
 
-    # Make listener
+    apriltag_id = 10
+    object_detected = False
+    obj_pose_homog = None
+
+    camera_info = None
+
+    image_list = []
+
+    l_tag = .042
+    x_tag_boundary = np.array([-l_tag/2,l_tag/2,l_tag/2,-l_tag/2])
+    y_tag_boundary = np.array([l_tag/2,l_tag/2,-l_tag/2,-l_tag/2])
+    z_tag_boundary = np.array([0.0]*4)
+    one_tag_boundary = np.array([1.0]*4)
+
+    tag_boundary_pts = np.vstack([x_tag_boundary,y_tag_boundary,z_tag_boundary,one_tag_boundary])
+  
+
+    
+    
+
+
+    rospy.init_node("realsense_live_calibration_test")
+    rate = rospy.Rate(10)
+    rospy.sleep(1.0)
+
+
+    # initialize impedance mode
+    IMPEDANCE_STIFFNESS_LIST = [3000, 3000, 3000, 100, 60, 100] #[100, 100, 100, 100, 100, 100] #[50, 50, 50, 10, 10, 10] #[2000, 2000, 2000, 200, 60, 200]
+  
+    
+    my_impedance_mode_helper = IMH.impedance_mode_helper()
+    my_impedance_mode_helper.set_cart_impedance_stiffness(IMPEDANCE_STIFFNESS_LIST)
+
+
     listener = tf.TransformListener()
+ 
+    bridge = CvBridge()
 
-    # limits
-    xlim = [0.35, 0.65]
-    ylim = [-0.0, 0.2]
-    zlim = [0.08, 0.215]
+    # image_message_sub = rospy.Subscriber('/far_cam/color/image_raw', Image,
+    #                                      image_message_callback)
 
-    # number of segments
-    nseg = 4
+    # camera_info_sub = rospy.Subscriber('/far_cam/color/camera_info', CameraInfo,
+    #                                    camera_info_callback)
 
-    # original pose
-    pose0 = arm.endpoint_pose()
+    apriltag_message_sub = rospy.Subscriber('/tag_detections',
+                                            AprilTagDetectionArray,
+                                            apriltag_message_callback)
+        # subscribers
+    panda_hand_in_base_pose_sub  = rospy.Subscriber(
+                                        '/ee_pose_in_world_from_franka_publisher',
+                                        PoseStamped,
+                                        ee_pose_callback,
+                                        queue_size=1)
 
-    # transform from endpoint to apriltag
-    (apriltag_in_panda_hand_pos, apriltag_in_panda_hand_rot) = ros_helper.lookupTransform(
-        '/ee_apriltag_in_world', '/panda_hand_from_camera', listener)
-    apriltag_pose_in_panda_hand = ros_helper.list2pose_stamped(apriltag_in_panda_hand_pos + 
-        apriltag_in_panda_hand_rot, frame_id="/panda_hand_from_camera")
+    # intialize impedance target frame
+    frame_message = initialize_frame()
+    target_frame_pub = rospy.Publisher('/target_frame', 
+                                        TransformStamped, 
+                                        queue_size=10) 
 
-    xr = []
-    yr = []
-    zr = []
+    rospy.sleep(1.0)
+    # print("Waiting for image message")
+    # while len(image_list) == 0:
+    #     rospy.sleep(0.1)
 
-    xat = []
-    yat = []
-    zat = []
+    # print("Waiting for camera info")
+    # while camera_info is None:
+    #     rospy.sleep(.1)
+
+    # # (3, 4) camera matrix
+    # camera_matrix = np.reshape(camera_info.P, (3, 4))
+    # camera_info_sub.unregister()
+
+    M1 = np.zeros([3,3])
+    M2 = np.zeros(3)
+    forgetting_factor = .01
+
+    trans_diff = np.zeros(3)
+    camera_pose_mat = np.zeros([4,4])
+    camera_pose_mat[3,3]=1.0
+
+    cam_to_calibrate = 'near'
+    # cam_to_calibrate = 'far'
+
+    if cam_to_calibrate == 'far':
+        desired_pose_homog = np.array([ [ 0.0,-1.0, 0.0, 0.5],
+                                        [ 0.0, 0.0, 1.0, 0.25],
+                                        [-1.0, 0.0, 0.0, 0.15],
+                                        [ 0.0, 0.0, 0.0, 1.0]])
+
+        min_X = .32
+        max_X = .62
+
+        min_Y = .05
+        max_Y = .3
+
+        min_Z = .07
+        max_Z = .17
+
+    if cam_to_calibrate == 'near':
+        desired_pose_homog = np.array([ [ 0.0, 1.0, 0.0, 0.5],
+                                        [ 0.0, 0.0,-1.0,-0.25],
+                                        [-1.0, 0.0, 0.0, 0.15],
+                                        [ 0.0, 0.0, 0.0, 1.0]])
+        min_X = .32
+        max_X = .62
+
+        min_Y = -.05
+        max_Y = -.3
+
+        min_Z = .07
+        max_Z = .17
+
+    candidate_points_start =  np.array([
+        [ 1.0,-1.0, 0.0, 0.0, 0.0, 0.0],
+        [ 0.0, 0.0, 1.0,-1.0, 0.0, 0.0],
+        [ 0.0, 0.0, 0.0, 0.0, 1.0,-1.0],
+        [ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]])
+
+    candidate_points_start[0:3,:]*=.21
+
+    # print candidate_points_start
+
+    april_tag_pts_from_robot = np.zeros([3,0])
+    april_tag_pts_from_camera = np.zeros([3,0])
+
+    winding_height = 8
+    winding_width = 8
+    winding_depth = 8
+    num_waypoints = winding_height*winding_width
 
 
-    for x in np.linspace(xlim[0], xlim[1], nseg):
-        for y in np.linspace(ylim[0], ylim[1], nseg):
-            for z in np.linspace(zlim[0], zlim[1], nseg):
 
-                # build pose
-                end_pose = copy.deepcopy(pose0)
-                end_pose['position'] = np.array([x, y, z])
-                # print(end_pose['position'])
-
-                # move to pose and wait
-                move_to_endpoint_pose(arm, end_pose, 
-                    stiffness=[50, 50, 50, 10, 10, 10])         
-                move_to_endpoint_pose(arm, end_pose, 
-                    stiffness=[300, 300, 300, 30, 30, 30])
-
-                # get apriltag position
-                apriltag_xyz_list = detect_april_tag()
-                if not apriltag_xyz_list:
-                    continue
-
-                # get arm position
-                endpoint_pose_list = franka_helper.franka_pose2list(arm.endpoint_pose())
-                endpoint_pose_stamped = ros_helper.list2pose_stamped(endpoint_pose_list)
-                ee_apriltag_pose_stamped = ros_helper.convert_reference_frame(apriltag_pose_in_panda_hand,
-                    ros_helper.unit_pose(), endpoint_pose_stamped, frame_id = "base")
-                apriltag_xyz_from_robot = ros_helper.pose_stamped2list(ee_apriltag_pose_stamped)[:3]
-
-                xr = xr + [apriltag_xyz_from_robot[0]]
-                yr = yr + [apriltag_xyz_from_robot[1]]
-                zr = zr + [apriltag_xyz_from_robot[2]]
-
-                xat = xat + [apriltag_xyz_list[0]]
-                yat = yat + [apriltag_xyz_list[1]]
-                zat = zat + [apriltag_xyz_list[2]]
-
-                # print(arm_xyz_list)
-                # print(apriltag_xyz_list)
+    X_range = np.linspace(min_X,max_X,winding_width)
+    Y_range = np.linspace(max_Y,min_Y,winding_depth)
+    Z_range = np.linspace(min_Z,max_Z,winding_height)
 
 
-    robotpts = np.vstack([xr, yr, zr]).T
-    aprilpts = np.vstack([xat, yat, zat]).T
+    my_winding_indices = generate_winding_indices(winding_height,winding_width)
 
-    (R, t, rmse) = rigid_transform_3D(
-        aprilpts, robotpts)  # then you'll get webcam frame wrt robot frame
+    count = 0
 
-    points_work = []
-    for i in range(len(xr)):
-        points_atag = np.array([xat[i], yat[i], zat[i]])
-        points_work.append(np.matmul(R, points_atag) + t)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
 
-    ax.scatter(np.array(points_work)[:, 0],
-                np.array(points_work)[:, 1],
-                np.array(points_work)[:, 2],
-                c='r',
-                marker='o',s=130)
-    ax.scatter(xr, yr, zr, c='b', marker='o',s=100)    
+    starting_pose = rh.matrix_from_pose(panda_hand_in_base_pose)
 
-    Rh = tfm.identity_matrix()
-    Rh[np.ix_([0, 1, 2], [0, 1, 2])] = R
-    quat = tfm.quaternion_from_matrix(Rh)
+    x_current = starting_pose[0,3]
+    y_current = starting_pose[1,3]
+    z_current = starting_pose[2,3]
 
-    print 'apriltag_T_robot:', " ".join('%.8e' % x
-                                 for x in (t.tolist() + quat.tolist()))
-    print 'rmse:', rmse
-    plt.show()
+    x_start = X_range[0]
+    y_start = Y_range[0]
+    z_start = Z_range[0]
+
+    t0 = time.time()
+    step_time = 3.0
+
+    while time.time()-t0<step_time:
+        alpha = min(1.0,(time.time()-t0)/step_time)
+
+        x_target = alpha*x_start + (1-alpha)*x_current
+        y_target = alpha*y_start + (1-alpha)*y_current
+        z_target = alpha*z_start + (1-alpha)*z_current
+
+        desired_pose_homog[0,3] = x_target
+        desired_pose_homog[1,3] = y_target
+        desired_pose_homog[2,3] = z_target
+
+        my_impedance_mode_helper.set_cart_impedance_pose(rh.pose_from_matrix(desired_pose_homog))
+
+
+
+
+    desired_pose_homog[1,3] = y_start
+
+    t0 = time.time()
+    step_time = 1.5
+
+    snapshot_taken = False
+    snapshot_threshold =1.9
+
+    while not rospy.is_shutdown():
+       
+        t = time.time()-t0
+        next_index = np.ceil(t/step_time)
+        current_index = np.floor(t/step_time)
+
+        alpha_raw = (t-current_index*step_time)/(.5*step_time)
+        alpha = min(1,alpha_raw)
+        
+        if int(next_index)//num_waypoints>=len(Z_range):
+            break
+
+        z_target_next = Z_range[my_winding_indices[int(next_index)%num_waypoints][0]]
+        y_target_next = Y_range[int(next_index)//num_waypoints]
+        x_target_next = X_range[my_winding_indices[int(next_index)%num_waypoints][1]]
+
+        z_target_current = Z_range[my_winding_indices[int(current_index)%num_waypoints][0]]
+        y_target_current = Y_range[int(current_index)//num_waypoints]
+        x_target_current = X_range[my_winding_indices[int(current_index)%num_waypoints][1]]
+
+        
+        
+
+        z_target = alpha*z_target_next+(1-alpha)*z_target_current
+        y_target = alpha*y_target_next+(1-alpha)*y_target_current
+        x_target = alpha*x_target_next+(1-alpha)*x_target_current
+        
+        desired_pose_homog[0,3] = x_target
+        desired_pose_homog[1,3] = y_target
+        desired_pose_homog[2,3] = z_target
+
+
+
+
+
+        my_impedance_mode_helper.set_cart_impedance_pose(rh.pose_from_matrix(desired_pose_homog))
+
+        if alpha_raw<=snapshot_threshold:
+            snapshot_taken = False
+
+        if object_detected:
+
+            (cam_in_base_trans, cam_in_base_rot) = rh.lookupTransform(
+                '/panda_april_tag', 'base', listener)
+
+            robot_apriltag_pose_matrix = rh.matrix_from_trans_and_quat(cam_in_base_trans,cam_in_base_rot)
+            
+            robot_apriltag_rot = robot_apriltag_pose_matrix[0:3,0:3]
+            robot_apriltag_trans = robot_apriltag_pose_matrix[0:3,3]
+
+            camera_apriltag_rot = obj_pose_homog[0:3,0:3]
+            camera_apriltag_trans = obj_pose_homog[0:3,3]
+
+            if alpha_raw>snapshot_threshold:
+                if not snapshot_taken:
+                    camera_points =  np.dot(obj_pose_homog,candidate_points_start)
+                    robot_points =  np.dot(robot_apriltag_pose_matrix,candidate_points_start)
+
+                    april_tag_pts_from_robot = np.hstack([april_tag_pts_from_robot,robot_points[0:3,:]])
+                    april_tag_pts_from_camera = np.hstack([april_tag_pts_from_camera,camera_points[0:3,:]])
+
+                    snapshot_taken = True
+
+
+    (R, t, rmse) = rigid_transform_3D(np.transpose(april_tag_pts_from_camera), np.transpose(april_tag_pts_from_robot))  # then you'll get webcam frame wrt robot frame
+
+    print R
+    print t
+    print rmse
+
+    print rh.pose_stamped2list(rh.pose_from_matrix(
+        np.vstack([np.hstack([np.array(R),np.transpose(np.array([t]))]),
+            np.array([[0.0,0.0,0.0,1.0]])])))
+
+        # print type(rh.pose_from_matrix(desired_pose_homog))
+        # print isinstance(rh.pose_from_matrix(desired_pose_homog),PoseStamped)
+        # target_frame_pub.publish(frame_message)
+
+            # M1 = (1-forgetting_factor)*M1 + forgetting_factor*np.dot(robot_apriltag_rot,np.transpose(robot_apriltag_rot))
+            # M2 = (1-forgetting_factor)*M2 + forgetting_factor*np.dot(camera_apriltag_rot,np.transpose(robot_apriltag_rot))
+
+
+            # rot_mat_out = np.linalg.solve(M1,M2)
+            # trans_diff = (1-forgetting_factor)*trans_diff + forgetting_factor*(camera_apriltag_trans-np.dot(rot_mat_out,robot_apriltag_trans))
+
+            # camera_pose_mat[0:3,0:3]=rot_mat_out
+            # camera_pose_mat[0:3,3]=trans_diff
+            # # print np.dot(rot_mat_out,robot_apriltag_rot)-camera_apriltag_rot
+            # # print trans_diff - (np.dot(rot_mat_out,robot_apriltag_trans)-camera_apriltag_trans)
+
+            # cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T],
+            #     True, (0, 255, 0),thickness=2)
+
+            # x_coord, y_coord = get_pix_easier(np.dot(camera_pose_mat,np.dot(robot_apriltag_pose_matrix,tag_boundary_pts)),camera_matrix)
+            # cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T],
+            #     True, (255, 0, 0),thickness=2)
+
+        
+        # cv2.imshow("Image window", cv_image)
+        # cv2.waitKey(3)
+        # rate.sleep()

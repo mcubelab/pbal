@@ -8,7 +8,6 @@ import numpy as np
 from geometry_msgs.msg import PoseStamped
 from franka_interface import ArmInterface 
 from franka_tools import CollisionBehaviourInterface
-import Helpers.ros_helper as rh
 from franka_core_msgs.msg import CartImpedanceStiffness
 
 class impedance_mode_helper():

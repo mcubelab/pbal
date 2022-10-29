@@ -283,8 +283,6 @@ def transform_body(pose_source_world, pose_transform_target_body):
                                                          frame_id="yumi_body")
     return pose_source_rotated_world
 
-
-
 def convert_reference_frame(pose_source, pose_frame_target, pose_frame_source, frame_id = "work_obj"):
     T_pose_source = matrix_from_pose(pose_source)
     pose_transform_target2source = get_transform(pose_frame_source, pose_frame_target)
@@ -311,70 +309,3 @@ def get_transform(pose_frame_target, pose_frame_source):
     T_relative_world = np.matmul(T_target_world, np.linalg.inv(T_source_world))
     pose_relative_world = pose_from_matrix(T_relative_world, frame_id=pose_frame_source.header.frame_id)
     return pose_relative_world
-
-
-
-def initialize_rosbag(topics, dir_save_bagfile, exp_name='test'):
-    import datetime
-    import subprocess
-    #Saving rosbag options
-    name_of_bag  = str(datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")) + '-' + exp_name
-    rosbag_proc = subprocess.Popen('rosbag record -q -O %s %s' % (name_of_bag, " ".join(topics)) , shell=True, cwd=dir_save_bagfile)
-
-def terminate_rosbag():
-    terminate_ros_node('/record')
-
-def terminate_ros_node(s):
-    import os
-    import subprocess
-    list_cmd = subprocess.Popen("rosnode list", shell=True, stdout=subprocess.PIPE)
-    list_output = list_cmd.stdout.read()
-    retcode = list_cmd.wait()
-    assert retcode == 0, "List command returned %d" % retcode
-    for term in list_output.decode('utf8').split("\n"):
-        if (term.startswith(s)):
-            os.system("rosnode kill " + term)
-            print("rosnode kill " + term)
-
-def compute_tip2tcp_offset(listener, pose_tip_push_start, tip_name='/apriltag_tip'):
-    # pose_tip_start = list2pose_stamped(pose_list, frame_id='push_start')
-    #1. get transforms from tf
-    pose_push_start_map = get_pose_from_tf_frame(listener=listener,
-                                            target_frame='/push_start',
-                                            source_name='/map')
-
-    pose_link_6_tip = get_pose_from_tf_frame(listener=listener,
-                                            target_frame='/link_6',
-                                            source_name=tip_name)
-
-    #2. Find tip pose in map frame (from push start frame)
-    pose_tip_map = convert_reference_frame(pose_source= pose_tip_push_start,
-                                         pose_frame_target=unit_pose(),
-                                         pose_frame_source=pose_push_start_map,
-                                         frame_id='map')
-
-    #3. Find tcp frame (in map) from tip frame (in map)
-    pose_tcp_map = convert_reference_frame(pose_source=pose_link_6_tip,
-                                                         pose_frame_target=unit_pose(),
-                                                         pose_frame_source=pose_tip_map,
-                                                         frame_id='map')
-    return pose_tcp_map
-
-
-def transform_tip2tcp(listener,  pose_tip_push_start, tip_name='/apriltag_tip'):
-    pose_tcp_map = compute_tip2tcp_offset(listener,  pose_tip_push_start, tip_name)
-    pose_map_list = convert_ros2abb(pose_tcp_map)
-    return pose_map_list
-  
-def quatlist_to_theta(quat_list):
-    #converts fraka quaternion to sagittal plane angle
-    pose_homog = matrix_from_trans_and_quat(quat = quat_list)
-    return np.arctan2(-pose_homog[1,0], -pose_homog[0,0])   
-
-def theta_to_quatlist(theta):
-    #converts sagittal <now in world manipulation frame, which is right-handed, with z axes aligned!! -Orion> plane angle to franka quaternion
-    #note that the quaternion is defined in the world manipulation frame, so it will need to be converted to the base frame in order to be
-    #sent to the robot as an impedance command
-    return quat_from_matrix( np.array([[-np.cos(theta),  np.sin(theta), 0.0], 
-                                      [ -np.sin(theta), -np.cos(theta), 0.0], 
-                                      [            0.0,            0.0, 1.0]]))

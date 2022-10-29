@@ -1,25 +1,14 @@
 #!/usr/bin/env python
-
-import os
-import sys
-import inspect
-currentdir = os.path.dirname(
-    os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-gparentdir = os.path.dirname(parentdir)
-sys.path.insert(0, parentdir)
-sys.path.insert(0, gparentdir)
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+sys.path.insert(0,os.path.dirname(currentdir))
 
 import copy
 import cv2
 from cvxopt import matrix, solvers
-import json
+
 import numpy as np
-import pickle
 from Modelling.system_params import SystemParams
-
-# from cv_bridge import CvBridge, CvBridgeError
-
 
 def pose_list_to_matrix(pose_in):
     rotation_matrix = quat_to_mat(pose_in[3:7])
@@ -29,8 +18,6 @@ def pose_list_to_matrix(pose_in):
         np.array([0.0, 0.0, 0.0, 1.0])])
 
 # This function was copy-pasted from the Automatic Addison website
-
-
 def quat_to_mat(quat_in):
     x = quat_in[0]
     y = quat_in[1]
@@ -54,6 +41,8 @@ def quat_to_mat(quat_in):
                      [r20, r21, r22]])
 
 def load_shape_data(name_in):
+    import json
+
     curr_dir = os.path.dirname(
         os.path.abspath(inspect.getfile(inspect.currentframe())))
     parentdir = os.path.dirname(curr_dir)
