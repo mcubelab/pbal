@@ -6,6 +6,8 @@ sys.path.insert(0,os.path.dirname(currentdir))
 import json
 import rospy
 from geometry_msgs.msg import PoseStamped, WrenchStamped, TransformStamped
+from sensor_msgs.msg import CameraInfo, Image
+from apriltag_ros.msg import AprilTagDetectionArray
 
 from pbal.msg import   (SlidingStateStamped, 
 						FrictionParamsStamped, 
@@ -16,12 +18,16 @@ from pbal.msg import   (SlidingStateStamped,
 						TorqueConeBoundaryTestStamped,
  						TorqueBoundsStamped, 
  						GeneralizedPositionsStamped)
-import ros_helper as rh
-import pbal_msg_helper as pmh
+import Helpers.ros_helper as rh
+import Helpers.pbal_msg_helper as pmh
+from Helpers.pickle_manager import pickle_manager
 import time
 import numpy as np
 from Estimation import friction_reasoning
 import tf2_ros
+from cv_bridge import CvBridge
+import cv2
+
 	# '/ee_pose_in_world_from_franka_publisher'
 
 	# '/ft_sensor_in_base_frame'
@@ -47,7 +53,7 @@ import tf2_ros
 	# '/target_frame'
 
 class ros_manager(object):
-	def __init__(self,record_mode=False):
+	def __init__(self,record_mode=False,path=None,experiment_label=None):
 		self.data_available = []
 		self.available_mask = []
 		self.unpack_functions = []
@@ -57,15 +63,29 @@ class ros_manager(object):
 		self.buffer_dict = {}
 
 		self.record_mode = record_mode
+		self.path = path
+		self.experiment_label=experiment_label
 		
 		if self.record_mode:
 			self.max_queue_size=np.inf
+			self.subscriber_queue_size = 100
+			self.pkm = pickle_manager(self.path)
+			self.fname = self.pkm.generate_experiment_name(experiment_label=self.experiment_label)
 		else: 
 			self.max_queue_size=1
+			self.subscriber_queue_size = 1
 
-	def activate_record_mode():
+	def activate_record_mode(path,experiment_label=None):
 		self.record_mode = True
+		self.path = path
+		self.pkm = pickle_manager(self.path)
+		self.experiment_label = experiment_label
+		self.fname = self.pkm.generate_experiment_name(experiment_label=self.experiment_label)
 		self.max_queue_size=np.inf
+		self.subscriber_queue_size = 100
+
+	def store_in_pickle(self):
+		self.pkm.store_in_pickle(self.topic_list,self.buffer_dict,self.message_type_dict,experiment_label=self.experiment_label)
 
 	def wait_for_necessary_data(self):
 		print("Waiting to hear from essential subscribers")
@@ -95,6 +115,15 @@ class ros_manager(object):
 			if topic in self.subscriber_dict and self.subscriber_dict[topic] is not None:
 				self.subscriber_dict[topic].unregister()
 
+		if '/far_cam/color/image_raw' in self.subscriber_dict and self.far_came_video_writer is not None:
+			time.sleep(.3)
+			self.far_came_video_writer.release()
+
+		if '/near_cam/color/image_raw' in self.subscriber_dict and self.near_came_video_writer is not None:
+			time.sleep(.3)
+			self.near_came_video_writer.release()
+				
+
 	def subscribe(self,topic, isNecessary = True):
 		self.available_mask.append(not isNecessary)
 		self.data_available.append(False)
@@ -112,7 +141,8 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic, 
 				WrenchStamped, 
-				self.force_callback)
+				self.force_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'WrenchStamped'
 			self.buffer_dict[topic] = self.ft_wrench_in_ft_sensor_buffer
@@ -130,7 +160,8 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic, 
 				PoseStamped, 
-				self.ee_pose_in_world_manipulation_callback)
+				self.ee_pose_in_world_manipulation_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'PoseStamped'
 			self.buffer_dict[topic] = self.ee_pose_in_world_manipulation_buffer
@@ -150,7 +181,8 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic, 
 				PoseStamped, 
-				self.ee_pose_in_base_callback)
+				self.ee_pose_in_base_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'PoseStamped'
 			self.buffer_dict[topic] = self.ee_pose_in_base_buffer
@@ -166,7 +198,8 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic, 
 				WrenchStamped,  
-				self.end_effector_wrench_callback)
+				self.end_effector_wrench_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'WrenchStamped'
 			self.buffer_dict[topic] = self.measured_contact_wrench_buffer
@@ -182,10 +215,46 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic, 
 				WrenchStamped,  
-				self.end_effector_wrench_world_manipulation_frame_callback)
+				self.end_effector_wrench_world_manipulation_frame_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'WrenchStamped'
 			self.buffer_dict[topic] = self.measured_world_manipulation_wrench_buffer
+
+		elif topic == '/torque_cone_boundary_test':
+			self.unpack_functions.append(self.torque_cone_boundary_test_unpack)
+			self.torque_cone_boundary_test_buffer = []
+			self.torque_cone_boundary_test_available_index = len(self.data_available)-1
+			self.torque_cone_boundary_test_has_new = False
+
+			self.torque_cone_boundary_test = None
+
+			self.subscriber_dict[topic] = rospy.Subscriber(
+				topic, 
+				TorqueConeBoundaryTestStamped,  
+				self.torque_cone_boundary_test_callback,
+				queue_size = self.subscriber_queue_size)
+
+			self.message_type_dict[topic] = 'TorqueConeBoundaryTestStamped'
+			self.buffer_dict[topic] = self.torque_cone_boundary_test_buffer
+
+		elif topic == '/torque_cone_boundary_flag':
+			self.unpack_functions.append(self.torque_cone_boundary_flag_unpack)
+			self.torque_cone_boundary_flag_buffer = []
+			self.torque_cone_boundary_flag_available_index = len(self.data_available)-1
+			self.torque_cone_boundary_flag_has_new = False
+
+			self.torque_cone_boundary_flag = None
+
+			self.subscriber_dict[topic] = rospy.Subscriber(
+				topic, 
+				TorqueConeBoundaryFlagStamped,  
+				self.torque_cone_boundary_flag_callback,
+				queue_size = self.subscriber_queue_size)
+
+			self.message_type_dict[topic] = 'TorqueConeBoundaryFlagStamped'
+			self.buffer_dict[topic] = self.torque_cone_boundary_flag_buffer
+
 
 		elif topic == '/friction_parameters':
 			self.unpack_functions.append(self.friction_parameter_unpack)
@@ -198,7 +267,8 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic, 
 				FrictionParamsStamped, 
-				self.friction_parameter_callback)
+				self.friction_parameter_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'FrictionParamsStamped'
 			self.buffer_dict[topic] = self.friction_parameter_buffer
@@ -218,7 +288,8 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic, 
 				TransformStamped, 
-				self.pivot_xyz_realsense_callback)
+				self.pivot_xyz_realsense_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'TransformStamped'
 			self.buffer_dict[topic] = self.pivot_xyz_realsense_buffer
@@ -238,12 +309,12 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic, 
 				TransformStamped, 
-				self.pivot_xyz_estimated_callback)
+				self.pivot_xyz_estimated_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'TransformStamped'
 			self.buffer_dict[topic] = self.pivot_xyz_estimated_buffer
 
-		#unstamped, need to fix!
 		elif topic == '/generalized_positions':
 			self.unpack_functions.append(self.generalized_positions_unpack)
 			self.generalized_positions_buffer = []
@@ -260,7 +331,8 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic, 
 				GeneralizedPositionsStamped,  
-				self.generalized_positions_callback)
+				self.generalized_positions_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'GeneralizedPositionsStamped'
 			self.buffer_dict[topic] = self.generalized_positions_buffer
@@ -276,12 +348,12 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic, 
 				ControlCommandStamped, 
-				self.barrier_func_control_command_callback)
+				self.barrier_func_control_command_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'ControlCommandStamped'
 			self.buffer_dict[topic] = self.barrier_func_control_command_buffer
 
-		#unstamped, need to fix!
 		elif topic == '/torque_bound_message':
 			self.unpack_functions.append(self.torque_bound_unpack)
 			self.torque_bound_buffer = []
@@ -293,10 +365,45 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic, 
 				TorqueBoundsStamped,  
-				self.torque_bound_callback)
+				self.torque_bound_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'TorqueBoundsStamped'
 			self.buffer_dict[topic] = self.torque_bound_buffer
+
+		elif topic == '/sliding_state':
+			self.unpack_functions.append(self.sliding_state_unpack)
+			self.sliding_state_buffer = []
+			self.sliding_state_available_index = len(self.data_available)-1
+			self.sliding_state_has_new = False
+
+			self.sliding_state = None
+
+			self.subscriber_dict[topic] = rospy.Subscriber(
+				topic, 
+				SlidingStateStamped, 
+				self.sliding_state_callback,
+				queue_size = self.subscriber_queue_size)
+
+			self.message_type_dict[topic] = 'SlidingStateStamped'
+			self.buffer_dict[topic] = self.sliding_state_buffer
+
+		elif topic == '/pivot_sliding_commanded_flag':
+			self.unpack_functions.append(self.pivot_sliding_commanded_flag_unpack)
+			self.pivot_sliding_commanded_flag_buffer = []
+			self.pivot_sliding_commanded_flag_available_index = len(self.data_available)-1
+			self.pivot_sliding_commanded_flag_has_new = False
+
+			self.pivot_sliding_commanded_flag = None
+
+			self.subscriber_dict[topic] = rospy.Subscriber(
+				topic, 
+				PivotSlidingCommandedFlagStamped, 
+				self.pivot_sliding_commanded_flag_callback,
+				queue_size = self.subscriber_queue_size)
+
+			self.message_type_dict[topic] = 'PivotSlidingCommandedFlagStamped'
+			self.buffer_dict[topic] = self.pivot_sliding_commanded_flag_buffer
 
 		elif topic == '/qp_debug_message':
 			self.unpack_functions.append(self.qp_debug_unpack)
@@ -309,12 +416,13 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic,
 				QPDebugStamped,
-				self.qp_debug_callback)
+				self.qp_debug_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'QPDebugStamped'
 			self.buffer_dict[topic] = self.qp_debug_buffer
 
-		elif topic =='/target_frame':
+		elif topic == '/target_frame':
 			self.unpack_functions.append(self.target_frame_unpack)
 			self.target_frame_buffer = []
 			self.target_frame_available_index = len(self.data_available)-1
@@ -326,10 +434,106 @@ class ros_manager(object):
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic,
 				TransformStamped,
-				self.target_frame_callback)
+				self.target_frame_callback,
+				queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'TransformStamped'
 			self.buffer_dict[topic] = self.target_frame_buffer
+
+		elif topic == '/tag_detections':
+			self.unpack_functions.append(self.apriltag_unpack)
+			self.apriltag_buffer = []
+			self.apriltag_available_index = len(self.data_available)-1
+			self.apriltag_has_new = False
+
+			self.subscriber_dict[topic] = rospy.Subscriber(
+				topic,
+				AprilTagDetectionArray,
+				self.apriltag_callback,
+				queue_size = self.subscriber_queue_size)
+
+			self.message_type_dict[topic] = 'AprilTagDetectionArray'
+			self.buffer_dict[topic] = self.apriltag_buffer
+
+		elif topic == '/far_cam/color/image_raw':
+			self.unpack_functions.append(self.far_cam_image_raw_unpack)
+			self.far_cam_image_raw_buffer = []
+			self.far_cam_image_raw_available_index = len(self.data_available)-1
+			self.far_cam_image_raw_has_new = False
+
+			self.bridge = CvBridge()
+			self.far_cam_image_raw = None
+			self.far_came_video_writer = None
+
+			callback = self.far_cam_image_raw_callback
+			if self.record_mode:
+				callback = self.far_cam_image_raw_callback_record_version
+
+			self.subscriber_dict[topic] = rospy.Subscriber(
+				topic,
+				Image,
+				callback,
+				queue_size = self.subscriber_queue_size)
+
+			self.message_type_dict[topic] = 'Image'
+			self.buffer_dict[topic] = self.far_cam_image_raw_buffer
+
+		elif topic == '/near_cam/color/image_raw':
+			self.unpack_functions.append(self.near_cam_image_raw_unpack)
+			self.near_cam_image_raw_buffer = []
+			self.near_cam_image_raw_available_index = len(self.data_available)-1
+			self.near_cam_image_raw_has_new = False
+
+			self.bridge = CvBridge()
+			self.near_cam_image_raw = None
+			self.near_came_video_writer = None
+
+			callback = self.near_cam_image_raw_callback
+			if self.record_mode:
+				callback = self.near_cam_image_raw_callback_record_version
+
+			self.subscriber_dict[topic] = rospy.Subscriber(
+				topic,
+				Image,
+				callback,
+				queue_size = self.subscriber_queue_size)
+
+			self.message_type_dict[topic] = 'Image'
+			self.buffer_dict[topic] = self.near_cam_image_raw_buffer
+
+		elif topic == '/far_cam/color/camera_info':
+			self.unpack_functions.append(self.far_cam_camera_info_unpack)
+			self.far_cam_camera_info_buffer = []
+			self.far_cam_camera_info_available_index = len(self.data_available)-1
+			self.far_cam_camera_info_has_new = False
+
+			self.far_cam_camera_matrix = None
+
+			self.subscriber_dict[topic] = rospy.Subscriber(
+				topic,
+				CameraInfo,
+				self.far_cam_camera_info_callback,
+				queue_size = self.subscriber_queue_size)
+
+			self.message_type_dict[topic] = 'CameraInfo'
+			self.buffer_dict[topic] = self.far_cam_camera_info_buffer
+
+		elif topic == '/near_cam/color/camera_info':
+			self.unpack_functions.append(self.near_cam_camera_info_unpack)
+			self.near_cam_camera_info_buffer = []
+			self.near_cam_camera_info_available_index = len(self.data_available)-1
+			self.near_cam_camera_info_has_new = False
+
+			self.near_cam_camera_matrix = None
+
+			self.subscriber_dict[topic] = rospy.Subscriber(
+				topic,
+				CameraInfo,
+				self.near_cam_camera_info_callback,
+				queue_size = self.subscriber_queue_size)
+
+			self.message_type_dict[topic] = 'CameraInfo'
+			self.buffer_dict[topic] = self.near_cam_camera_info_buffer
 
 		else:
 			self.subscriber_dict[topic] = None
@@ -565,6 +769,36 @@ class ros_manager(object):
 		else:
 			self.end_effector_wrench_world_manipulation_frame_has_new = False
 
+	def torque_cone_boundary_test_callback(self,data):
+		self.torque_cone_boundary_test_buffer.append(data)
+		if len(self.torque_cone_boundary_test_buffer)>self.max_queue_size:
+			self.torque_cone_boundary_test_buffer.pop(0)
+		self.data_available[self.torque_cone_boundary_test_available_index]=True
+
+	def torque_cone_boundary_test_unpack(self):
+		if len(self.torque_cone_boundary_test_buffer)>0:
+			data = self.torque_cone_boundary_test_buffer.pop(0)
+			self.torque_cone_boundary_test = data.boundary_test
+
+			self.torque_cone_boundary_test_has_new = True
+		else:
+			self.torque_cone_boundary_test_has_new = False
+
+	def torque_cone_boundary_flag_callback(self,data):
+		self.torque_cone_boundary_flag_buffer.append(data)
+		if len(self.torque_cone_boundary_flag_buffer)>self.max_queue_size:
+			self.torque_cone_boundary_flag_buffer.pop(0)
+		self.data_available[self.torque_cone_boundary_flag_available_index]=True
+
+	def torque_cone_boundary_flag_unpack(self):
+		if len(self.torque_cone_boundary_flag_buffer)>0:
+			data = self.torque_cone_boundary_flag_buffer.pop(0)
+			self.torque_cone_boundary_flag = data.boundary_flag
+
+			self.torque_cone_boundary_flag_has_new = True
+		else:
+			self.torque_cone_boundary_flag_has_new = False
+
 	def friction_parameter_callback(self,data):
 		self.friction_parameter_buffer.append(data)
 		if len(self.friction_parameter_buffer)>self.max_queue_size:
@@ -601,7 +835,6 @@ class ros_manager(object):
 			self.pivot_xyz_realsense_has_new = True
 		else:
 			self.pivot_xyz_realsense_has_new = False
-
 
 	def pivot_xyz_estimated_callback(self,data):
 		self.pivot_xyz_estimated_buffer.append([data,time.time()])
@@ -676,6 +909,36 @@ class ros_manager(object):
 		else:
 			self.torque_bound_has_new = False
 
+	def sliding_state_callback(self,data):
+		self.sliding_state_buffer.append(data)
+		if len(self.sliding_state_buffer)>self.max_queue_size:
+			self.sliding_state_buffer.pop(0)
+		self.data_available[self.sliding_state_available_index]=True
+
+	def sliding_state_unpack(self):
+		if len(self.sliding_state_buffer)>0:
+			data = self.sliding_state_buffer.pop(0)
+			self.sliding_state = data.sliding_state
+
+			self.sliding_state_has_new = True
+		else:
+			self.sliding_state_has_new = False
+
+	def pivot_sliding_commanded_flag_callback(self,data):
+		self.pivot_sliding_commanded_flag_buffer.append(data)
+		if len(self.pivot_sliding_commanded_flag_buffer)>self.max_queue_size:
+			self.pivot_sliding_commanded_flag_buffer.pop(0)
+		self.data_available[self.pivot_sliding_commanded_flag_available_index]=True
+
+	def pivot_sliding_commanded_flag_unpack(self):
+		if len(self.pivot_sliding_commanded_flag_buffer)>0:
+			data = self.pivot_sliding_commanded_flag_buffer.pop(0)
+			self.pivot_sliding_commanded_flag = data.command_flag
+
+			self.pivot_sliding_commanded_flag_has_new = True
+		else:
+			self.pivot_sliding_commanded_flag_has_new = False
+
 	def qp_debug_callback(self,data):
 		self.qp_debug_buffer.append(data)
 		if len(self.qp_debug_buffer)>self.max_queue_size:
@@ -710,3 +973,101 @@ class ros_manager(object):
 			self.target_frame_has_new = True
 		else:
 			self.target_frame_has_new = False
+
+	def apriltag_callback(self,data):
+		self.apriltag_buffer.append(data)
+		if len(self.apriltag_buffer)>self.max_queue_size:
+			self.apriltag_buffer.pop(0)
+		self.data_available[self.apriltag_available_index]=True
+
+	def apriltag_unpack(self):
+		if len(self.apriltag_buffer)>0:
+			data = self.apriltag_buffer.pop(0)
+
+			self.apriltag_has_new = True
+		else:
+			self.apriltag_has_new = False
+
+	def far_cam_image_raw_callback(self,data):
+		self.far_cam_image_raw_buffer.append(data)
+		if len(self.far_cam_image_raw_buffer)>self.max_queue_size:
+			self.far_cam_image_raw_buffer.pop(0)
+		self.data_available[self.far_cam_image_raw_available_index]=True
+
+	def far_cam_image_raw_unpack(self):
+		if len(self.far_cam_image_raw_buffer)>0:
+			data = self.far_cam_image_raw_buffer.pop(0)
+			self.far_cam_image_raw = self.bridge.imgmsg_to_cv2(data, "bgr8")
+
+			self.far_cam_image_raw_has_new = True
+		else:
+			self.far_cam_image_raw_has_new = False
+
+	def near_cam_image_raw_callback(self,data):
+		self.near_cam_image_raw_buffer.append(data)
+		if len(self.near_cam_image_raw_buffer)>self.max_queue_size:
+			self.near_cam_image_raw_buffer.pop(0)
+		self.data_available[self.near_cam_image_raw_available_index]=True
+
+	def near_cam_image_raw_unpack(self):
+		if len(self.near_cam_image_raw_buffer)>0:
+			data = self.near_cam_image_raw_buffer.pop(0)
+			self.near_cam_image_raw = self.bridge.imgmsg_to_cv2(data, "bgr8")
+
+			self.near_cam_image_raw_has_new = True
+		else:
+			self.near_cam_image_raw_has_new = False
+
+	def far_cam_image_raw_callback_record_version(self,data):
+		cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+
+		if self.far_came_video_writer is None:
+			image_height, image_width, image_layers = cv_image.shape
+			image_size = (image_width, image_height)
+			save_name = os.path.join(self.path,self.fname)+'_far_cam_color_image_raw.avi'
+			self.far_came_video_writer = cv2.VideoWriter(save_name, cv2.VideoWriter_fourcc(*'DIVX'), 30, image_size)
+
+		self.far_came_video_writer.write(cv_image)
+		self.far_cam_image_raw_buffer.append(data.header.stamp.to_sec())
+
+	def near_cam_image_raw_callback_record_version(self,data):
+		cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+
+		if self.near_came_video_writer is None:
+			image_height, image_width, image_layers = cv_image.shape
+			image_size = (image_width, image_height)
+			save_name = os.path.join(self.path,self.fname)+'_near_cam_color_image_raw.avi'
+			self.near_came_video_writer = cv2.VideoWriter(save_name, cv2.VideoWriter_fourcc(*'DIVX'), 30, image_size)
+
+		self.near_came_video_writer.write(cv_image)
+		self.near_cam_image_raw_buffer.append(data.header.stamp.to_sec())
+
+	def far_cam_camera_info_callback(self,data):
+		self.far_cam_camera_info_buffer.append(data)
+		if len(self.far_cam_camera_info_buffer)>self.max_queue_size:
+			self.far_cam_camera_info_buffer.pop(0)
+		self.data_available[self.far_cam_camera_info_available_index]=True
+
+	def far_cam_camera_info_unpack(self):
+		if len(self.far_cam_camera_info_buffer)>0:
+			data = self.far_cam_camera_info_buffer.pop(0)
+			self.far_cam_camera_matrix = np.reshape(data.P, (3, 4))
+
+			self.far_cam_camera_info_has_new = True
+		else:
+			self.far_cam_camera_info_has_new = False
+
+	def near_cam_camera_info_callback(self,data):
+		self.near_cam_camera_info_buffer.append(data)
+		if len(self.near_cam_camera_info_buffer)>self.max_queue_size:
+			self.near_cam_camera_info_buffer.pop(0)
+		self.data_available[self.near_cam_camera_info_available_index]=True
+
+	def near_cam_camera_info_unpack(self):
+		if len(self.near_cam_camera_info_buffer)>0:
+			data = self.near_cam_camera_info_buffer.pop(0)
+			self.near_cam_camera_matrix = np.reshape(data.P, (3, 4))
+
+			self.near_cam_camera_info_has_new = True
+		else:
+			self.near_cam_camera_info_has_new = False

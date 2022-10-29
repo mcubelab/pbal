@@ -349,3 +349,7 @@ def parse_apriltag_detection_array(apriltag_message):
         return detection_dict
     else:
         return None
+
+def parse_camera_info(camera_info_message):
+    camera_matrix = np.reshape(camera_info_message.P, (3, 4))
+    return camera_matrix.tolist()
