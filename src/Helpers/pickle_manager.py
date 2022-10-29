@@ -8,7 +8,7 @@ from cv_bridge import CvBridge
 import pickle
 import rosbag
 import Helpers.pbal_msg_helper as pmh
-import ros_helper as rh
+import Helpers.ros_helper as rh
 import numpy as np
 
 class pickle_manager(object):
@@ -29,6 +29,7 @@ class pickle_manager(object):
             'TorqueConeBoundaryFlagStamped': pmh.parse_torque_cone_boundary_flag_stamped,
             'TorqueConeBoundaryTestStamped': pmh.parse_torque_cone_boundary_test_stamped,
             'AprilTagDetectionArray': pmh.parse_apriltag_detection_array,
+            'CameraInfo': pmh.parse_camera_info,
         }
 
     def generate_experiment_name(self,experiment_label=None):
@@ -53,7 +54,7 @@ class pickle_manager(object):
             new_experiment_num = np.amax(np.array(experiment_nums, dtype=int)) + 1
 
         #return experiment name
-        return = experiment_label+'-'+('experiment{:04d}'.format(new_experiment_num))
+        return experiment_label+'-'+('experiment{:04d}'.format(new_experiment_num))
 
     def read_buffer(self,topic_buffer,message_type):
         parse_function = self.parse_dict[message_type]
@@ -67,21 +68,23 @@ class pickle_manager(object):
 
         return time_list, msg_list
 
-    def generate_save_dictionary(self,topic_list,buffer_dict,message_type_dict):
+    def generate_save_dictionary(self,topic_list,buffer_dict,message_type_dict,fname):
         save_dict = {}
         msg_types = []
 
         for topic in topic_list:
-            if message_type_dict[topic] in self.parse_dict:
-                
-                time_list, msg_list = self.read_buffer(buffer_dict[topic])
+            if message_type_dict[topic] in self.parse_dict and buffer_dict[topic]:
+                time_list, msg_list = self.read_buffer(buffer_dict[topic],message_type_dict[topic])
                 save_dict[topic]={'time_list':time_list, 'msg_list':msg_list}
+
+            elif message_type_dict[topic] == 'Image' and buffer_dict[topic]:
+                save_dict[topic]={'time_list':buffer_dict[topic], 'msg_list':[None]*len(buffer_dict[topic])}
 
         return save_dict
 
     def store_in_pickle(self,topic_list,buffer_dict,message_type_dict,experiment_label=None):
         fname = self.generate_experiment_name(experiment_label)
-        data = self.generate_save_dictionary(topic_list,buffer_dict,message_type_dict)
+        data = self.generate_save_dictionary(topic_list,buffer_dict,message_type_dict,fname)
         print('storing data into: '+fname+'.pickle')
         with open(os.path.join(self.path,fname) + '.pickle', 'wb') as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
