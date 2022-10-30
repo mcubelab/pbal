@@ -180,26 +180,6 @@ def friction_parameter_callback(data):
         friction_parameter_list.pop(0)
 
 
-def get_pix(xyz, camera_transformation_matrix):
-    # xyz should be n x 3
-
-    # Project trajectories into pixel space
-    vector = np.hstack([xyz, np.ones([xyz.shape[0], 1])])
-    pixels = np.dot(camera_transformation_matrix, vector.T)
-    pix_x = np.divide(pixels[0], pixels[2])
-    pix_y = np.divide(pixels[1], pixels[2])
-
-    return pix_x, pix_y
-
-
-def get_pix_easier(xyz, camera_transformation_matrix):
-    pixels = np.dot(camera_transformation_matrix, xyz)
-    pix_x = np.divide(pixels[0], pixels[2])
-    pix_y = np.divide(pixels[1], pixels[2])
-
-    return np.round(pix_x).astype(int), np.round(pix_y).astype(int)
-
-
 def initialize_frame():
     frame_message = TransformStamped()
     frame_message.header.frame_id = "base"
