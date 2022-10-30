@@ -545,6 +545,9 @@ class ros_manager(object):
 			self.apriltag_available_index = len(self.data_available)-1
 			self.apriltag_has_new = False
 
+			self.apriltag_pose_list_dict = None
+			self.apriltag_pose_homog_dict = None
+
 			self.subscriber_dict[topic] = rospy.Subscriber(
 				topic,
 				AprilTagDetectionArray,
@@ -724,6 +727,15 @@ class ros_manager(object):
 			# set up transform broadcaster
 			self.target_frame_broadcaster = tf2_ros.TransformBroadcaster()
 
+		elif topic == '/ee_apriltag_in_world':
+			# intialize impedance target frame
+			self.ee_apriltag_in_world_frame_pub = rospy.Publisher(
+				topic, 
+				TransformStamped, 
+				queue_size=10) 
+			# set up transform broadcaster
+			self.ee_apriltag_in_world_frame_broadcaster = tf2_ros.TransformBroadcaster()
+
 
 	def pub_ee_pose_in_world_manipulation_from_franka(self,ee_pose_in_world_manipulation_list):
 		ee_pose_in_world_manipulation_pose_stamped = pmh.list2pose_stamped(ee_pose_in_world_manipulation_list)
@@ -781,6 +793,12 @@ class ros_manager(object):
 		waypoint_pose_list_stamped.header.stamp = rospy.Time.now()
 		self.target_frame_pub.publish(waypoint_pose_list_stamped)
 		self.target_frame_broadcaster.sendTransform(waypoint_pose_list_stamped)
+
+	def pub_ee_apriltag_frame(self,ee_apriltag_in_world_pose_list):
+		ee_apriltag_in_world_pose_list_stamped = pmh.list2transform_stamped(ee_apriltag_in_world_pose_list, header_frame_id = 'base', child_frame_id = 'ee_apriltag_in_world_in_world')
+		ee_apriltag_in_world_pose_list_stamped.header.stamp = rospy.Time.now()
+		self.ee_apriltag_in_world_frame_pub.publish(ee_apriltag_in_world_pose_list_stamped)
+		self.ee_apriltag_in_world_frame_broadcaster.sendTransform(ee_apriltag_in_world_pose_list_stamped)
 
 	def pub_qp_debug_message(self,debug_dict):
 		qp_debug_stamped = pmh.qp_debug_dict_to_qp_debug_stamped(qp_debug_dict = debug_dict)
@@ -1096,7 +1114,14 @@ class ros_manager(object):
 
 	def apriltag_unpack(self):
 		if len(self.apriltag_buffer)>0:
-			data = self.apriltag_buffer.pop(0)
+			apriltag_array = self.apriltag_buffer.pop(0)
+
+			self.apriltag_pose_list_dict = {}
+			self.apriltag_pose_homog_dict = {}
+			for detection in apriltag_array.detections:
+				pose_list = pmh.pose_stamped2list(detection.pose.pose)
+				self.apriltag_pose_list_dict[detection.id[0]] = pose_list
+				self.apriltag_pose_homog_dict[detection.id[0]] = kh.matrix_from_pose_list(pose_list)
 
 			self.apriltag_has_new = True
 		else:

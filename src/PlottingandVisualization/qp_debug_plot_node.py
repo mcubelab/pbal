@@ -3,13 +3,11 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(currentdir))
 
-import rospy
 import numpy as np
-from Helpers.ros_manager import ros_manager
-
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
+from Helpers.ros_manager import ros_manager
 
 def plot_increment(my_axis,X,dX,color):
     my_axis.plot([X[0],X[0]+dX[0]],[X[1],X[1]+dX[1]],color)
@@ -20,11 +18,8 @@ def plot_constraint(my_axis,offset,normal,color):
                  color)
 
 if __name__ == '__main__':
-
-    rospy.init_node('qp_debug_plot')
-    rospy.sleep(1.0)
-
     rm = ros_manager()
+    rm.init_node('qp_debug_plot')
     rm.subscribe_to_list(['/qp_debug_message'])
     rm.wait_for_necessary_data()
 
@@ -109,7 +104,6 @@ if __name__ == '__main__':
 
 
         #plot the both the constrained and unconstrained solutions for the impedance target
-
         plot_increment(axs[0],measured_wrench[[1,0]],delta_wrench_unconstrained[[1,0]],'b')
         plot_increment(axs[0],measured_wrench[[1,0]],delta_wrench[[1,0]],'k')
         axs[0].plot(measured_wrench[1], measured_wrench[0], 'r*')

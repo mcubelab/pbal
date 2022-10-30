@@ -26,7 +26,7 @@ def quat_from_matrix(M):
     if max_index == 0:
         qw = np.sqrt(a)/2.0
         qx = (r21-r12 )/(4.0*qw)
-        qy = (r02-r20 )/(4.0*qw)
+        qy = (r02-r20 )/(4.0*qw) 
         qz = (r10-r01 )/(4.0*qw)
 
     if max_index == 1:
@@ -97,6 +97,12 @@ def matrix_from_trans_and_quat(trans=None,quat=None):
 def matrix_from_pose_list(pose_list):
     return matrix_from_trans_and_quat(pose_list[0:3],pose_list[3:7])
 
+def unit_pose_list():
+    return [0.0,0.0,0.0,0.0,0.0,0.0,1.0]
+
+def unit_pose_homog():
+    return matrix_from_pose_list(unit_pose_list())
+
 def rotate_wrench(wrench_source, pose_homog):
     force_source, torque_source = wrench_list_2FT(wrench_source)
     T_transform_source = pose_homog[:3, :3]
@@ -124,3 +130,20 @@ def theta_to_quatlist(theta):
     return quat_from_matrix( np.array([[-np.cos(theta),  np.sin(theta), 0.0], 
                                       [ -np.sin(theta), -np.cos(theta), 0.0], 
                                       [            0.0,            0.0, 1.0]]))
+
+def convert_reference_frame(source_pose_list, target_frame_pose_list, source_frame_pose_list):
+    source_pose_homog = matrix_from_pose_list(source_pose_list)
+    pose_transform_target2source_homog = get_transform_homog(source_frame_pose_list, target_frame_pose_list)
+    return pose_list_from_matrix(np.matmul(pose_transform_target2source_homog, source_pose_homog))
+    
+def get_transform_homog(target_frame_pose_list, source_frame_pose_list):
+    """
+    Find transform that transforms pose source to pose target
+    :param target_frame_pose_list:
+    :param source_frame_pose_list:
+    :return:
+    """
+    #both poses must be expressed in same reference frame
+    target_world_homog = matrix_from_pose_list(target_frame_pose_list)
+    source_world_homog = matrix_from_pose_list(source_frame_pose_list)
+    return np.matmul(target_world_homog, np.linalg.inv(source_world_homog))

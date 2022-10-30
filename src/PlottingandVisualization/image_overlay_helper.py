@@ -8,7 +8,6 @@ import cv2
 from cvxopt import matrix, solvers
 
 import numpy as np
-from Modelling.system_params import SystemParams
 
 def pose_list_to_matrix(pose_in):
     rotation_matrix = quat_to_mat(pose_in[3:7])
@@ -702,5 +701,3 @@ def invert_RBT(RBT_in):
     RBT_out[0:3, 0:3] = np.transpose(RBT_out[0:3, 0:3])
     RBT_out[0:3, 3] = -np.dot(RBT_out[0:3, 0:3], RBT_out[0:3, 3])
     return RBT_out
-
-
