@@ -7,6 +7,7 @@ import pickle
 import numpy as np
 from Helpers.ros_manager import ros_manager
 
+import cv2
 
 def correct_subscriber_rate_test(path,fname):
     with open(path+fname, 'rb') as handle:
@@ -67,18 +68,29 @@ def load_from_ros_manager_test(path,fname):
                       '/torque_cone_boundary_flag',
                       '/torque_cone_boundary_test',
                       '/far_cam/color/camera_info',
-                      '/near_cam/color/camera_info'],False)
+                      '/near_cam/color/camera_info',
+                      '/far_cam/color/image_raw',
+                      '/near_cam/color/image_raw',],False)
 
-    print(rm.t_min_record)
-    print(rm.t_max_record)
-    print(rm.t_current_record)
-    print(rm.read_index_dict)
+    # print(rm.t_min_record)
+    # print(rm.t_max_record)
+    # print(rm.t_current_record)
+    # print(rm.read_index_dict)
 
+    rm.spawn_transform_listener()
+    rm.wait_for_necessary_data()
+
+    (wm_to_base_trans, wm_to_base_rot) = rm.lookupTransform('/world_manipulation_frame','base')
+    
+    print(wm_to_base_trans)
     while rm.t_current_record<rm.t_max_record:
         rm.t_current_record+=.1
         rm.unpack_all()
 
-        print(rm.ee_pose_in_world_manipulation_homog)
+        if rm.near_cam_image_raw is not None:
+            cv2.imshow("Image window", rm.near_cam_image_raw)
+            cv2.waitKey(3)
+        # print(rm.ee_pose_in_world_manipulation_homog)
 
 if __name__ == "__main__":
 
@@ -88,6 +100,19 @@ if __name__ == "__main__":
     # correct_subscriber_rate_test(path,fname)
     # test_frame_dictionary(path,fname)
     load_from_ros_manager_test(path,fname)
+
+
+    # vidcap = cv2.VideoCapture(path+'/test_data-experiment0001_near_cam_color_image_raw.avi')
+    # success,image = vidcap.read()
+    # count = 0
+    # while success:
+         
+    #   success,image = vidcap.read()
+
+    #   print('Read a new frame: ', success)
+    #   count += 1
+
+
         
 
 

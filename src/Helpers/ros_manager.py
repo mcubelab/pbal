@@ -46,10 +46,7 @@ class ros_manager(object):
 		if self.load_mode:
 			if fname is not None:
 				self.fname_load = fname.split('.')[0]
-
-				with open(path+self.fname_load+'.pickle', 'rb') as handle:
-					self.read_dict = pickle.load(handle)
-					self.initialize_read()
+				self.initialize_read()
 
 			else:
 				print('Error! No fname given!')
@@ -124,6 +121,19 @@ class ros_manager(object):
 		self.pkm.store_in_pickle(self.topic_list,self.buffer_dict,self.message_type_dict,experiment_label=self.experiment_label,transform_dict = self.static_transform_dict)
 
 	def initialize_read(self):
+
+		with open(self.path+self.fname_load+'.pickle', 'rb') as handle:
+			self.read_dict = pickle.load(handle)
+
+		if ('/near_cam/color/image_raw' in self.read_dict and 'time_list' in self.read_dict['/near_cam/color/image_raw'] and
+			len(self.read_dict['/near_cam/color/image_raw']['time_list'])>0):
+			self.vidcap_near = cv2.VideoCapture(self.path+self.fname_load+'_near_cam_color_image_raw.avi')
+		if ('/far_cam/color/image_raw' in self.read_dict and 'time_list' in self.read_dict['/far_cam/color/image_raw'] and
+			len(self.read_dict['/far_cam/color/image_raw']['time_list'])>0):
+			self.vidcap_far = cv2.VideoCapture(self.path+self.fname_load+'_far_cam_color_image_raw.avi')
+
+		self.static_transform_dict = self.read_dict['transform_dict']
+
 		tmin = None
 		tmax = None
 		self.read_index_dict = {}
@@ -153,19 +163,47 @@ class ros_manager(object):
 					   self.read_dict[topic]['time_list'][self.read_index_dict[topic]]<=self.t_current_record and
 					   self.callback_dict[topic] is not None):
 
-					self.callback_dict[topic](self.read_dict[topic]['msg_list'][self.read_index_dict[topic]])
+					if topic == '/near_cam/color/image_raw':
+						success,image = self.vidcap_near.read()	
+						if success:
+							self.callback_dict[topic](image)
+
+					elif topic == '/far_cam/color/image_raw':
+						success,image = self.vidcap_far.read()	
+						if success:
+							self.callback_dict[topic](image)
+					else:
+						self.callback_dict[topic](self.read_dict[topic]['msg_list'][self.read_index_dict[topic]])
+
 					self.read_index_dict[topic]+=1
 
-	def wait_for_necessary_data(self):
-		print("Waiting to hear from essential subscribers")
+	def wait_for_necessary_data(self, dt_load_mode = .01):
+		print('Waiting to hear from essential subscribers')
 		can_proceed = False
 
-		while not can_proceed:
-			time.sleep(.1)
+		if self.load_mode:
+			while not can_proceed and self.t_current_record<=self.t_max_record:
+				self.t_current_record+=dt_load_mode
+				self.update_callbacks()
 
-			can_proceed = True
-			for i in range(len(self.data_available)):
-				can_proceed = can_proceed and (self.data_available[i] or self.available_mask[i])
+				can_proceed = True
+				for i in range(len(self.data_available)):
+					can_proceed = can_proceed and (self.data_available[i] or self.available_mask[i])
+
+			if not can_proceed:
+				print('essential subscribers unavailable')
+
+			return can_proceed
+		else:
+			while not can_proceed:
+				time.sleep(.1)
+
+				can_proceed = True
+				for i in range(len(self.data_available)):
+					can_proceed = can_proceed and (self.data_available[i] or self.available_mask[i])
+
+		return can_proceed
+		
 
 	def unpack_all(self):
 		if self.load_mode:
@@ -250,7 +288,8 @@ class ros_manager(object):
 			self.my_impedance_mode_helper.initialize_impedance_mode(torque_upper=torque_upper,force_upper=force_upper)
 
 	def spawn_transform_listener(self):
-		self.listener = tf.TransformListener()
+		if not self.load_mode:
+			self.listener = tf.TransformListener()
 
 	# calls the ROS service that tares (zeroes) the force-torque sensor
 	def zero_ft_sensor(self):
@@ -260,30 +299,34 @@ class ros_manager(object):
 		zero_ft()
 
 	def lookupTransform(self, homeFrame, targetFrame):
-		if self.listener is not None:
-			ntfretry = 100
-			retryTime = .05
-			for i in range(ntfretry):
-				try:
-					(trans, rot) = self.listener.lookupTransform(targetFrame, homeFrame, self.listener.getLatestCommonTime(targetFrame, homeFrame))
-
-							# self.static_transform_dict = {}
-		
-					if self.record_mode:
-						if homeFrame not in self.static_transform_dict:
-							self.static_transform_dict[homeFrame] = {}
-						self.static_transform_dict[homeFrame][targetFrame] = (trans, rot)
-
-					return (trans, rot)
-				except:  
-					print('[lookupTransform] failed to transform')
-					print('[lookupTransform] targetFrame %s homeFrame %s, retry %d' %
-						(targetFrame, homeFrame, i))
-					time.sleep(retryTime)
-
-			return (None, None)
+		if self.load_mode:
+			if homeFrame in self.static_transform_dict and targetFrame in self.static_transform_dict[homeFrame]:
+				return self.static_transform_dict[homeFrame][targetFrame]
+			else:
+				return (None, None)
 		else:
-			return (None, None)
+			if self.listener is not None:
+				ntfretry = 100
+				retryTime = .05
+				for i in range(ntfretry):
+					try:
+						(trans, rot) = self.listener.lookupTransform(targetFrame, homeFrame, self.listener.getLatestCommonTime(targetFrame, homeFrame))
+			
+						if self.record_mode:
+							if homeFrame not in self.static_transform_dict:
+								self.static_transform_dict[homeFrame] = {}
+							self.static_transform_dict[homeFrame][targetFrame] = (trans, rot)
+
+						return (trans, rot)
+					except:  
+						print('[lookupTransform] failed to transform')
+						print('[lookupTransform] targetFrame %s homeFrame %s, retry %d' %
+							(targetFrame, homeFrame, i))
+						time.sleep(retryTime)
+
+				return (None, None)
+			else:
+				return (None, None)
 
 	def subscribe(self,topic, isNecessary = True):
 		self.available_mask.append(not isNecessary)
@@ -1406,8 +1449,11 @@ class ros_manager(object):
 
 	def far_cam_image_raw_unpack(self):
 		if len(self.far_cam_image_raw_buffer)>0:
-			data = self.far_cam_image_raw_buffer.pop(0)
-			self.far_cam_image_raw = self.bridge.imgmsg_to_cv2(data, "bgr8")
+			if self.load_mode:
+				self.far_cam_image_raw = self.far_cam_image_raw_buffer.pop(0)
+			else:
+				data = self.far_cam_image_raw_buffer.pop(0)
+				self.far_cam_image_raw = self.bridge.imgmsg_to_cv2(data, 'bgr8')
 
 			self.far_cam_image_raw_has_new = True
 		else:
@@ -1421,15 +1467,18 @@ class ros_manager(object):
 
 	def near_cam_image_raw_unpack(self):
 		if len(self.near_cam_image_raw_buffer)>0:
-			data = self.near_cam_image_raw_buffer.pop(0)
-			self.near_cam_image_raw = self.bridge.imgmsg_to_cv2(data, "bgr8")
+			if self.load_mode:
+				self.near_cam_image_raw = self.near_cam_image_raw_buffer.pop(0)
+			else:
+				data = self.near_cam_image_raw_buffer.pop(0)
+				self.near_cam_image_raw = self.bridge.imgmsg_to_cv2(data, 'bgr8')
 
 			self.near_cam_image_raw_has_new = True
 		else:
 			self.near_cam_image_raw_has_new = False
 
 	def far_cam_image_raw_callback_record_version(self,data):
-		cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+		cv_image = self.bridge.imgmsg_to_cv2(data, 'bgr8')
 
 		if self.far_came_video_writer is None:
 			image_height, image_width, image_layers = cv_image.shape
@@ -1441,7 +1490,7 @@ class ros_manager(object):
 		self.far_cam_image_raw_buffer.append(data.header.stamp.to_sec())
 
 	def near_cam_image_raw_callback_record_version(self,data):
-		cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+		cv_image = self.bridge.imgmsg_to_cv2(data, 'bgr8')
 
 		if self.near_came_video_writer is None:
 			image_height, image_width, image_layers = cv_image.shape
