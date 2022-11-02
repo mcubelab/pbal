@@ -3,16 +3,17 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(currentdir))
 
-import cv2
-from cv_bridge import CvBridge
 import pickle
-import Helpers.pbal_msg_helper as pmh
+
 import numpy as np
 
 class pickle_manager(object):
     def __init__(self,path):
         self.path = path
 
+    def generate_parse_dict(self):
+        global pmh
+        import Helpers.pbal_msg_helper as pmh
         self.parse_dict = {
             'WrenchStamped': pmh.wrench_stamped2list,
             'PoseStamped': pmh.pose_stamped2list,
@@ -80,9 +81,12 @@ class pickle_manager(object):
 
         return save_dict
 
-    def store_in_pickle(self,topic_list,buffer_dict,message_type_dict,experiment_label=None):
+    def store_in_pickle(self,topic_list,buffer_dict,message_type_dict,experiment_label=None, transform_dict = None):
+        self.generate_parse_dict()
+
         fname = self.generate_experiment_name(experiment_label)
         data = self.generate_save_dictionary(topic_list,buffer_dict,message_type_dict,fname)
+        data['transform_dict'] = transform_dict
         print('storing data into: '+fname+'.pickle')
         with open(os.path.join(self.path,fname) + '.pickle', 'wb') as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)

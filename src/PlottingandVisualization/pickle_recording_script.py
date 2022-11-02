@@ -13,6 +13,7 @@ if __name__ == '__main__':
     rospy.init_node('rospy_recording_node')
     rate = rospy.Rate(200)
 
+
     rm = ros_manager(record_mode = True, path=path, experiment_label=experiment_label)
 
     rm.subscribe_to_list(['/netft/netft_data',
@@ -37,7 +38,27 @@ if __name__ == '__main__':
                           '/near_cam/color/image_raw',
                           '/far_cam/color/camera_info',
                           '/near_cam/color/camera_info'],False)
+
+    rm.spawn_transform_listener()
     
+    rm.lookupTransform('/world_manipulation_frame','/far_camera_color_optical_frame')
+    rm.lookupTransform('/far_camera_color_optical_frame','/world_manipulation_frame')
+    rm.lookupTransform('/world_manipulation_frame','/near_camera_color_optical_frame')
+    rm.lookupTransform('/near_camera_color_optical_frame','/world_manipulation_frame')
+    rm.lookupTransform('base','/far_camera_color_optical_frame')
+    rm.lookupTransform('/far_camera_color_optical_frame','base')
+    rm.lookupTransform('base','/near_camera_color_optical_frame')
+    rm.lookupTransform('/near_camera_color_optical_frame','base')
+    rm.lookupTransform('/world_manipulation_frame','base')
+    rm.lookupTransform('base','/world_manipulation_frame')
+    rm.lookupTransform('/panda_april_tag', '/panda_EE')
+    rm.lookupTransform('/panda_EE', '/panda_april_tag')
+    rm.lookupTransform('/ft_sensor', '/panda_EE')
+    rm.lookupTransform('/panda_EE', '/ft_sensor')
+
+    
+
+
     print('Starting pickle recording...')
     
     while not rospy.is_shutdown():

@@ -10,12 +10,16 @@ from Estimation import friction_reasoning
 from cv_bridge import CvBridge
 import cv2
 
+import Helpers.kinematics_helper as kh
+from Helpers.pickle_manager import pickle_manager
+import pickle
+
 class ros_manager(object):
 	def __init__(self,record_mode=False,path=None,experiment_label=None,load_mode=False,fname=None):
-		self.ros_imports()
 		self.data_available = []
 		self.available_mask = []
 		self.unpack_functions = []
+		self.callback_dict = {}
 		self.topic_list = []
 		self.subscriber_dict = {}
 		self.message_type_dict = {}
@@ -32,7 +36,26 @@ class ros_manager(object):
 		self.my_impedance_mode_helper=None
 
 		self.listener = None
-		
+
+		self.static_transform_dict = {}
+
+		self.load_mode = load_mode
+
+		self.read_dict = None
+
+		if self.load_mode:
+			if fname is not None:
+				self.fname_load = fname.split('.')[0]
+
+				with open(path+self.fname_load+'.pickle', 'rb') as handle:
+					self.read_dict = pickle.load(handle)
+					self.initialize_read()
+
+			else:
+				print('Error! No fname given!')
+		else:
+			self.ros_imports()
+
 		if self.record_mode:
 			self.max_queue_size=np.inf
 			self.subscriber_queue_size = 100
@@ -41,14 +64,6 @@ class ros_manager(object):
 		else: 
 			self.max_queue_size=1
 			self.subscriber_queue_size = 1
-
-		self.load_mode = load_mode
-
-		if self.load_mode:
-			if fname is not None:
-				self.fname_load = fname.split('.')[0]
-			else:
-				print('Error! No fname given!')
 
 	def ros_imports(self):
 		global rospy
@@ -60,7 +75,7 @@ class ros_manager(object):
 		global TorqueConeBoundaryFlagStamped, PivotSlidingCommandedFlagStamped, TorqueConeBoundaryTestStamped
 		global TorqueBoundsStamped, GeneralizedPositionsStamped
 
-		global kh, pmh, tf, pickle_manager, time_logger, tf2_ros
+		global pmh, tf, time_logger, tf2_ros
 
 		import rospy
 		from geometry_msgs.msg import PoseStamped, WrenchStamped, TransformStamped
@@ -77,11 +92,9 @@ class ros_manager(object):
 		 						TorqueBoundsStamped, 
 		 						GeneralizedPositionsStamped)
 
-		import Helpers.kinematics_helper as kh
-		import Helpers.pbal_msg_helper as pmh
-		from Helpers.pickle_manager import pickle_manager
-		from Helpers.time_logger import time_logger
 		
+		import Helpers.pbal_msg_helper as pmh
+		from Helpers.time_logger import time_logger
 		import tf
 		import tf2_ros
 			
@@ -108,7 +121,40 @@ class ros_manager(object):
 		self.fname_load = fname.split('.')[0]
 
 	def store_in_pickle(self):
-		self.pkm.store_in_pickle(self.topic_list,self.buffer_dict,self.message_type_dict,experiment_label=self.experiment_label)
+		self.pkm.store_in_pickle(self.topic_list,self.buffer_dict,self.message_type_dict,experiment_label=self.experiment_label,transform_dict = self.static_transform_dict)
+
+	def initialize_read(self):
+		tmin = None
+		tmax = None
+		self.read_index_dict = {}
+
+		for topic in self.read_dict:
+			if 'time_list' in self.read_dict[topic]:
+				if len(self.read_dict[topic]['time_list'])>0:
+					if tmin is None:
+						tmin = self.read_dict[topic]['time_list'][0]
+					else:
+						tmin = min(tmin,self.read_dict[topic]['time_list'][0])
+
+					if tmax is None:
+						tmax = self.read_dict[topic]['time_list'][-1]
+					else:
+						tmax = max(tmax,self.read_dict[topic]['time_list'][-1])
+
+					self.read_index_dict[topic] = 0
+		self.t_min_record = tmin
+		self.t_max_record = tmax
+		self.t_current_record = tmin-.1
+
+	def update_callbacks(self):
+		for topic in self.callback_dict:
+			if topic in self.read_dict and 'time_list' in self.read_dict[topic] and len(self.read_dict[topic]['time_list'])>0:
+				while (self.read_index_dict[topic]<len(self.read_dict[topic]['time_list']) and
+					   self.read_dict[topic]['time_list'][self.read_index_dict[topic]]<=self.t_current_record and
+					   self.callback_dict[topic] is not None):
+
+					self.callback_dict[topic](self.read_dict[topic]['msg_list'][self.read_index_dict[topic]])
+					self.read_index_dict[topic]+=1
 
 	def wait_for_necessary_data(self):
 		print("Waiting to hear from essential subscribers")
@@ -122,8 +168,11 @@ class ros_manager(object):
 				can_proceed = can_proceed and (self.data_available[i] or self.available_mask[i])
 
 	def unpack_all(self):
+		if self.load_mode:
+			self.update_callbacks()
 		for my_func in self.unpack_functions:
-			my_func()
+			if my_func is not None:
+				my_func()
 
 	def subscribe_to_list(self,list_in, isNecessary = True):
 		for topic in list_in:
@@ -217,6 +266,14 @@ class ros_manager(object):
 			for i in range(ntfretry):
 				try:
 					(trans, rot) = self.listener.lookupTransform(targetFrame, homeFrame, self.listener.getLatestCommonTime(targetFrame, homeFrame))
+
+							# self.static_transform_dict = {}
+		
+					if self.record_mode:
+						if homeFrame not in self.static_transform_dict:
+							self.static_transform_dict[homeFrame] = {}
+						self.static_transform_dict[homeFrame][targetFrame] = (trans, rot)
+
 					return (trans, rot)
 				except:  
 					print('[lookupTransform] failed to transform')
@@ -242,14 +299,16 @@ class ros_manager(object):
 			self.ft_wrench_in_ft_sensor = None
 			self.ft_wrench_in_ft_sensor_list = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				WrenchStamped, 
-				self.force_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					WrenchStamped, 
+					self.force_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'WrenchStamped'
 			self.buffer_dict[topic] = self.ft_wrench_in_ft_sensor_buffer
+			self.callback_dict[topic] = self.force_callback
 
 		elif topic == '/ee_pose_in_world_manipulation_from_franka_publisher':
 			self.unpack_functions.append(self.ee_pose_in_world_manipulation_unpack)
@@ -261,14 +320,16 @@ class ros_manager(object):
 			self.ee_pose_in_world_manipulation_list = None
 			self.ee_pose_in_world_manipulation_homog = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				PoseStamped, 
-				self.ee_pose_in_world_manipulation_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					PoseStamped, 
+					self.ee_pose_in_world_manipulation_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'PoseStamped'
 			self.buffer_dict[topic] = self.ee_pose_in_world_manipulation_buffer
+			self.callback_dict[topic] = self.ee_pose_in_world_manipulation_callback
 
 		elif topic == '/ee_pose_in_base_from_franka_publisher':
 			self.unpack_functions.append(self.ee_pose_in_base_unpack)
@@ -282,14 +343,16 @@ class ros_manager(object):
 
 			self.base_z_in_ee_frame = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				PoseStamped, 
-				self.ee_pose_in_base_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					PoseStamped, 
+					self.ee_pose_in_base_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'PoseStamped'
 			self.buffer_dict[topic] = self.ee_pose_in_base_buffer
+			self.callback_dict[topic] = self.ee_pose_in_base_callback
 
 		elif topic == '/end_effector_sensor_in_end_effector_frame':
 			self.unpack_functions.append(self.end_effector_wrench_unpack)
@@ -300,14 +363,16 @@ class ros_manager(object):
 			self.measured_contact_wrench_6D = None
 			self.measured_contact_wrench = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				WrenchStamped,  
-				self.end_effector_wrench_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					WrenchStamped,  
+					self.end_effector_wrench_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'WrenchStamped'
 			self.buffer_dict[topic] = self.measured_contact_wrench_buffer
+			self.callback_dict[topic] = self.end_effector_wrench_callback
 
 		elif topic == '/end_effector_sensor_in_world_manipulation_frame':
 			self.unpack_functions.append(self.end_effector_wrench_world_manipulation_frame_unpack)
@@ -318,14 +383,16 @@ class ros_manager(object):
 			self.measured_world_manipulation_wrench_6D = None
 			self.measured_world_manipulation_wrench = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				WrenchStamped,  
-				self.end_effector_wrench_world_manipulation_frame_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					WrenchStamped,  
+					self.end_effector_wrench_world_manipulation_frame_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'WrenchStamped'
 			self.buffer_dict[topic] = self.measured_world_manipulation_wrench_buffer
+			self.callback_dict[topic] = self.end_effector_wrench_world_manipulation_frame_callback
 
 		elif topic == '/torque_cone_boundary_test':
 			self.unpack_functions.append(self.torque_cone_boundary_test_unpack)
@@ -335,14 +402,16 @@ class ros_manager(object):
 
 			self.torque_cone_boundary_test = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				TorqueConeBoundaryTestStamped,  
-				self.torque_cone_boundary_test_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					TorqueConeBoundaryTestStamped,  
+					self.torque_cone_boundary_test_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'TorqueConeBoundaryTestStamped'
 			self.buffer_dict[topic] = self.torque_cone_boundary_test_buffer
+			self.callback_dict[topic] = self.torque_cone_boundary_test_callback
 
 		elif topic == '/torque_cone_boundary_flag':
 			self.unpack_functions.append(self.torque_cone_boundary_flag_unpack)
@@ -352,14 +421,16 @@ class ros_manager(object):
 
 			self.torque_cone_boundary_flag = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				TorqueConeBoundaryFlagStamped,  
-				self.torque_cone_boundary_flag_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					TorqueConeBoundaryFlagStamped,  
+					self.torque_cone_boundary_flag_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'TorqueConeBoundaryFlagStamped'
 			self.buffer_dict[topic] = self.torque_cone_boundary_flag_buffer
+			self.callback_dict[topic] = self.torque_cone_boundary_flag_callback
 
 
 		elif topic == '/friction_parameters':
@@ -370,14 +441,16 @@ class ros_manager(object):
 
 			self.friction_parameter_dict, dummy1 ,dummy2 = friction_reasoning.initialize_friction_dictionaries()
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				FrictionParamsStamped, 
-				self.friction_parameter_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					FrictionParamsStamped, 
+					self.friction_parameter_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'FrictionParamsStamped'
 			self.buffer_dict[topic] = self.friction_parameter_buffer
+			self.callback_dict[topic] = self.friction_parameter_callback
 
 		elif topic == '/pivot_frame_realsense':
 			self.unpack_functions.append(self.pivot_xyz_realsense_unpack)
@@ -391,14 +464,16 @@ class ros_manager(object):
 			self.pivot_message_realsense_time = None
 			self.pivot_message_estimated_time = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				TransformStamped, 
-				self.pivot_xyz_realsense_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					TransformStamped, 
+					self.pivot_xyz_realsense_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'TransformStamped'
 			self.buffer_dict[topic] = self.pivot_xyz_realsense_buffer
+			self.callback_dict[topic] = self.pivot_xyz_realsense_callback
 
 		elif topic == '/pivot_frame_estimated':
 			self.unpack_functions.append(self.pivot_xyz_estimated_unpack)
@@ -412,14 +487,16 @@ class ros_manager(object):
 			self.pivot_message_realsense_time = None
 			self.pivot_message_estimated_time = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				TransformStamped, 
-				self.pivot_xyz_estimated_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					TransformStamped, 
+					self.pivot_xyz_estimated_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'TransformStamped'
 			self.buffer_dict[topic] = self.pivot_xyz_estimated_buffer
+			self.callback_dict[topic] = self.pivot_xyz_estimated_callback
 
 		elif topic == '/generalized_positions':
 			self.unpack_functions.append(self.generalized_positions_unpack)
@@ -434,14 +511,16 @@ class ros_manager(object):
 			
 			self.state_not_exists_bool = True
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				GeneralizedPositionsStamped,  
-				self.generalized_positions_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					GeneralizedPositionsStamped,  
+					self.generalized_positions_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'GeneralizedPositionsStamped'
 			self.buffer_dict[topic] = self.generalized_positions_buffer
+			self.callback_dict[topic] = self.generalized_positions_callback
 
 		elif topic == '/barrier_func_control_command':
 			self.unpack_functions.append(self.barrier_func_control_command_unpack)
@@ -451,14 +530,16 @@ class ros_manager(object):
 
 			self.command_msg = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				ControlCommandStamped, 
-				self.barrier_func_control_command_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					ControlCommandStamped, 
+					self.barrier_func_control_command_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'ControlCommandStamped'
 			self.buffer_dict[topic] = self.barrier_func_control_command_buffer
+			self.callback_dict[topic] = self.barrier_func_control_command_callback
 
 		elif topic == '/torque_bound_message':
 			self.unpack_functions.append(self.torque_bound_unpack)
@@ -468,14 +549,16 @@ class ros_manager(object):
 
 			self.torque_bounds = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				TorqueBoundsStamped,  
-				self.torque_bound_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					TorqueBoundsStamped,  
+					self.torque_bound_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'TorqueBoundsStamped'
 			self.buffer_dict[topic] = self.torque_bound_buffer
+			self.callback_dict[topic] = self.torque_bound_callback
 
 		elif topic == '/sliding_state':
 			self.unpack_functions.append(self.sliding_state_unpack)
@@ -485,14 +568,16 @@ class ros_manager(object):
 
 			self.sliding_state = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				SlidingStateStamped, 
-				self.sliding_state_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					SlidingStateStamped, 
+					self.sliding_state_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'SlidingStateStamped'
 			self.buffer_dict[topic] = self.sliding_state_buffer
+			self.callback_dict[topic] = self.sliding_state_callback
 
 		elif topic == '/pivot_sliding_commanded_flag':
 			self.unpack_functions.append(self.pivot_sliding_commanded_flag_unpack)
@@ -502,14 +587,16 @@ class ros_manager(object):
 
 			self.pivot_sliding_commanded_flag = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic, 
-				PivotSlidingCommandedFlagStamped, 
-				self.pivot_sliding_commanded_flag_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic, 
+					PivotSlidingCommandedFlagStamped, 
+					self.pivot_sliding_commanded_flag_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'PivotSlidingCommandedFlagStamped'
 			self.buffer_dict[topic] = self.pivot_sliding_commanded_flag_buffer
+			self.callback_dict[topic] = self.pivot_sliding_commanded_flag_callback
 
 		elif topic == '/qp_debug_message':
 			self.unpack_functions.append(self.qp_debug_unpack)
@@ -519,14 +606,16 @@ class ros_manager(object):
 
 			self.qp_debug_dict = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic,
-				QPDebugStamped,
-				self.qp_debug_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic,
+					QPDebugStamped,
+					self.qp_debug_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'QPDebugStamped'
 			self.buffer_dict[topic] = self.qp_debug_buffer
+			self.callback_dict[topic] = self.qp_debug_callback
 
 		elif topic == '/target_frame':
 			self.unpack_functions.append(self.target_frame_unpack)
@@ -537,14 +626,16 @@ class ros_manager(object):
 			self.target_frame = None
 			self.target_frame_homog = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic,
-				TransformStamped,
-				self.target_frame_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic,
+					TransformStamped,
+					self.target_frame_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'TransformStamped'
 			self.buffer_dict[topic] = self.target_frame_buffer
+			self.callback_dict[topic] = self.target_frame_callback
 
 		elif topic == '/tag_detections':
 			self.unpack_functions.append(self.apriltag_unpack)
@@ -555,14 +646,16 @@ class ros_manager(object):
 			self.apriltag_pose_list_dict = None
 			self.apriltag_pose_homog_dict = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic,
-				AprilTagDetectionArray,
-				self.apriltag_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic,
+					AprilTagDetectionArray,
+					self.apriltag_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'AprilTagDetectionArray'
 			self.buffer_dict[topic] = self.apriltag_buffer
+			self.callback_dict[topic] = self.apriltag_callback
 
 		elif topic == '/far_cam/color/image_raw':
 			self.unpack_functions.append(self.far_cam_image_raw_unpack)
@@ -578,14 +671,16 @@ class ros_manager(object):
 			if self.record_mode:
 				callback = self.far_cam_image_raw_callback_record_version
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic,
-				Image,
-				callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic,
+					Image,
+					callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'Image'
 			self.buffer_dict[topic] = self.far_cam_image_raw_buffer
+			self.callback_dict[topic] = callback
 
 		elif topic == '/near_cam/color/image_raw':
 			self.unpack_functions.append(self.near_cam_image_raw_unpack)
@@ -601,14 +696,16 @@ class ros_manager(object):
 			if self.record_mode:
 				callback = self.near_cam_image_raw_callback_record_version
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic,
-				Image,
-				callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic,
+					Image,
+					callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'Image'
 			self.buffer_dict[topic] = self.near_cam_image_raw_buffer
+			self.callback_dict[topic] = callback
 
 		elif topic == '/far_cam/color/camera_info':
 			self.unpack_functions.append(self.far_cam_camera_info_unpack)
@@ -618,14 +715,16 @@ class ros_manager(object):
 
 			self.far_cam_camera_matrix = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic,
-				CameraInfo,
-				self.far_cam_camera_info_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic,
+					CameraInfo,
+					self.far_cam_camera_info_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'CameraInfo'
 			self.buffer_dict[topic] = self.far_cam_camera_info_buffer
+			self.callback_dict[topic] = self.far_cam_camera_info_callback
 
 		elif topic == '/near_cam/color/camera_info':
 			self.unpack_functions.append(self.near_cam_camera_info_unpack)
@@ -635,202 +734,288 @@ class ros_manager(object):
 
 			self.near_cam_camera_matrix = None
 
-			self.subscriber_dict[topic] = rospy.Subscriber(
-				topic,
-				CameraInfo,
-				self.near_cam_camera_info_callback,
-				queue_size = self.subscriber_queue_size)
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic,
+					CameraInfo,
+					self.near_cam_camera_info_callback,
+					queue_size = self.subscriber_queue_size)
 
 			self.message_type_dict[topic] = 'CameraInfo'
 			self.buffer_dict[topic] = self.near_cam_camera_info_buffer
+			self.callback_dict[topic] = self.near_cam_camera_info_callback
 
 		else:
+			self.unpack_functions.append(None)
 			self.subscriber_dict[topic] = None
 			self.message_type_dict[topic] = None
 			self.buffer_dict[topic] = None
+			self.callback_dict[topic] = None
 
 
 	def spawn_publisher(self,topic):
 
 		if topic == '/ee_pose_in_world_manipulation_from_franka_publisher':
-			self.ee_pose_in_world_manipulation_from_franka_pub = rospy.Publisher(
-				topic, 
-				PoseStamped, 
-				queue_size = 10)
+			if self.load_mode:
+				pass
+			else:
+				self.ee_pose_in_world_manipulation_from_franka_pub = rospy.Publisher(
+					topic, 
+					PoseStamped, 
+					queue_size = 10)
 
-		if topic == '/ee_pose_in_base_from_franka_publisher':
-			self.ee_pose_in_base_from_franka_pub = rospy.Publisher(
-				topic, 
-				PoseStamped, 
-				queue_size = 10)
+		elif topic == '/ee_pose_in_base_from_franka_publisher':
+			if self.load_mode:
+				pass
+			else:
+				self.ee_pose_in_base_from_franka_pub = rospy.Publisher(
+					topic, 
+					PoseStamped, 
+					queue_size = 10)
 
 		elif topic == '/end_effector_sensor_in_end_effector_frame':
-			#wrench at the end-effector in the end effector coordinates -Neel 7/5/2022
-			#wrench measured by the ATI, but the torque has been transformed using a different reference point,
-			#specifically, the origin of the end-effector frame (should be palm center), and using end-effector basis
-			self.end_effector_sensor_in_end_effector_frame_pub = rospy.Publisher(
-				topic, 
-				WrenchStamped, 
-				queue_size = 10)
+			if self.load_mode:
+				pass
+			else:
+				#wrench at the end-effector in the end effector coordinates -Neel 7/5/2022
+				#wrench measured by the ATI, but the torque has been transformed using a different reference point,
+				#specifically, the origin of the end-effector frame (should be palm center), and using end-effector basis
+				self.end_effector_sensor_in_end_effector_frame_pub = rospy.Publisher(
+					topic, 
+					WrenchStamped, 
+					queue_size = 10)
 
 		elif topic == '/end_effector_sensor_in_world_manipulation_frame':
-			#wrench at the end-effector in the static world manipulation frame coordinates 
-			#wrench measured by the ATI, but the torque has been transformed using a different reference point,
-			#specifically, the origin of the end-effector frame (should be palm center), and using BASE FRAME basis
-			self.end_effector_sensor_in_world_manipulation_frame_pub = rospy.Publisher(
-				topic, 
-				WrenchStamped, 
-				queue_size = 10)
+			if self.load_mode:
+				pass
+			else:
+				#wrench at the end-effector in the static world manipulation frame coordinates 
+				#wrench measured by the ATI, but the torque has been transformed using a different reference point,
+				#specifically, the origin of the end-effector frame (should be palm center), and using BASE FRAME basis
+				self.end_effector_sensor_in_world_manipulation_frame_pub = rospy.Publisher(
+					topic, 
+					WrenchStamped, 
+					queue_size = 10)
 
 		elif topic == '/torque_cone_boundary_test':
-			self.torque_cone_boundary_test_pub = rospy.Publisher(
-				topic, 
-				TorqueConeBoundaryTestStamped , 
-				queue_size = 10)
+			if self.load_mode:
+				pass
+			else:
+				self.torque_cone_boundary_test_pub = rospy.Publisher(
+					topic, 
+					TorqueConeBoundaryTestStamped , 
+					queue_size = 10)
 
 		elif topic == '/torque_cone_boundary_flag':
-			self.torque_cone_boundary_flag_pub = rospy.Publisher(
-				topic, 
-				TorqueConeBoundaryFlagStamped , 
-				queue_size = 10)
+			if self.load_mode:
+				pass
+			else:
+				self.torque_cone_boundary_flag_pub = rospy.Publisher(
+					topic, 
+					TorqueConeBoundaryFlagStamped , 
+					queue_size = 10)
 
 		elif topic == '/friction_parameters':
-			self.friction_parameter_pub = rospy.Publisher(
-				topic, 
-				FrictionParamsStamped,
-				queue_size = 10)
+			if self.load_mode:
+				pass
+			else:
+				self.friction_parameter_pub = rospy.Publisher(
+					topic, 
+					FrictionParamsStamped,
+					queue_size = 10)
 
 		elif topic == '/sliding_state':
-			self.sliding_state_pub = rospy.Publisher(
-				topic, 
-				SlidingStateStamped,
-				queue_size = 10)
+			if self.load_mode:
+				pass
+			else:
+				self.sliding_state_pub = rospy.Publisher(
+					topic, 
+					SlidingStateStamped,
+					queue_size = 10)
 
 		elif topic == '/pivot_sliding_commanded_flag':
-			# setting up publisher for sliding
-			self.pivot_sliding_commanded_flag_pub = rospy.Publisher(
-				topic, 
-				PivotSlidingCommandedFlagStamped, 
-				queue_size=10)
+			if self.load_mode:
+				pass
+			else:
+				# setting up publisher for sliding
+				self.pivot_sliding_commanded_flag_pub = rospy.Publisher(
+					topic, 
+					PivotSlidingCommandedFlagStamped, 
+					queue_size=10)
 
 		elif topic == '/qp_debug_message':
-			self.qp_debug_message_pub = rospy.Publisher(
-				topic, 
-				QPDebugStamped,
-				queue_size=10)
+			if self.load_mode:
+				pass
+			else:
+				self.qp_debug_message_pub = rospy.Publisher(
+					topic, 
+					QPDebugStamped,
+					queue_size=10)
 
 		elif topic == '/barrier_func_control_command':
-			self.barrier_func_control_command_pub = rospy.Publisher(
-				topic,
-				ControlCommandStamped,
-				queue_size=10)
+			if self.load_mode:
+				pass
+			else:
+				self.barrier_func_control_command_pub = rospy.Publisher(
+					topic,
+					ControlCommandStamped,
+					queue_size=10)
 
 		elif topic == '/target_frame':
-			# intialize impedance target frame
-			self.target_frame_pub = rospy.Publisher(
-				topic, 
-				TransformStamped, 
-				queue_size=10) 
-			# set up transform broadcaster
-			self.target_frame_broadcaster = tf2_ros.TransformBroadcaster()
+			if self.load_mode:
+				pass
+			else:
+				# intialize impedance target frame
+				self.target_frame_pub = rospy.Publisher(
+					topic, 
+					TransformStamped, 
+					queue_size=10) 
+				# set up transform broadcaster
+				self.target_frame_broadcaster = tf2_ros.TransformBroadcaster()
 
 		elif topic == '/ee_apriltag_in_world':
-			self.ee_apriltag_in_world_frame_pub = rospy.Publisher(
-				topic, 
-				TransformStamped, 
-				queue_size=10) 
-			# set up transform broadcaster
-			self.ee_apriltag_in_world_frame_broadcaster = tf2_ros.TransformBroadcaster()
+			if self.load_mode:
+				pass
+			else:
+				self.ee_apriltag_in_world_frame_pub = rospy.Publisher(
+					topic, 
+					TransformStamped, 
+					queue_size=10) 
+				# set up transform broadcaster
+				self.ee_apriltag_in_world_frame_broadcaster = tf2_ros.TransformBroadcaster()
 
 		elif topic == '/pivot_frame_realsense':
-			self.pivot_frame_realsense_pub = rospy.Publisher(
-				topic, 
-				TransformStamped, 
-				queue_size=10) 
-				# set up transform broadcaster
-			self.pivot_frame_realsense_broadcaster = tf2_ros.TransformBroadcaster()
+			if self.load_mode:
+				pass
+			else:
+				self.pivot_frame_realsense_pub = rospy.Publisher(
+					topic, 
+					TransformStamped, 
+					queue_size=10) 
+					# set up transform broadcaster
+				self.pivot_frame_realsense_broadcaster = tf2_ros.TransformBroadcaster()
 
 
 
 
 	def pub_ee_pose_in_world_manipulation_from_franka(self,ee_pose_in_world_manipulation_list):
-		ee_pose_in_world_manipulation_pose_stamped = pmh.list2pose_stamped(ee_pose_in_world_manipulation_list)
-		ee_pose_in_world_manipulation_pose_stamped.header.stamp = rospy.Time.now()
-		self.ee_pose_in_world_manipulation_from_franka_pub.publish(ee_pose_in_world_manipulation_pose_stamped)
+		if self.load_mode:
+			pass
+		else:
+			ee_pose_in_world_manipulation_pose_stamped = pmh.list2pose_stamped(ee_pose_in_world_manipulation_list)
+			ee_pose_in_world_manipulation_pose_stamped.header.stamp = rospy.Time.now()
+			self.ee_pose_in_world_manipulation_from_franka_pub.publish(ee_pose_in_world_manipulation_pose_stamped)
 
 	def pub_ee_pose_in_base_from_franka(self,ee_pose_in_base_list):
-		ee_pose_in_base_pose_stamped = pmh.list2pose_stamped(ee_pose_in_base_list)
-		ee_pose_in_base_pose_stamped.header.stamp = rospy.Time.now()
-		self.ee_pose_in_base_from_franka_pub.publish(ee_pose_in_base_pose_stamped)
+		if self.load_mode:
+			pass
+		else:
+			ee_pose_in_base_pose_stamped = pmh.list2pose_stamped(ee_pose_in_base_list)
+			ee_pose_in_base_pose_stamped.header.stamp = rospy.Time.now()
+			self.ee_pose_in_base_from_franka_pub.publish(ee_pose_in_base_pose_stamped)
 
 	def pub_end_effector_sensor_in_end_effector_frame(self,end_effector_wrench_in_end_effector_list,frame_id):
-		msg = pmh.list2wrench_stamped(end_effector_wrench_in_end_effector_list,frame_id)
-		msg.header.stamp = rospy.Time.now()
-		self.end_effector_sensor_in_end_effector_frame_pub.publish(msg)
+		if self.load_mode:
+			pass
+		else:
+			msg = pmh.list2wrench_stamped(end_effector_wrench_in_end_effector_list,frame_id)
+			msg.header.stamp = rospy.Time.now()
+			self.end_effector_sensor_in_end_effector_frame_pub.publish(msg)
 
 	def pub_end_effector_sensor_in_world_manipulation_frame(self,end_effector_wrench_in_world_manipulation_list,frame_id):
-		msg = pmh.list2wrench_stamped(end_effector_wrench_in_world_manipulation_list,frame_id)
-		msg.header.stamp = rospy.Time.now()
-		self.end_effector_sensor_in_world_manipulation_frame_pub.publish(msg)
+		if self.load_mode:
+			pass
+		else:
+			msg = pmh.list2wrench_stamped(end_effector_wrench_in_world_manipulation_list,frame_id)
+			msg.header.stamp = rospy.Time.now()
+			self.end_effector_sensor_in_world_manipulation_frame_pub.publish(msg)
 
 	def pub_torque_cone_boundary_test(self,torque_boundary_boolean):
-		torque_boundary_boolean_message = pmh.generate_torque_cone_boundary_test_stamped(torque_boundary_boolean)
-		torque_boundary_boolean_message.header.stamp = rospy.Time.now()
-		self.torque_cone_boundary_test_pub.publish(torque_boundary_boolean_message)
+		if self.load_mode:
+			pass
+		else:
+			torque_boundary_boolean_message = pmh.generate_torque_cone_boundary_test_stamped(torque_boundary_boolean)
+			torque_boundary_boolean_message.header.stamp = rospy.Time.now()
+			self.torque_cone_boundary_test_pub.publish(torque_boundary_boolean_message)
 
 	def pub_torque_cone_boundary_flag(self,torque_boundary_flag):
-		torque_boundary_flag_message = pmh.generate_torque_cone_boundary_flag_stamped(torque_boundary_flag)
-		torque_boundary_flag_message.header.stamp = rospy.Time.now()
-		self.torque_cone_boundary_flag_pub.publish(torque_boundary_flag_message)
+		if self.load_mode:
+			pass
+		else:
+			torque_boundary_flag_message = pmh.generate_torque_cone_boundary_flag_stamped(torque_boundary_flag)
+			torque_boundary_flag_message.header.stamp = rospy.Time.now()
+			self.torque_cone_boundary_flag_pub.publish(torque_boundary_flag_message)
 
 	def pub_friction_parameter(self,friction_parameter_dict):
-		friction_parameter_msg = pmh.friction_dict_to_friction_stamped(friction_parameter_dict)
-		friction_parameter_msg.header.stamp = rospy.Time.now()
-		self.friction_parameter_pub.publish(friction_parameter_msg)
+		if self.load_mode:
+			pass
+		else:
+			friction_parameter_msg = pmh.friction_dict_to_friction_stamped(friction_parameter_dict)
+			friction_parameter_msg.header.stamp = rospy.Time.now()
+			self.friction_parameter_pub.publish(friction_parameter_msg)
 
 	def pub_sliding_state(self,sliding_state_dict):
-		sliding_state_stamped = pmh.sliding_dict_to_sliding_stamped(sliding_dict=sliding_state_dict)
-		sliding_state_stamped.header.stamp = rospy.Time.now()
-		self.sliding_state_pub.publish(sliding_state_stamped)
+		if self.load_mode:
+			pass
+		else:
+			sliding_state_stamped = pmh.sliding_dict_to_sliding_stamped(sliding_dict=sliding_state_dict)
+			sliding_state_stamped.header.stamp = rospy.Time.now()
+			self.sliding_state_pub.publish(sliding_state_stamped)
 
 	def pub_pivot_sliding_commanded_flag(self,pivot_sliding_commanded_flag):
-		pivot_sliding_commanded_flag_message = pmh.generate_pivot_sliding_commanded_flag(pivot_sliding_commanded_flag)
-		pivot_sliding_commanded_flag_message.header.stamp = rospy.Time.now()
-		self.pivot_sliding_commanded_flag_pub.publish(pivot_sliding_commanded_flag_message)
+		if self.load_mode:
+			pass
+		else:
+			pivot_sliding_commanded_flag_message = pmh.generate_pivot_sliding_commanded_flag(pivot_sliding_commanded_flag)
+			pivot_sliding_commanded_flag_message.header.stamp = rospy.Time.now()
+			self.pivot_sliding_commanded_flag_pub.publish(pivot_sliding_commanded_flag_message)
 
 	def pub_barrier_func_control_command(self,command_msg_dict):
-		command_msg = pmh.command_dict_to_command_stamped(command_msg_dict)
-		command_msg.header.stamp = rospy.Time.now()
-		self.barrier_func_control_command_pub.publish(command_msg)
+		if self.load_mode:
+			pass
+		else:
+			command_msg = pmh.command_dict_to_command_stamped(command_msg_dict)
+			command_msg.header.stamp = rospy.Time.now()
+			self.barrier_func_control_command_pub.publish(command_msg)
 
 
 	def pub_target_frame(self,waypoint_pose_list):
-		waypoint_pose_stamped = pmh.list2transform_stamped(waypoint_pose_list, header_frame_id = 'base', child_frame_id = 'hand_estimate')
-		waypoint_pose_stamped.header.stamp = rospy.Time.now()
-		self.target_frame_pub.publish(waypoint_pose_stamped)
-		self.target_frame_broadcaster.sendTransform(waypoint_pose_stamped)
+		if self.load_mode:
+			pass
+		else:
+			waypoint_pose_stamped = pmh.list2transform_stamped(waypoint_pose_list, header_frame_id = 'base', child_frame_id = 'hand_estimate')
+			waypoint_pose_stamped.header.stamp = rospy.Time.now()
+			self.target_frame_pub.publish(waypoint_pose_stamped)
+			self.target_frame_broadcaster.sendTransform(waypoint_pose_stamped)
 
 	def pub_ee_apriltag_frame(self,ee_apriltag_in_world_pose_list):
-		ee_apriltag_in_world_pose_stamped = pmh.list2transform_stamped(ee_apriltag_in_world_pose_list, header_frame_id = 'base', child_frame_id = 'ee_apriltag_in_world')
-		ee_apriltag_in_world_pose_stamped.header.stamp = rospy.Time.now()
-		self.ee_apriltag_in_world_frame_pub.publish(ee_apriltag_in_world_pose_stamped)
-		self.ee_apriltag_in_world_frame_broadcaster.sendTransform(ee_apriltag_in_world_pose_stamped)
+		if self.load_mode:
+			pass
+		else:
+			ee_apriltag_in_world_pose_stamped = pmh.list2transform_stamped(ee_apriltag_in_world_pose_list, header_frame_id = 'base', child_frame_id = 'ee_apriltag_in_world')
+			ee_apriltag_in_world_pose_stamped.header.stamp = rospy.Time.now()
+			self.ee_apriltag_in_world_frame_pub.publish(ee_apriltag_in_world_pose_stamped)
+			self.ee_apriltag_in_world_frame_broadcaster.sendTransform(ee_apriltag_in_world_pose_stamped)
 
 	def pub_pivot_frame_realsense(self,pivot_pose_list):
-		if len(pivot_pose_list)==3:
-			pivot_pose_list = pivot_pose_list + [0.0,0.0,0.0,1.0]
+		if self.load_mode:
+			pass
+		else:
+			if len(pivot_pose_list)==3:
+				pivot_pose_list = pivot_pose_list + [0.0,0.0,0.0,1.0]
 
-		pivot_pose_stamped = pmh.list2transform_stamped(pivot_pose_list, header_frame_id = '/world_manipulation_frame', child_frame_id = 'pivot_frame_realsense')
-		pivot_pose_stamped.header.stamp = rospy.Time.now()
-		self.pivot_frame_realsense_pub.publish(pivot_pose_stamped)
-		self.pivot_frame_realsense_broadcaster.sendTransform(pivot_pose_stamped)
-
-		
+			pivot_pose_stamped = pmh.list2transform_stamped(pivot_pose_list, header_frame_id = '/world_manipulation_frame', child_frame_id = 'pivot_frame_realsense')
+			pivot_pose_stamped.header.stamp = rospy.Time.now()
+			self.pivot_frame_realsense_pub.publish(pivot_pose_stamped)
+			self.pivot_frame_realsense_broadcaster.sendTransform(pivot_pose_stamped)
 
 	def pub_qp_debug_message(self,debug_dict):
-		qp_debug_stamped = pmh.qp_debug_dict_to_qp_debug_stamped(qp_debug_dict = debug_dict)
-		qp_debug_stamped.header.stamp = rospy.Time.now()
-		self.qp_debug_message_pub.publish(qp_debug_stamped)
+		if self.load_mode:
+			pass
+		else:
+			qp_debug_stamped = pmh.qp_debug_dict_to_qp_debug_stamped(qp_debug_dict = debug_dict)
+			qp_debug_stamped.header.stamp = rospy.Time.now()
+			self.qp_debug_message_pub.publish(qp_debug_stamped)
 
 	def force_callback(self,data):
 		self.ft_wrench_in_ft_sensor_buffer.append(data)
@@ -840,12 +1025,15 @@ class ros_manager(object):
 
 	def force_unpack(self):
 		if len(self.ft_wrench_in_ft_sensor_buffer)>0:
-			self.ft_wrench_in_ft_sensor = self.ft_wrench_in_ft_sensor_buffer.pop(0)
-			self.ft_wrench_in_ft_sensor_list = pmh.wrench_stamped2list(self.ft_wrench_in_ft_sensor)
+			if self.load_mode:
+				self.ft_wrench_in_ft_sensor_list = self.ft_wrench_in_ft_sensor_buffer.pop(0)
+			else:
+				self.ft_wrench_in_ft_sensor = self.ft_wrench_in_ft_sensor_buffer.pop(0)
+				self.ft_wrench_in_ft_sensor_list = pmh.wrench_stamped2list(self.ft_wrench_in_ft_sensor)
 
 			self.force_has_new = True
 		else:
-			self.force_has_new = False	
+			self.force_has_new = False
 
 	def ee_pose_in_world_manipulation_callback(self,data):
 		self.ee_pose_in_world_manipulation_buffer.append(data)
@@ -855,9 +1043,11 @@ class ros_manager(object):
 		
 	def ee_pose_in_world_manipulation_unpack(self):
 		if len(self.ee_pose_in_world_manipulation_buffer)>0:
-
-			self.ee_pose_in_world_manipulation = self.ee_pose_in_world_manipulation_buffer.pop(0)
-			self.ee_pose_in_world_manipulation_list = pmh.pose_stamped2list(self.ee_pose_in_world_manipulation)
+			if self.load_mode:
+				self.ee_pose_in_world_manipulation_list = self.ee_pose_in_world_manipulation_buffer.pop(0)
+			else:
+				self.ee_pose_in_world_manipulation = self.ee_pose_in_world_manipulation_buffer.pop(0)
+				self.ee_pose_in_world_manipulation_list = pmh.pose_stamped2list(self.ee_pose_in_world_manipulation)
 			self.ee_pose_in_world_manipulation_homog = kh.matrix_from_pose_list(self.ee_pose_in_world_manipulation_list)
 
 			self.ee_pose_in_world_manipulation_has_new = True
@@ -872,9 +1062,11 @@ class ros_manager(object):
 		
 	def ee_pose_in_base_unpack(self):
 		if len(self.ee_pose_in_base_buffer)>0:
-
-			self.ee_pose_in_base = self.ee_pose_in_base_buffer.pop(0)
-			self.ee_pose_in_base_list = pmh.pose_stamped2list(self.ee_pose_in_base)
+			if self.load_mode:
+				self.ee_pose_in_base_list = self.ee_pose_in_base_buffer.pop(0)
+			else:
+				self.ee_pose_in_base = self.ee_pose_in_base_buffer.pop(0)
+				self.ee_pose_in_base_list = pmh.pose_stamped2list(self.ee_pose_in_base)
 			self.ee_pose_in_base_homog = kh.matrix_from_pose_list(self.ee_pose_in_base_list)
 
 			self.base_z_in_ee_frame = self.ee_pose_in_base_homog[2, :3]
@@ -891,11 +1083,13 @@ class ros_manager(object):
 
 	def end_effector_wrench_unpack(self):
 		if  len(self.measured_contact_wrench_buffer)>0:
+			if self.load_mode:
+				self.measured_contact_wrench_6D = -np.array(self.measured_contact_wrench_buffer.pop(0))
+			else:
+				end_effector_wrench = self.measured_contact_wrench_buffer.pop(0)
 
-			end_effector_wrench = self.measured_contact_wrench_buffer.pop(0)
-
-			self.measured_contact_wrench_6D = -np.array(pmh.wrench_stamped2list(
-				end_effector_wrench))
+				self.measured_contact_wrench_6D = -np.array(pmh.wrench_stamped2list(
+					end_effector_wrench))
 
 			self.measured_contact_wrench = np.array([
 				self.measured_contact_wrench_6D[0], 
@@ -914,10 +1108,13 @@ class ros_manager(object):
 
 	def end_effector_wrench_world_manipulation_frame_unpack(self):
 		if len(self.measured_world_manipulation_wrench_buffer)>0:
-			world_manipulation_wrench = self.measured_world_manipulation_wrench_buffer.pop(0)
+			if self.load_mode:
+				self.measured_world_manipulation_wrench_6D = -np.array(self.measured_world_manipulation_wrench_buffer.pop(0))
+			else:
+				world_manipulation_wrench = self.measured_world_manipulation_wrench_buffer.pop(0)
 
-			self.measured_world_manipulation_wrench_6D = -np.array(pmh.wrench_stamped2list(
-				world_manipulation_wrench))
+				self.measured_world_manipulation_wrench_6D = -np.array(pmh.wrench_stamped2list(
+					world_manipulation_wrench))
 
 			self.measured_world_manipulation_wrench = np.array([
 				self.measured_world_manipulation_wrench_6D[0], 
@@ -936,8 +1133,11 @@ class ros_manager(object):
 
 	def torque_cone_boundary_test_unpack(self):
 		if len(self.torque_cone_boundary_test_buffer)>0:
-			data = self.torque_cone_boundary_test_buffer.pop(0)
-			self.torque_cone_boundary_test = data.boundary_test
+			if self.load_mode:
+				self.torque_cone_boundary_test = self.torque_cone_boundary_test_buffer.pop(0)
+			else:
+				data = self.torque_cone_boundary_test_buffer.pop(0)
+				self.torque_cone_boundary_test = pmh.parse_torque_cone_boundary_test_stamped(data)
 
 			self.torque_cone_boundary_test_has_new = True
 		else:
@@ -951,8 +1151,11 @@ class ros_manager(object):
 
 	def torque_cone_boundary_flag_unpack(self):
 		if len(self.torque_cone_boundary_flag_buffer)>0:
-			data = self.torque_cone_boundary_flag_buffer.pop(0)
-			self.torque_cone_boundary_flag = data.boundary_flag
+			if self.load_mode:
+				self.torque_cone_boundary_flag = self.torque_cone_boundary_flag_buffer.pop(0)
+			else:
+				data = self.torque_cone_boundary_flag_buffer.pop(0)
+				self.torque_cone_boundary_flag = pmh.parse_torque_cone_boundary_flag_stamped(data)
 
 			self.torque_cone_boundary_flag_has_new = True
 		else:
@@ -966,8 +1169,11 @@ class ros_manager(object):
 
 	def friction_parameter_unpack(self):
 		if len(self.friction_parameter_buffer)>0:
-			data = self.friction_parameter_buffer.pop(0)
-			self.friction_parameter_dict = pmh.friction_stamped_to_friction_dict(data)
+			if self.load_mode:
+				self.friction_parameter_dict = self.friction_parameter_buffer.pop(0)
+			else:
+				data = self.friction_parameter_buffer.pop(0)
+				self.friction_parameter_dict = pmh.friction_stamped_to_friction_dict(data)
 			friction_reasoning.convert_friction_param_dict_to_array(self.friction_parameter_dict)
 
 			self.friction_parameter_has_new = True
@@ -982,14 +1188,17 @@ class ros_manager(object):
 
 	def pivot_xyz_realsense_unpack(self):
 		if len(self.pivot_xyz_realsense_buffer)>0:
-			msg = self.pivot_xyz_realsense_buffer.pop(0)
-			data = msg[0]
-			self.pivot_message_realsense_time = msg[1]
-			self.pivot_xyz_realsense =  [data.transform.translation.x,
-				data.transform.translation.y,
-				data.transform.translation.z]
+			if self.load_mode:
+				self.pivot_xyz_realsense = self.pivot_xyz_realsense_buffer.pop(0)[0:3]
+			else:
+				msg = self.pivot_xyz_realsense_buffer.pop(0)
+				data = msg[0]
+				self.pivot_message_realsense_time = msg[1]
+				self.pivot_xyz_realsense =  [data.transform.translation.x,
+					data.transform.translation.y,
+					data.transform.translation.z]
 
-			self.pivot_xyz = self.pivot_xyz_realsense
+				self.pivot_xyz = self.pivot_xyz_realsense
 
 			self.pivot_xyz_realsense_has_new = True
 		else:
@@ -1003,16 +1212,19 @@ class ros_manager(object):
 
 	def pivot_xyz_estimated_unpack(self):
 		if len(self.pivot_xyz_estimated_buffer)>0:
-			msg = self.pivot_xyz_estimated_buffer.pop(0)
-			data = msg[0]
-			self.pivot_message_estimated_time = msg[1]
-			self.pivot_xyz_estimated =  [data.transform.translation.x,
-				data.transform.translation.y,
-				data.transform.translation.z]
+			if self.load_mode:
+				self.pivot_xyz_estimated = self.pivot_xyz_estimated_buffer.pop(0)[0:3]
+			else:
+				msg = self.pivot_xyz_estimated_buffer.pop(0)
+				data = msg[0]
+				self.pivot_message_estimated_time = msg[1]
+				self.pivot_xyz_estimated =  [data.transform.translation.x,
+					data.transform.translation.y,
+					data.transform.translation.z]
 
-			#if there has been no message from the realsense
-			if (self.pivot_xyz_realsense is None) or (self.pivot_message_estimated_time-self.pivot_message_realsense_time>.5):
-				self.pivot_xyz = self.pivot_xyz_estimated
+				#if there has been no message from the realsense
+				if (self.pivot_xyz_realsense is None) or (self.pivot_message_estimated_time-self.pivot_message_realsense_time>.5):
+					self.pivot_xyz = self.pivot_xyz_estimated
 
 			self.pivot_xyz_estimated_has_new = True
 		else:
@@ -1026,8 +1238,12 @@ class ros_manager(object):
 
 	def generalized_positions_unpack(self):
 		if len(self.generalized_positions_buffer)>0:
-			data = self.generalized_positions_buffer.pop(0)
-			self.generalized_positions = data.generalized_positions
+			if self.load_mode:
+				self.generalized_positions = self.generalized_positions_buffer.pop(0)
+			else:
+				data = self.generalized_positions_buffer.pop(0)
+				self.generalized_positions = pmh.parse_generalized_positions_stamped(data)
+
 			self.l_hand     = contact_pose[0]
 			self.s_hand     = contact_pose[1]
 			self.theta_hand = contact_pose[2]
@@ -1046,8 +1262,11 @@ class ros_manager(object):
 
 	def barrier_func_control_command_unpack(self):
 		if len(self.barrier_func_control_command_buffer)>0:
-			data = self.barrier_func_control_command_buffer.pop(0)
-			self.command_msg = pmh.command_stamped_to_command_dict(data)
+			if self.load_mode:
+				self.command_msg = self.barrier_func_control_command_buffer.pop(0)
+			else:
+				data = self.barrier_func_control_command_buffer.pop(0)
+				self.command_msg = pmh.command_stamped_to_command_dict(data)
 
 			self.barrier_func_control_command_has_new = True
 		else:
@@ -1061,8 +1280,11 @@ class ros_manager(object):
 
 	def torque_bound_unpack(self):
 		if len(self.torque_bound_buffer)>0:
-			data = self.torque_bound_buffer.pop(0)
-			self.torque_bounds = data.torque_bounds
+			if self.load_mode:
+				self.torque_bounds = self.torque_bound_buffer.pop(0)
+			else:
+				data = self.torque_bound_buffer.pop(0)
+				self.torque_bounds = pmh.parse_torque_bounds_stamped(data)
 
 			self.torque_bound_has_new = True
 		else:
@@ -1076,8 +1298,11 @@ class ros_manager(object):
 
 	def sliding_state_unpack(self):
 		if len(self.sliding_state_buffer)>0:
-			data = self.sliding_state_buffer.pop(0)
-			self.sliding_state = data.sliding_state
+			if self.load_mode:
+				self.sliding_state = self.sliding_state_buffer.pop(0)
+			else:
+				data = self.sliding_state_buffer.pop(0)
+				self.sliding_state = pmh.sliding_stamped_to_sliding_dict(data)
 
 			self.sliding_state_has_new = True
 		else:
@@ -1091,8 +1316,11 @@ class ros_manager(object):
 
 	def pivot_sliding_commanded_flag_unpack(self):
 		if len(self.pivot_sliding_commanded_flag_buffer)>0:
-			data = self.pivot_sliding_commanded_flag_buffer.pop(0)
-			self.pivot_sliding_commanded_flag = data.command_flag
+			if self.load_mode:
+				self.pivot_sliding_commanded_flag = self.pivot_sliding_commanded_flag_buffer.pop(0)
+			else:
+				data = self.pivot_sliding_commanded_flag_buffer.pop(0)
+				self.pivot_sliding_commanded_flag = pmh.parse_pivot_sliding_commanded_flag(data)
 
 			self.pivot_sliding_commanded_flag_has_new = True
 		else:
@@ -1106,13 +1334,17 @@ class ros_manager(object):
 
 	def qp_debug_unpack(self):
 		if len(self.qp_debug_buffer)>0:
-			data = self.qp_debug_buffer.pop(0)
-
-			if data.qp_debug != '':
-				self.qp_debug_dict = pmh.qp_debug_stamped_to_qp_debug_dict(data)
+			if self.load_mode:
+				self.qp_debug_dict = self.qp_debug_buffer.pop(0)
 				self.qp_debug_has_new = True
 			else:
-				self.qp_debug_has_new = False
+				data = self.qp_debug_buffer.pop(0)
+
+				if data.qp_debug != '':
+					self.qp_debug_dict = pmh.qp_debug_stamped_to_qp_debug_dict(data)
+					self.qp_debug_has_new = True
+				else:
+					self.qp_debug_has_new = False
 		else:
 			self.qp_debug_has_new = False
 
@@ -1124,9 +1356,12 @@ class ros_manager(object):
 
 	def target_frame_unpack(self):
 		if len(self.target_frame_buffer)>0:
-			data = self.target_frame_buffer.pop(0)
+			if self.load_mode:
+				self.target_frame = self.target_frame_buffer.pop(0)
+			else:
+				data = self.target_frame_buffer.pop(0)
+				self.target_frame = pmh.transform_stamped2list(data)
 
-			self.target_frame = pmh.transform_stamped2list(data)
 			self.target_frame_homog =  kh.matrix_from_pose_list(self.target_frame)
 
 			self.target_frame_has_new = True
@@ -1141,14 +1376,23 @@ class ros_manager(object):
 
 	def apriltag_unpack(self):
 		if len(self.apriltag_buffer)>0:
-			apriltag_array = self.apriltag_buffer.pop(0)
 
 			self.apriltag_pose_list_dict = {}
 			self.apriltag_pose_homog_dict = {}
-			for detection in apriltag_array.detections:
-				pose_list = pmh.pose_stamped2list(detection.pose.pose)
-				self.apriltag_pose_list_dict[detection.id[0]] = pose_list
-				self.apriltag_pose_homog_dict[detection.id[0]] = kh.matrix_from_pose_list(pose_list)
+
+			if self.load_mode:
+				detection_dict = self.apriltag_buffer.pop(0)
+				for detection in detection_dict:
+					pose_list = detection_dict[detection]['position']+detection_dict[detection]['orientation']
+					self.apriltag_pose_list_dict[detection] = pose_list
+					self.apriltag_pose_homog_dict[detection] = kh.matrix_from_pose_list(pose_list)
+			else:
+				apriltag_array = self.apriltag_buffer.pop(0)
+
+				for detection in apriltag_array.detections:
+					pose_list = pmh.pose_stamped2list(detection.pose.pose)
+					self.apriltag_pose_list_dict[detection.id[0]] = pose_list
+					self.apriltag_pose_homog_dict[detection.id[0]] = kh.matrix_from_pose_list(pose_list)
 
 			self.apriltag_has_new = True
 		else:
@@ -1216,8 +1460,11 @@ class ros_manager(object):
 
 	def far_cam_camera_info_unpack(self):
 		if len(self.far_cam_camera_info_buffer)>0:
-			data = self.far_cam_camera_info_buffer.pop(0)
-			self.far_cam_camera_matrix = np.reshape(data.P, (3, 4))
+			if self.load_mode:
+				self.far_cam_camera_matrix = np.array(self.far_cam_camera_info_buffer.pop(0))
+			else:
+				data = self.far_cam_camera_info_buffer.pop(0)
+				self.far_cam_camera_matrix = np.reshape(data.P, (3, 4))
 
 			self.far_cam_camera_info_has_new = True
 		else:
@@ -1231,8 +1478,11 @@ class ros_manager(object):
 
 	def near_cam_camera_info_unpack(self):
 		if len(self.near_cam_camera_info_buffer)>0:
-			data = self.near_cam_camera_info_buffer.pop(0)
-			self.near_cam_camera_matrix = np.reshape(data.P, (3, 4))
+			if self.load_mode:
+				self.near_cam_camera_matrix = np.array(self.near_cam_camera_info_buffer.pop(0))
+			else:
+				data = self.near_cam_camera_info_buffer.pop(0)
+				self.near_cam_camera_matrix = np.reshape(data.P, (3, 4))
 
 			self.near_cam_camera_info_has_new = True
 		else:
