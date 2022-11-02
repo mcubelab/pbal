@@ -3,14 +3,15 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(currentdir))
 
+import rospy
 from Helpers.ros_manager import ros_manager
 
 if __name__ == '__main__':
     experiment_label = 'test_data'
     path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
 
-    rm.init_node('rospy_recording_node')
-    rm.setRate(200)
+    rospy.init_node('rospy_recording_node')
+    rate = rospy.Rate(200)
 
     rm = ros_manager(record_mode = True, path=path, experiment_label=experiment_label)
 
@@ -39,8 +40,8 @@ if __name__ == '__main__':
     
     print('Starting pickle recording...')
     
-    while not rm.is_shutdown():
-        rm.sleep()
+    while not rospy.is_shutdown():
+        rate.sleep()
 
     rm.unregister_all()
     rm.store_in_pickle()

@@ -188,22 +188,22 @@ def plot_pivot_dot(cv_image, pivot_location, camera_transformation_matrix):
         x_coord, y_coord = get_pix_easier(pivot_location.T, camera_transformation_matrix)
         cv2.circle(cv_image, (x_coord[0], y_coord[0]), 5 , (0, 0, 255), -1)
 
-def estimate_ground_COP(obj_vertices_world, measured_base_wrench_6D, height_threshold=.003):
+def estimate_ground_COP(obj_vertices_world_manipulation, measured_world_manipulation_wrench_6D, contact_pose_homog, obj_pose_homog, height_threshold=.01):
     P0 = None
 
-    if measured_base_wrench_6D is not None and obj_vertices_world is not None:
-        height_indices = np.argsort(obj_vertices_world[2])
-        if obj_vertices_world[2][height_indices[1]] - obj_vertices_world[2][height_indices[0]] < height_threshold:
-            P_a = obj_vertices_world[:, height_indices[0]]
-            P_b = obj_vertices_world[:, height_indices[1]]
+    if measured_world_manipulation_wrench_6D is not None and obj_vertices_world_manipulation is not None:
+        height_indices = np.argsort(obj_vertices_world_manipulation[0])
+        if abs(obj_vertices_world_manipulation[0][height_indices[1]] - obj_vertices_world_manipulation[0][height_indices[0]]) < height_threshold:
+            P_a = obj_vertices_world_manipulation[:, height_indices[0]]
+            P_b = obj_vertices_world_manipulation[:, height_indices[1]]
             P_e = contact_pose_homog[:, 3]
 
             Tau_a = np.dot(np.cross(
-                P_a[0:3] - P_e[0:3], measured_base_wrench_6D[0:3]), obj_pose_homog[0:3, 2])
+                P_a[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), obj_pose_homog[0:3, 2])
             Tau_b = np.dot(np.cross(
-                P_b[0:3] - P_e[0:3], measured_base_wrench_6D[0:3]), obj_pose_homog[0:3, 2])
+                P_b[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), obj_pose_homog[0:3, 2])
             Tau_net = np.dot(
-                measured_base_wrench_6D[3:6], obj_pose_homog[0:3, 2])
+                measured_world_manipulation_wrench_6D[3:6], obj_pose_homog[0:3, 2])
 
             epsilon1 = (Tau_net - Tau_b) / (Tau_a - Tau_b)
             epsilon1 = np.max([np.min([epsilon1, 1]), 0])
@@ -213,7 +213,7 @@ def estimate_ground_COP(obj_vertices_world, measured_base_wrench_6D, height_thre
             P0 = epsilon1 * P_a + epsilon2 * P_b
 
         else:
-            P0 = obj_vertices_world[:, height_indices[0]]
+            P0 = obj_vertices_world_manipulation[:, height_indices[0]]
 
     return P0
 
@@ -303,7 +303,7 @@ def plot_ground_friction_cone(cv_image, COP_ground, friction_parameter_dict, cam
         for A_vector in friction_parameter_dict["ael"]:
             theta_list.append(
                 np.arctan2(A_vector[1], A_vector[0]))
-        theta_list.append(3 * np.pi / 2)
+        theta_list.append(np.pi)
         B_list = np.hstack(
             [friction_parameter_dict["ber"], friction_parameter_dict["bel"], 40.0])
         theta_list = np.array(theta_list)
@@ -318,13 +318,13 @@ def plot_ground_friction_cone(cv_image, COP_ground, friction_parameter_dict, cam
         myHullVertexListX = -force_scale * \
             np.array(myHullVertexListX) + COP_ground[0]
         myHullVertexListY = -force_scale * \
-            np.array(myHullVertexListY) + COP_ground[2]
+            np.array(myHullVertexListY) + COP_ground[1]
 
         numPts = len(myHullVertexListX)
         BoundaryPts = np.vstack([
             myHullVertexListX,
-            COP_ground[1] * np.ones([1, numPts]),
             myHullVertexListY,
+            COP_ground[2] * np.ones([1, numPts]),
             np.ones([1, numPts])
         ])
 
@@ -519,10 +519,10 @@ def scatter_dots(cv_image, obj_pose_homog, object_vertex_array, camera_transform
 
 
 def plot_ground_slide_arrow(cv_image, qp_debug_dict, hand_front_center_world, P0, camera_transformation_matrix, obj_pts=None, obj_pts_given=False):
-    if qp_debug_dict is not None and 'err_x_pivot' in qp_debug_dict[
+    if qp_debug_dict is not None and 'error_s_pivot' in qp_debug_dict[
             'error_dict'] and (P0 is not None):
 
-        dx_pivot = qp_debug_dict['error_dict']['err_x_pivot']
+        dx_pivot = -qp_debug_dict['error_dict']['error_s_pivot']
 
         if obj_pts_given:
             my_centroid = np.mean(obj_pts, axis=1)
@@ -532,9 +532,9 @@ def plot_ground_slide_arrow(cv_image, qp_debug_dict, hand_front_center_world, P0
 
         if np.abs(dx_pivot) > .002:
             Arrow_Start = my_centroid + np.array(
-                [.05 * np.sign(dx_pivot), 0, 0, 0])
+                [0, .05 * np.sign(dx_pivot), 0, 0])
             Arrow_End = my_centroid + np.array(
-                [.1 * np.sign(dx_pivot), 0, 0, 0])
+                [0, .1 * np.sign(dx_pivot), 0, 0])
             x_coord, y_coord = get_pix_easier(
                 np.vstack([Arrow_Start, Arrow_End]).T, camera_transformation_matrix)
             cv2.arrowedLine(
@@ -544,10 +544,10 @@ def plot_ground_slide_arrow(cv_image, qp_debug_dict, hand_front_center_world, P0
 def plot_pivot_arrow(cv_image, qp_debug_dict, hand_front_center_world, P0, camera_transformation_matrix):
 
     my_num_pts = 10
-    if (qp_debug_dict is not None and 'err_theta' in qp_debug_dict['error_dict']
-            and 'err_s' not in qp_debug_dict['error_dict'] and 'err_x_pivot' not in qp_debug_dict['error_dict']) and (P0 is not None):
+    if (qp_debug_dict is not None and 'error_theta' in qp_debug_dict['error_dict']
+            and 'error_s_pivot' not in qp_debug_dict['error_dict'] and 'error_s_hand' not in qp_debug_dict['error_dict']) and (P0 is not None):
 
-        d_theta = qp_debug_dict['error_dict']['err_theta']
+        d_theta = qp_debug_dict['error_dict']['error_theta']
         if np.abs(d_theta) > np.pi / 85:
             R = .6 * np.linalg.norm(
                 np.array([
@@ -561,9 +561,9 @@ def plot_pivot_arrow(cv_image, qp_debug_dict, hand_front_center_world, P0, camer
             my_theta_range = np.linspace(-np.sign(d_theta) * np.pi /
                                          6, -.4 * np.sign(d_theta) * np.pi, num=my_num_pts) + my_angle
             X_pts = P0[0] + R * np.cos(my_theta_range)
-            Y_pts = P0[2] + R * np.sin(my_theta_range)
+            Y_pts = P0[1] + R * np.sin(my_theta_range)
             my_plot_pts = np.vstack(
-                [X_pts, P0[1] * np.ones([1, my_num_pts]), Y_pts, np.ones([1, my_num_pts])])
+                [X_pts, Y_pts, P0[2] * np.ones([1, my_num_pts]), np.ones([1, my_num_pts])])
 
             x_coord, y_coord = get_pix_easier(
                 my_plot_pts, camera_transformation_matrix)
@@ -578,9 +578,9 @@ def plot_pivot_arrow(cv_image, qp_debug_dict, hand_front_center_world, P0, camer
 
 
 def plot_hand_slide_arrow(cv_image, qp_debug_dict, hand_points, contact_pose_homog, camera_transformation_matrix):
-    if qp_debug_dict is not None and 'err_s' in qp_debug_dict[
+    if qp_debug_dict is not None and 'error_s_hand' in qp_debug_dict[
             'error_dict']:
-        ds_hand = qp_debug_dict['error_dict']['err_s']
+        ds_hand = -qp_debug_dict['error_dict']['error_s_hand']
         desired_hand_points = hand_points + 0.0
         desired_hand_points[1, :] += ds_hand
 

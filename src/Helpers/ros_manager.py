@@ -6,7 +6,7 @@ sys.path.insert(0,os.path.dirname(currentdir))
 import time
 import numpy as np
 from Estimation import friction_reasoning
-import tf2_ros
+
 from cv_bridge import CvBridge
 import cv2
 
@@ -60,7 +60,7 @@ class ros_manager(object):
 		global TorqueConeBoundaryFlagStamped, PivotSlidingCommandedFlagStamped, TorqueConeBoundaryTestStamped
 		global TorqueBoundsStamped, GeneralizedPositionsStamped
 
-		global kh, pmh, IMH, tf, pickle_manager, time_logger
+		global kh, pmh, tf, pickle_manager, time_logger, tf2_ros
 
 		import rospy
 		from geometry_msgs.msg import PoseStamped, WrenchStamped, TransformStamped
@@ -81,8 +81,9 @@ class ros_manager(object):
 		import Helpers.pbal_msg_helper as pmh
 		from Helpers.pickle_manager import pickle_manager
 		from Helpers.time_logger import time_logger
-		import Helpers.impedance_mode_helper as IMH
+		
 		import tf
+		import tf2_ros
 			
 	def init_node(self,node_name):
 		self.node_name = node_name
@@ -173,6 +174,8 @@ class ros_manager(object):
 			self.tl.log_qp_time(solve_time)
 
 	def impedance_mode_helper(self):
+		global IMH
+		import Helpers.impedance_mode_helper as IMH
 		self.my_impedance_mode_helper = IMH.impedance_mode_helper()
 
 	def set_matrices_pbal_mode(self,TIPI,TOOPI,RIPI,ROOPI,rot_mat):
@@ -189,8 +192,8 @@ class ros_manager(object):
 
 	def initialize_impedance_mode(self,torque_upper=None,force_upper=None):
 		if torque_upper is None or force_upper is None:
-		    torque_upper = [40.0, 40.0, 36.0, 36.0, 32.0, 28.0, 24.0]
-    		force_upper = [100.0, 100.0, 100.0, 25.0, 25.0, 25.0]
+			torque_upper = [40.0, 40.0, 36.0, 36.0, 32.0, 28.0, 24.0]
+			force_upper = [100.0, 100.0, 100.0, 25.0, 25.0, 25.0]
 
 		if self.my_impedance_mode_helper is not None:
 			self.my_impedance_mode_helper.initialize_impedance_mode(torque_upper=torque_upper,force_upper=force_upper)
@@ -292,6 +295,7 @@ class ros_manager(object):
 			self.measured_contact_wrench_available_index = len(self.data_available)-1
 			self.end_effector_wrench_has_new = False
 
+			self.measured_contact_wrench_6D = None
 			self.measured_contact_wrench = None
 
 			self.subscriber_dict[topic] = rospy.Subscriber(
@@ -309,6 +313,7 @@ class ros_manager(object):
 			self.measured_world_manipulation_wrench_available_index = len(self.data_available)-1
 			self.end_effector_wrench_world_manipulation_frame_has_new = False
 
+			self.measured_world_manipulation_wrench_6D = None
 			self.measured_world_manipulation_wrench = None
 
 			self.subscriber_dict[topic] = rospy.Subscriber(
@@ -728,13 +733,22 @@ class ros_manager(object):
 			self.target_frame_broadcaster = tf2_ros.TransformBroadcaster()
 
 		elif topic == '/ee_apriltag_in_world':
-			# intialize impedance target frame
 			self.ee_apriltag_in_world_frame_pub = rospy.Publisher(
 				topic, 
 				TransformStamped, 
 				queue_size=10) 
 			# set up transform broadcaster
 			self.ee_apriltag_in_world_frame_broadcaster = tf2_ros.TransformBroadcaster()
+
+		elif topic == '/pivot_frame_realsense':
+			self.pivot_frame_realsense_pub = rospy.Publisher(
+				topic, 
+				TransformStamped, 
+				queue_size=10) 
+				# set up transform broadcaster
+			self.pivot_frame_realsense_broadcaster = tf2_ros.TransformBroadcaster()
+
+
 
 
 	def pub_ee_pose_in_world_manipulation_from_franka(self,ee_pose_in_world_manipulation_list):
@@ -789,16 +803,27 @@ class ros_manager(object):
 
 
 	def pub_target_frame(self,waypoint_pose_list):
-		waypoint_pose_list_stamped = pmh.list2transform_stamped(waypoint_pose_list, header_frame_id = 'base', child_frame_id = 'hand_estimate')
-		waypoint_pose_list_stamped.header.stamp = rospy.Time.now()
-		self.target_frame_pub.publish(waypoint_pose_list_stamped)
-		self.target_frame_broadcaster.sendTransform(waypoint_pose_list_stamped)
+		waypoint_pose_stamped = pmh.list2transform_stamped(waypoint_pose_list, header_frame_id = 'base', child_frame_id = 'hand_estimate')
+		waypoint_pose_stamped.header.stamp = rospy.Time.now()
+		self.target_frame_pub.publish(waypoint_pose_stamped)
+		self.target_frame_broadcaster.sendTransform(waypoint_pose_stamped)
 
 	def pub_ee_apriltag_frame(self,ee_apriltag_in_world_pose_list):
-		ee_apriltag_in_world_pose_list_stamped = pmh.list2transform_stamped(ee_apriltag_in_world_pose_list, header_frame_id = 'base', child_frame_id = 'ee_apriltag_in_world_in_world')
-		ee_apriltag_in_world_pose_list_stamped.header.stamp = rospy.Time.now()
-		self.ee_apriltag_in_world_frame_pub.publish(ee_apriltag_in_world_pose_list_stamped)
-		self.ee_apriltag_in_world_frame_broadcaster.sendTransform(ee_apriltag_in_world_pose_list_stamped)
+		ee_apriltag_in_world_pose_stamped = pmh.list2transform_stamped(ee_apriltag_in_world_pose_list, header_frame_id = 'base', child_frame_id = 'ee_apriltag_in_world')
+		ee_apriltag_in_world_pose_stamped.header.stamp = rospy.Time.now()
+		self.ee_apriltag_in_world_frame_pub.publish(ee_apriltag_in_world_pose_stamped)
+		self.ee_apriltag_in_world_frame_broadcaster.sendTransform(ee_apriltag_in_world_pose_stamped)
+
+	def pub_pivot_frame_realsense(self,pivot_pose_list):
+		if len(pivot_pose_list)==3:
+			pivot_pose_list = pivot_pose_list + [0.0,0.0,0.0,1.0]
+
+		pivot_pose_stamped = pmh.list2transform_stamped(pivot_pose_list, header_frame_id = '/world_manipulation_frame', child_frame_id = 'pivot_frame_realsense')
+		pivot_pose_stamped.header.stamp = rospy.Time.now()
+		self.pivot_frame_realsense_pub.publish(pivot_pose_stamped)
+		self.pivot_frame_realsense_broadcaster.sendTransform(pivot_pose_stamped)
+
+		
 
 	def pub_qp_debug_message(self,debug_dict):
 		qp_debug_stamped = pmh.qp_debug_dict_to_qp_debug_stamped(qp_debug_dict = debug_dict)
@@ -867,13 +892,13 @@ class ros_manager(object):
 
 			end_effector_wrench = self.measured_contact_wrench_buffer.pop(0)
 
-			measured_contact_wrench_6D = pmh.wrench_stamped2list(
-				end_effector_wrench)
+			self.measured_contact_wrench_6D = -np.array(pmh.wrench_stamped2list(
+				end_effector_wrench))
 
-			self.measured_contact_wrench = -np.array([
-				measured_contact_wrench_6D[0], 
-				measured_contact_wrench_6D[1],
-				measured_contact_wrench_6D[-1]])
+			self.measured_contact_wrench = np.array([
+				self.measured_contact_wrench_6D[0], 
+				self.measured_contact_wrench_6D[1],
+				self.measured_contact_wrench_6D[-1]])
 
 			self.end_effector_wrench_has_new = True
 		else:
@@ -889,13 +914,13 @@ class ros_manager(object):
 		if len(self.measured_world_manipulation_wrench_buffer)>0:
 			world_manipulation_wrench = self.measured_world_manipulation_wrench_buffer.pop(0)
 
-			measured_world_manipulation_wrench_6D = pmh.wrench_stamped2list(
-				world_manipulation_wrench)
+			self.measured_world_manipulation_wrench_6D = -np.array(pmh.wrench_stamped2list(
+				world_manipulation_wrench))
 
-			self.measured_world_manipulation_wrench = -np.array([
-				measured_world_manipulation_wrench_6D[0], 
-				measured_world_manipulation_wrench_6D[1],
-				measured_world_manipulation_wrench_6D[-1]])
+			self.measured_world_manipulation_wrench = np.array([
+				self.measured_world_manipulation_wrench_6D[0], 
+				self.measured_world_manipulation_wrench_6D[1],
+				self.measured_world_manipulation_wrench_6D[-1]])
 
 			self.end_effector_wrench_world_manipulation_frame_has_new = True
 		else:
