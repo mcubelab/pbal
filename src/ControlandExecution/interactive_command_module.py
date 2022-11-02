@@ -152,41 +152,46 @@ def on_press(key):
     except:
         k = key.name  # other keys
 
+    can_publish = True
+
     if k == 'c':  # center
         command_msg_dict = absolute_rotate_center
         print('absolute_rotate_center')
-    if k == 'left': # pivot left
+    elif k == 'left': # pivot left
         command_msg_dict = delta_rotate_left
         print('delta_rotate_left')
-    if k == 'right': # pivot right
+    elif k == 'right': # pivot right
         command_msg_dict = delta_rotate_right
         print('delta_rotate_right')
-    if k == 'g': # pivot left
+    elif k == 'g': # pivot left
         command_msg_dict = delta_rotate_corner_left
         print('delta_rotate_corner_left')
-    if k == 'h': # pivot right
+    elif k == 'h': # pivot right
         command_msg_dict = delta_rotate_corner_right
         print('delta_rotate_corner_right')
-    if k == 'a': # robot left
+    elif k == 'a': # robot left
         command_msg_dict = delta_slide_robot_left
         print('delta_slide_robot_left')
-    if k == 'd': # robot right
+    elif k == 'd': # robot right
         command_msg_dict = delta_slide_robot_right
         print('delta_slide_robot_right')
-    if k == '1': # robot left
+    elif k == '1': # robot left
         command_msg_dict = delta_super_slide_robot_left
         print('delta_super_slide_robot_left')
-    if k == '3': # robot right
+    elif k == '3': # robot right
         command_msg_dict = delta_super_slide_robot_right
         print('delta_super_slide_robot_right')
-    if k == 'q': # object left
+    elif k == 'q': # object left
         command_msg_dict = delta_slide_pivot_left
         print('delta_slide_pivot_left')
-    if k == 'e': # object right
+    elif k == 'e': # object right
         command_msg_dict = delta_slide_pivot_right
         print('delta_slide_pivot_right')
+    else:
+        can_publish = False
 
-    rm.pub_barrier_func_control_command(command_msg_dict)
+    if can_publish:
+        rm.pub_barrier_func_control_command(command_msg_dict)
 
 
 if __name__ == '__main__':
