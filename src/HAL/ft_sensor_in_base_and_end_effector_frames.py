@@ -86,6 +86,8 @@ from Modelling.system_params import SystemParams
 
 from Helpers.ros_manager import ros_manager
 
+import rospy
+
 sys_params = SystemParams()
 LCONTACT = sys_params.object_params['L_CONTACT_MAX']                                        # length of the end effector 
 NORMAL_FORCE_THRESHOLD = sys_params.estimator_params['NORMAL_FORCE_THRESHOLD_FORCE']        # Minimum required normal force
@@ -102,8 +104,8 @@ if __name__ == '__main__':
     # Initialize all publishers and subscribers. 
     # See /Helpers/ros_manager for the actual code (mostly book-keeping)
     rm = ros_manager()
-    rm.init_node(node_name)
-    rm.setRate(sys_params.estimator_params['RATE'])
+    rospy.init_node(node_name)
+    rate = rospy.Rate(sys_params.estimator_params['RATE'])
     rm.subscribe_to_list(['/netft/netft_data',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/ee_pose_in_base_from_franka_publisher'])
@@ -133,10 +135,10 @@ if __name__ == '__main__':
     print('Zeroing sensor')
 
     # object for computing loop frequnecy
-    rm.init_time_logger()
+    rm.init_time_logger(node_name)
 
     # Run node at rate
-    while not rm.is_shutdown():
+    while not rospy.is_shutdown():
         rm.tl_reset()
         rm.unpack_all()
 
@@ -202,4 +204,4 @@ if __name__ == '__main__':
 
         # log timing info
         rm.log_time()
-        rm.sleep()
+        rate.sleep()

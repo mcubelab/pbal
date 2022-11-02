@@ -14,6 +14,8 @@ from Modelling.convex_hull_estimator import ConvexHullEstimator
 from robot_friction_cone_estimator import RobotFrictionConeEstimator
 from numpy import random
 
+import rospy
+
 if __name__ == '__main__':
     
     node_name = "wrench_cone_estimation"
@@ -24,8 +26,8 @@ if __name__ == '__main__':
     theta_min_external = np.arctan(sys_params.pivot_params["mu_ground"])
 
     rm = ros_manager()
-    rm.init_node(node_name)
-    rm.setRate(sys_params.estimator_params["RATE"])
+    rospy.init_node(node_name)
+    rate = rospy.Rate(sys_params.estimator_params["RATE"])
     rm.subscribe('/end_effector_sensor_in_end_effector_frame')
     rm.subscribe('/end_effector_sensor_in_world_manipulation_frame')
     rm.spawn_publisher('/friction_parameters')
@@ -48,7 +50,7 @@ if __name__ == '__main__':
     should_publish_ground_friction_cone = False
 
     # object for computing loop frequnecy
-    rm.init_time_logger()
+    rm.init_time_logger(node_name)
 
     update_robot_friction_cone = False
     update_ground_friction_cone = False
@@ -60,7 +62,7 @@ if __name__ == '__main__':
     ground_update_number = 100
 
     print("Starting wrench cone estimation")
-    while not rm.is_shutdown():
+    while not rospy.is_shutdown():
         rm.tl_reset()
         rm.unpack_all()
 
@@ -141,7 +143,7 @@ if __name__ == '__main__':
 
         # log timing info
         rm.log_time()
-        rm.sleep()
+        rate.sleep()
 
 
 

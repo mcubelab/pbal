@@ -12,6 +12,8 @@ from Modelling.modular_barrier_controller import ModularBarrierController
 
 from Helpers.ros_manager import ros_manager
 
+import rospy
+
 def robot2_pose_list(xyz_list, theta):
     return xyz_list + kh.theta_to_quatlist(theta)
 
@@ -32,8 +34,8 @@ if __name__ == '__main__':
     RATE = controller_params['RATE']
 
     rm = ros_manager()
-    rm.init_node(node_name)
-    rm.setRate(RATE)
+    rospy.init_node(node_name)
+    rate = rospy.Rate(RATE)
     rm.subscribe_to_list(['/end_effector_sensor_in_end_effector_frame',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/barrier_func_control_command'])
@@ -86,11 +88,11 @@ if __name__ == '__main__':
     time.sleep(1.0)
 
     # object for computing loop frequnecy
-    rm.init_time_logger()
+    rm.init_time_logger(node_name)
     rm.init_qp_time()
 
     print('starting control loop')
-    while not rm.is_shutdown():
+    while not rospy.is_shutdown():
         rm.tl_reset()
         rm.unpack_all()
 
@@ -242,4 +244,4 @@ if __name__ == '__main__':
         rm.log_time()
         rm.log_qp_time(debug_dict['solve_time'])
 
-        rm.sleep()
+        rate.sleep()

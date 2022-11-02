@@ -11,6 +11,8 @@ import friction_reasoning
 
 from Helpers.ros_manager import ros_manager
 
+import rospy
+
 if __name__ == '__main__':
 
     node_name = 'sliding_estimation_wrench_cone'
@@ -18,8 +20,8 @@ if __name__ == '__main__':
     sys_params = SystemParams()
 
     rm = ros_manager()
-    rm.init_node(node_name)
-    rm.setRate(sys_params.estimator_params["RATE"])
+    rospy.init_node(node_name)
+    rate = rospy.Rate(sys_params.estimator_params["RATE"])
     rm.subscribe_to_list([  '/end_effector_sensor_in_end_effector_frame',
                             '/end_effector_sensor_in_world_manipulation_frame',
                             '/friction_parameters'])
@@ -38,10 +40,10 @@ if __name__ == '__main__':
     dummy, last_slide_time_dict, sliding_state_dict = friction_reasoning.initialize_friction_dictionaries()
 
     # object for computing loop frequency
-    rm.init_time_logger()
+    rm.init_time_logger(node_name)
    
     print("Starting sliding state estimation from wrench cone")
-    while not rm.is_shutdown():
+    while not rospy.is_shutdown():
         t0 = time.time()
         rm.tl_reset()
         rm.unpack_all()
@@ -65,4 +67,4 @@ if __name__ == '__main__':
 
         # log timing info       
         rm.log_time()
-        rm.sleep()
+        rate.sleep()

@@ -7,6 +7,7 @@ from Helpers.ros_manager import ros_manager
 import numpy as np
 from pynput import keyboard
 
+import rospy
 
 command_pause = {
     'name': 'pause',
@@ -206,7 +207,7 @@ if __name__ == '__main__':
     print('-----------------------------')
 
     rm = ros_manager()
-    rm.init_node('barrier_func_commands')
+    rospy.init_node('barrier_func_commands')
     rm.spawn_publisher('/barrier_func_control_command')
 
     listener = keyboard.Listener(on_press=on_press)

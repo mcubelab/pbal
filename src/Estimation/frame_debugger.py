@@ -14,6 +14,8 @@ import matplotlib.lines as lines
 
 from Helpers.ros_manager import ros_manager
 
+import rospy
+
 def update_basic_friction_constraint_plots(plot_list,A,B,axs,color):
     for i in range(max(len(plot_list),len(B))):
         if i>=len(plot_list):
@@ -84,8 +86,8 @@ if __name__ == '__main__':
     l_contact =  sys_params.object_params['L_CONTACT_MAX']
 
     rm = ros_manager()
-    rm.init_node(node_name)
-    rm.setRate(sys_params.estimator_params['RATE'])
+    rospy.init_node(node_name)
+    rate = rospy.Rate(sys_params.estimator_params['RATE'])
     rm.subscribe_to_list(['/end_effector_sensor_in_end_effector_frame',
                           '/end_effector_sensor_in_world_manipulation_frame',
                           '/ee_pose_in_world_manipulation_from_franka_publisher'])
@@ -143,7 +145,7 @@ if __name__ == '__main__':
     right_hand_constraint_with_hand_plots = []
 
     #Run node at rate    
-    while not rm.is_shutdown():
+    while not rospy.is_shutdown():
         rm.unpack_all()
 
 
@@ -270,4 +272,4 @@ if __name__ == '__main__':
 
         plt.pause(0.01)
 
-        rm.sleep()
+        rate.sleep()

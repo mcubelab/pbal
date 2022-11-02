@@ -6,6 +6,8 @@ sys.path.insert(0,os.path.dirname(currentdir))
 from Modelling.system_params import SystemParams
 from Helpers.ros_manager import ros_manager
 
+import rospy
+
 if __name__ == '__main__':
 
     # initialize node
@@ -16,18 +18,18 @@ if __name__ == '__main__':
     
     # define publishers
     rm = ros_manager()
-    rm.init_node(node_name)
-    rm.setRate(sys_params.estimator_params["RATE"])
+    rospy.init_node(node_name)
+    rate = rospy.Rate(sys_params.estimator_params["RATE"])
     rm.spawn_publisher_list(['/ee_pose_in_base_from_franka_publisher',
                              '/ee_pose_in_world_manipulation_from_franka_publisher'])
 
     rm.spawn_transform_listener()
 
     # object for computing loop frequency
-    rm.init_time_logger()
+    rm.init_time_logger(node_name)
 
     #5. Run node at rate
-    while not rm.is_shutdown():
+    while not rospy.is_shutdown():
         rm.tl_reset()
  
         (ee_pose_world_manipulation_trans, ee_pose_world_manipulation_rot) = rm.lookupTransform('/panda_EE', '/world_manipulation_frame')
@@ -47,4 +49,4 @@ if __name__ == '__main__':
 
         # log timing info       
         rm.log_time()
-        rm.sleep()
+        rate.sleep()

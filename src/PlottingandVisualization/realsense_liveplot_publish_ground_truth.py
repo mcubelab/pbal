@@ -9,12 +9,13 @@ from Helpers.ros_manager import ros_manager
 import cv2
 from cv_bridge import CvBridge
 import numpy as np
-import rospy
 
 from Modelling.system_params import SystemParams
 import Helpers.kinematics_helper as kh
 import Estimation.friction_reasoning as friction_reasoning
 import image_overlay_helper as ioh
+
+import rospy
 
 if __name__ == '__main__':
 

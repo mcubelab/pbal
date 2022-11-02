@@ -153,7 +153,9 @@ class ros_manager(object):
 		if self.rate is not None:
 			self.rate.sleep()
 
-	def init_time_logger(self):
+	def init_time_logger(self,node_name=None):
+		if node_name is not None:
+			self.node_name = node_name
 		self.tl = time_logger(self.node_name)
 
 	def init_qp_time(self):

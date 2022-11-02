@@ -10,6 +10,8 @@ from Modelling.system_params import SystemParams
 import Helpers.kinematics_helper as kh
 from Helpers.ros_manager import ros_manager
 
+import rospy
+
 if __name__ == '__main__':
     apriltag_id = 10
 
@@ -18,8 +20,8 @@ if __name__ == '__main__':
     # initialize node
     node_name = 'ee_apriltag_pose_in_world_from_camera'
     rm = ros_manager()
-    rm.init_node(node_name)
-    rm.setRate(sys_params.hal_params['CAMERA_RATE'])
+    rospy.init_node(node_name)
+    rate = rospy.Rate(2*sys_params.hal_params['CAMERA_RATE'])
 
     # Make listener and get vicon to workobj rotation
     rm.spawn_transform_listener()
@@ -38,10 +40,10 @@ if __name__ == '__main__':
     # base frame in base frame
     base_in_base_pose_list = kh.unit_pose_list()
 
-    rm.init_time_logger()
+    rm.init_time_logger(node_name)
 
     # Run node at rate
-    while not rm.is_shutdown():
+    while not rospy.is_shutdown():
         rm.tl_reset()
         rm.unpack_all()
 
@@ -56,4 +58,4 @@ if __name__ == '__main__':
             rm.pub_ee_apriltag_frame(ee_apriltag_in_world_pose_list)
 
         rm.log_time()
-        rm.sleep()
+        rate.sleep()

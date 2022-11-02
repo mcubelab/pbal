@@ -16,6 +16,8 @@ import time
 
 from Helpers.ros_manager import ros_manager
 
+import rospy
+
 if __name__ == '__main__':
     #initialize rosnode and load params
     node_name = 'impedance_model_test'
@@ -26,8 +28,8 @@ if __name__ == '__main__':
     RATE = controller_params['RATE']
 
     rm = ros_manager()
-    rm.init_node(node_name)
-    rm.setRate(RATE)
+    rospy.init_node(node_name)
+    rate = rospy.Rate(RATE)
     rm.subscribe_to_list(['/end_effector_sensor_in_world_manipulation_frame',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/target_frame'])
@@ -45,7 +47,7 @@ if __name__ == '__main__':
 
     r_contact = sys_params.object_params['L_CONTACT_MAX']/2.0
 
-    rm.init_time_logger()
+    rm.init_time_logger(node_name)
 
     # wait until messages have been received from all essential ROS topics before proceeding
     rm.wait_for_necessary_data()
@@ -102,7 +104,7 @@ if __name__ == '__main__':
     update_time = .25
     t_last_update = 0.0
 
-    while not rm.is_shutdown():
+    while not rospy.is_shutdown():
         rm.unpack_all()
 
         theta_current = kh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
@@ -214,5 +216,5 @@ if __name__ == '__main__':
             plt.pause(0.000001)
 
         else:
-            rm.sleep()
+            rate.sleep()
         
