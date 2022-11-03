@@ -944,6 +944,16 @@ class ros_manager(object):
 					# set up transform broadcaster
 				self.pivot_frame_realsense_broadcaster = tf2_ros.TransformBroadcaster()
 
+		elif topic == '/pivot_frame_estimated':
+			if self.load_mode:
+				pass
+			else:
+				self.pivot_frame_estimated_pub = rospy.Publisher(
+					topic, 
+					TransformStamped, 
+					queue_size=10) 
+					# set up transform broadcaster
+				self.pivot_frame_estimated_broadcaster = tf2_ros.TransformBroadcaster()
 
 
 
@@ -1057,6 +1067,18 @@ class ros_manager(object):
 			pivot_pose_stamped.header.stamp = rospy.Time.now()
 			self.pivot_frame_realsense_pub.publish(pivot_pose_stamped)
 			self.pivot_frame_realsense_broadcaster.sendTransform(pivot_pose_stamped)
+
+	def pub_pivot_frame_estimated(self,pivot_pose_list):
+		if self.load_mode:
+			pass
+		else:
+			if len(pivot_pose_list)==3:
+				pivot_pose_list = pivot_pose_list + [0.0,0.0,0.0,1.0]
+
+			pivot_pose_stamped = pmh.list2transform_stamped(pivot_pose_list, header_frame_id = '/world_manipulation_frame', child_frame_id = 'pivot_frame_estimated')
+			pivot_pose_stamped.header.stamp = rospy.Time.now()
+			self.pivot_frame_estimated_pub.publish(pivot_pose_stamped)
+			self.pivot_frame_estimated_broadcaster.sendTransform(pivot_pose_stamped)
 
 	def pub_qp_debug_message(self,debug_dict):
 		if self.load_mode:

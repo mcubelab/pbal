@@ -16,15 +16,17 @@ import image_overlay_helper as ioh
 if __name__ == '__main__':
     global rospy
 
-    path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
-    fname = '/test_data-experiment0003.pickle'
-
-
     sys_params = SystemParams()
     cam_choice = 'near'
 
-    rm = ros_manager(load_mode = True, path=path, fname=fname)
-    # rm = ros_manager()
+    #use if playing from pickle file
+    # path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
+    # path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
+    # fname = '/test_data-experiment0003.pickle'
+    # rm = ros_manager(load_mode = True, path=path, fname=fname)
+
+    #use if running live
+    rm = ros_manager()
 
     if rm.load_mode:
         rm.setRate(100)
@@ -48,7 +50,8 @@ if __name__ == '__main__':
                           '/pivot_sliding_commanded_flag',
                           '/sliding_state',
                           '/torque_cone_boundary_flag',
-                          '/torque_cone_boundary_test',],False)
+                          '/torque_cone_boundary_test',
+                          '/pivot_frame_estimated',],False)
 
     rm.subscribe_to_list(['/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/ee_pose_in_base_from_franka_publisher',
@@ -194,9 +197,12 @@ if __name__ == '__main__':
                 ioh.plot_pivot_arrow(cv_image,rm.qp_debug_dict,hand_front_center_world,P0,camera_transformation_matrix)
                 ioh.plot_ground_slide_arrow(cv_image,rm.qp_debug_dict,hand_front_center_world,P0,camera_transformation_matrix,current_dot_positions,True)
 
-                ioh.plot_pivot_dot(cv_image,np.array([P0]),camera_transformation_matrix)
+                # ioh.plot_pivot_dot(cv_image,np.array([P0]),camera_transformation_matrix)
 
                 rm.pub_pivot_frame_realsense(P0[0:3].tolist())
+
+            if rm.pivot_xyz_estimated is not None:
+                ioh.plot_pivot_dot(cv_image,np.array([rm.pivot_xyz_estimated+[1.0]]),camera_transformation_matrix)
 
             cv2.imshow("Image window", cv_image)
 
