@@ -94,12 +94,13 @@ def load_from_ros_manager_test(path,fname):
 
 if __name__ == "__main__":
 
-    path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
+    # path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
+    path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
     fname = '/test_data-experiment0001.pickle'
 
-    # correct_subscriber_rate_test(path,fname)
+    correct_subscriber_rate_test(path,fname)
     # test_frame_dictionary(path,fname)
-    load_from_ros_manager_test(path,fname)
+    # load_from_ros_manager_test(path,fname)
 
 
     # vidcap = cv2.VideoCapture(path+'/test_data-experiment0001_near_cam_color_image_raw.avi')

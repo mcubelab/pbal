@@ -11,10 +11,12 @@ from Helpers.ros_manager import ros_manager
 import Helpers.kinematics_helper as kh
 from Modelling.system_params import SystemParams
 
+import rospy
+
 def impedance_test01():
     #this starts the ros node
     rm = ros_manager()
-    rm.init_node('test_impedance_control_with_matrix')
+    rospy.init_node('test_impedance_control_with_matrix')
 
     rm.subscribe_to_list(['/ee_pose_in_base_from_franka_publisher'])
 
@@ -101,7 +103,7 @@ def impedance_test01():
 def impedance_test02():
     #this starts the ros node
     rm = ros_manager()
-    rm.init_node('test_impedance_control_with_matrix')
+    rospy.init_node('test_impedance_control_with_matrix')
     rm.spawn_transform_listener()
     sys_params = SystemParams()
     controller_params = sys_params.controller_params

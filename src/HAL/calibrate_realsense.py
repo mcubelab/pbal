@@ -9,6 +9,8 @@ import time
 import Helpers.kinematics_helper as kh
 from Helpers.ros_manager import ros_manager
 
+import rospy
+
 def generate_winding_indices(height,width):
     my_E_matrix = np.zeros([height,width])
     index_list = []
@@ -92,8 +94,8 @@ if __name__ == '__main__':
     apriltag_id = 10
     
     rm = ros_manager()
-    rm.init_node('realsense_live_calibration_test')
-    rm.setRate(10)
+    rospy.init_node('realsense_live_calibration_test')
+    rate = rospy.Rate(10)
 
     rm.spawn_transform_listener()
     rm.impedance_mode_helper()
@@ -209,7 +211,7 @@ if __name__ == '__main__':
     snapshot_taken = False
     snapshot_threshold =1.9
 
-    while not rm.is_shutdown():
+    while not rospy.is_shutdown():
         rm.unpack_all()
 
         t = time.time()-t0

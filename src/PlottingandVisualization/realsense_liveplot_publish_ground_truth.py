@@ -3,11 +3,9 @@ import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0,os.path.dirname(currentdir))
 
-import rospy
 from Helpers.ros_manager import ros_manager
 
 import cv2
-from cv_bridge import CvBridge
 import numpy as np
 
 from Modelling.system_params import SystemParams
@@ -15,23 +13,29 @@ import Helpers.kinematics_helper as kh
 import Estimation.friction_reasoning as friction_reasoning
 import image_overlay_helper as ioh
 
-import rospy
-
 if __name__ == '__main__':
+    global rospy
+
+    path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
+    fname = '/test_data-experiment0003.pickle'
+
 
     sys_params = SystemParams()
     cam_choice = 'near'
 
+    rm = ros_manager(load_mode = True, path=path, fname=fname)
+    # rm = ros_manager()
 
-    rospy.init_node("realsense_liveplot_test")
-    rate = rospy.Rate(60)
-    rm = ros_manager()
+    if rm.load_mode:
+        rm.setRate(100)
+    else:
+        import rospy
+        rospy.init_node("realsense_liveplot_test")
+        rate = rospy.Rate(60)
+    
     rm.spawn_transform_listener()
 
     rm.subscribe_to_list(['/netft/netft_data',
-                          
-                          '/end_effector_sensor_in_end_effector_frame',
-                          '/end_effector_sensor_in_world_manipulation_frame',
                           '/friction_parameters',
                           '/pivot_frame_realsense',
                           '/pivot_frame_estimated',
@@ -47,7 +51,9 @@ if __name__ == '__main__':
                           '/torque_cone_boundary_test',],False)
 
     rm.subscribe_to_list(['/ee_pose_in_world_manipulation_from_franka_publisher',
-                          '/ee_pose_in_base_from_franka_publisher',],True)
+                          '/ee_pose_in_base_from_franka_publisher',
+                          '/end_effector_sensor_in_end_effector_frame',
+                          '/end_effector_sensor_in_world_manipulation_frame',],True)
 
 
     rm.spawn_publisher_list(['/pivot_frame_realsense',])
@@ -108,7 +114,6 @@ if __name__ == '__main__':
     force_scale = .001
 
 
-    bridge = CvBridge()
     
     l_contact = sys_params.object_params["L_CONTACT_MAX"]
 
@@ -130,7 +135,7 @@ if __name__ == '__main__':
 
     new_image_flag = False    
 
-    while not rospy.is_shutdown():
+    while (rm.load_mode and rm.read_still_running()) or (not rm.load_mode and not rospy.is_shutdown()):
         rm.unpack_all()
         new_image_flag = False  
 
@@ -154,16 +159,17 @@ if __name__ == '__main__':
             if np.abs(rm.measured_contact_wrench_6D[0]) > .1:
                 hand_COP_hand_frame, hand_COP_world_frame = ioh.estimate_hand_COP(rm.measured_contact_wrench_6D,hand_points,rm.ee_pose_in_world_manipulation_homog,l_contact)
 
-                ioh.plot_hand_friction_cone(cv_image,hand_COP_hand_frame,rm.friction_parameter_dict,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,force_scale)
+                if rm.friction_parameter_dict['cu']:
+                    ioh.plot_hand_friction_cone(cv_image,hand_COP_hand_frame,rm.friction_parameter_dict,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,force_scale)
 
                 ioh.plot_force_arrow(cv_image,hand_COP_world_frame,rm.measured_world_manipulation_wrench_6D[0:3],force_scale,camera_transformation_matrix)
 
-                # ioh.plot_hand_slide_arrow(cv_image,rm.qp_debug_dict,hand_points,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
+                ioh.plot_hand_slide_arrow(cv_image,rm.qp_debug_dict,hand_points,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
 
                 if rm.target_frame_homog is not None:
                     ioh.plot_impedance_target(cv_image,hand_points,np.dot(base_in_wm_homog,rm.target_frame_homog),camera_transformation_matrix)
 
-            if apriltag_id in rm.apriltag_pose_list_dict:
+            if rm.apriltag_pose_list_dict is not None and apriltag_id in rm.apriltag_pose_list_dict:
                 # obj apriltag pose in camera frame
                 obj_apriltag_in_camera_pose_list = rm.apriltag_pose_list_dict[apriltag_id]
 
@@ -177,17 +183,26 @@ if __name__ == '__main__':
                 current_dot_positions = np.dot(obj_pose_homog,object_vertex_array)
 
                 P0 = ioh.estimate_ground_COP(current_dot_positions,rm.measured_world_manipulation_wrench_6D, rm.ee_pose_in_world_manipulation_homog,obj_pose_homog)
+                
+                if rm.friction_parameter_dict['elu'] and rm.friction_parameter_dict['eru']:
+                    ioh.plot_ground_friction_cone(cv_image,P0,rm.friction_parameter_dict,camera_transformation_matrix,force_scale)
+
                 ioh.plot_force_arrow(cv_image,P0,-np.array(rm.measured_world_manipulation_wrench_6D[0:3]),force_scale,camera_transformation_matrix)
 
-                # ioh.plot_ground_friction_cone(cv_image,P0,rm.friction_parameter_dict,camera_transformation_matrix,force_scale)
-                # ioh.plot_pivot_arrow(cv_image,rm.qp_debug_dict,hand_front_center_world,P0,camera_transformation_matrix)
-                # ioh.plot_ground_slide_arrow(cv_image,rm.qp_debug_dict,hand_front_center_world,P0,camera_transformation_matrix,current_dot_positions,True)
+                
+
+                ioh.plot_pivot_arrow(cv_image,rm.qp_debug_dict,hand_front_center_world,P0,camera_transformation_matrix)
+                ioh.plot_ground_slide_arrow(cv_image,rm.qp_debug_dict,hand_front_center_world,P0,camera_transformation_matrix,current_dot_positions,True)
 
                 ioh.plot_pivot_dot(cv_image,np.array([P0]),camera_transformation_matrix)
 
                 rm.pub_pivot_frame_realsense(P0[0:3].tolist())
 
-        cv2.imshow("Image window", cv_image)
+            cv2.imshow("Image window", cv_image)
 
-        cv2.waitKey(3)
-        rate.sleep()
+            cv2.waitKey(3)
+
+        if rm.load_mode:
+            rm.sleep()
+        else:
+            rate.sleep()

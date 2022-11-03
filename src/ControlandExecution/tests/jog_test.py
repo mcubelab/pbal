@@ -10,6 +10,8 @@ import time
 
 from Helpers.ros_manager import ros_manager
 
+import rospy
+
 #function that defines a triangle wave that oscillates between  +/- amplitude, has a full period of period_in
 #t is the time that you are evaluating the triangle wave function at
 def triangle_wave(t, amplitude_in, period_in):
@@ -43,7 +45,7 @@ if __name__ == '__main__':
 
     #this starts the ros node
     rm = ros_manager()
-    rm.init_node('test_impedance_control')
+    rospy.init_node('test_impedance_control')
 
     rm.subscribe_to_list(['/end_effector_sensor_in_end_effector_frame',
                           '/end_effector_sensor_in_world_manipulation_frame',
@@ -68,7 +70,7 @@ if __name__ == '__main__':
 
     #at the end of a ros loop, we call rate.sleep so that the node sleeps a while and isn't constantly running
     #larger numbers means it sleeps for less time (the value is in Hz)
-    rm.setRate(100.)
+    rate = rospy.Rate(100.)
 
     #makes a copy of the current pose
     adjusted_current_pose = list(rm.ee_pose_in_base_list)
@@ -113,7 +115,7 @@ if __name__ == '__main__':
 
     #number of iterations of the loop
     ct = 0.
-    while not rm.is_shutdown():
+    while not rospy.is_shutdown():
         rm.unpack_all()
 
         ct+= 1.
@@ -147,7 +149,7 @@ if __name__ == '__main__':
         measured_horiztonal_force_list.append(rm.measured_world_manipulation_wrench[0])
         measured_vertical_force_list.append(rm.measured_world_manipulation_wrench[1])
 
-        rm.sleep()
+        rate.sleep()
 
     print("Average runtime: ", (tmax + tmax_margin)/ct)
 

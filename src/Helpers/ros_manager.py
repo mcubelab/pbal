@@ -7,7 +7,7 @@ import time
 import numpy as np
 from Estimation import friction_reasoning
 
-from cv_bridge import CvBridge
+
 import cv2
 
 import Helpers.kinematics_helper as kh
@@ -16,6 +16,7 @@ import pickle
 
 class ros_manager(object):
 	def __init__(self,record_mode=False,path=None,experiment_label=None,load_mode=False,fname=None):
+		self.dt_rate = None
 		self.data_available = []
 		self.available_mask = []
 		self.unpack_functions = []
@@ -72,7 +73,7 @@ class ros_manager(object):
 		global TorqueConeBoundaryFlagStamped, PivotSlidingCommandedFlagStamped, TorqueConeBoundaryTestStamped
 		global TorqueBoundsStamped, GeneralizedPositionsStamped
 
-		global pmh, tf, time_logger, tf2_ros
+		global pmh, tf, time_logger, tf2_ros, CvBridge
 
 		import rospy
 		from geometry_msgs.msg import PoseStamped, WrenchStamped, TransformStamped
@@ -89,7 +90,7 @@ class ros_manager(object):
 		 						TorqueBoundsStamped, 
 		 						GeneralizedPositionsStamped)
 
-		
+		from cv_bridge import CvBridge
 		import Helpers.pbal_msg_helper as pmh
 		from Helpers.time_logger import time_logger
 		import tf
@@ -111,11 +112,6 @@ class ros_manager(object):
 		self.fname = self.pkm.generate_experiment_name(experiment_label=self.experiment_label)
 		self.max_queue_size=np.inf
 		self.subscriber_queue_size = 100
-
-	def activate_load_mode(self,path,fname):
-		self.load_mode = True
-		self.path = path
-		self.fname_load = fname.split('.')[0]
 
 	def store_in_pickle(self):
 		self.pkm.store_in_pickle(self.topic_list,self.buffer_dict,self.message_type_dict,experiment_label=self.experiment_label,transform_dict = self.static_transform_dict)
@@ -156,6 +152,9 @@ class ros_manager(object):
 		self.t_max_record = tmax
 		self.t_current_record = tmin-.1
 
+	def read_still_running(self):
+		return self.t_current_record<=self.t_max_record
+
 	def update_callbacks(self):
 		for topic in self.callback_dict:
 			if topic in self.read_dict and 'time_list' in self.read_dict[topic] and len(self.read_dict[topic]['time_list'])>0:
@@ -177,7 +176,7 @@ class ros_manager(object):
 
 					self.read_index_dict[topic]+=1
 
-	def wait_for_necessary_data(self, dt_load_mode = .01):
+	def wait_for_necessary_data(self, dt_load_mode = .001):
 		print('Waiting to hear from essential subscribers')
 		can_proceed = False
 
@@ -234,11 +233,16 @@ class ros_manager(object):
 			self.near_came_video_writer.release()
 
 	def setRate(self,RATE):
-		self.rate = rospy.Rate(RATE)
+		self.dt_rate= 1.0/RATE
 				
 	def sleep(self):
-		if self.rate is not None:
-			self.rate.sleep()
+		if self.dt_rate is None:
+			dt = .001
+		else:
+			dt = self.dt_rate
+
+		self.t_current_record+=dt
+		time.sleep(dt)
 
 	def init_time_logger(self,node_name=None):
 		if node_name is not None:
@@ -706,7 +710,7 @@ class ros_manager(object):
 			self.far_cam_image_raw_available_index = len(self.data_available)-1
 			self.far_cam_image_raw_has_new = False
 
-			self.bridge = CvBridge()
+			
 			self.far_cam_image_raw = None
 			self.far_came_video_writer = None
 
@@ -715,6 +719,7 @@ class ros_manager(object):
 				callback = self.far_cam_image_raw_callback_record_version
 
 			if not self.load_mode:
+				self.bridge = CvBridge()
 				self.subscriber_dict[topic] = rospy.Subscriber(
 					topic,
 					Image,
@@ -731,7 +736,7 @@ class ros_manager(object):
 			self.near_cam_image_raw_available_index = len(self.data_available)-1
 			self.near_cam_image_raw_has_new = False
 
-			self.bridge = CvBridge()
+			
 			self.near_cam_image_raw = None
 			self.near_came_video_writer = None
 
@@ -740,6 +745,7 @@ class ros_manager(object):
 				callback = self.near_cam_image_raw_callback_record_version
 
 			if not self.load_mode:
+				self.bridge = CvBridge()
 				self.subscriber_dict[topic] = rospy.Subscriber(
 					topic,
 					Image,
