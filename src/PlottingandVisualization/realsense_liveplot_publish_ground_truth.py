@@ -120,21 +120,23 @@ if __name__ == '__main__':
     
     l_contact = sys_params.object_params["L_CONTACT_MAX"]
 
-    shape_name = 'big_triangle'
-    # shape_name = 'big_rectangle'
-    # shape_name = 'rectangle_bump_in'
-    # shape_name = 'rectangle_bump_out'
-    
-    object_vertex_array, apriltag_id, apriltag_pos = ioh.load_shape_data(shape_name)
+    shape_name_list = ['big_triangle','big_square','rectangle','square','triangle','big_rectangle','rectangle_bump_in','rectangle_bump_out']
 
-    object_vertex_array = np.vstack([
-        object_vertex_array,
-        np.zeros(len(object_vertex_array[0])),
-        np.ones(len(object_vertex_array[0]))
-    ])
+    shape_dict = {}
 
+    for shape_name in shape_name_list:
+        object_vertex_array, apriltag_id, apriltag_pos = ioh.load_shape_data(shape_name)
 
-    marker_pose_apriltag_frame_list = [-apriltag_pos[0], -apriltag_pos[1], 0.0, 0.0, 0.0, 0.0, 1.0] 
+        object_vertex_array = np.vstack([
+            object_vertex_array,
+            np.zeros(len(object_vertex_array[0])),
+            np.ones(len(object_vertex_array[0]))
+        ])
+
+        marker_pose_apriltag_frame_list = [-apriltag_pos[0], -apriltag_pos[1], 0.0, 0.0, 0.0, 0.0, 1.0]
+
+        shape_property_dict = {'object_vertex_array':object_vertex_array,'apriltag_pos':apriltag_pos,'marker_pose_apriltag_frame_list':marker_pose_apriltag_frame_list}
+        shape_dict[apriltag_id] = shape_property_dict
 
     new_image_flag = False    
 
@@ -172,7 +174,22 @@ if __name__ == '__main__':
                 if rm.target_frame_homog is not None:
                     ioh.plot_impedance_target(cv_image,hand_points,np.dot(base_in_wm_homog,rm.target_frame_homog),camera_transformation_matrix)
 
-            if rm.apriltag_pose_list_dict is not None and apriltag_id in rm.apriltag_pose_list_dict:
+            apriltag_id = None
+            shape_property_dict = None
+            marker_pose_apriltag_frame_list = None
+            object_vertex_array = None
+            apriltag_pos = None
+            if rm.apriltag_pose_list_dict is not None:
+                for possible_apriltag_id in shape_dict.keys():
+                    if possible_apriltag_id in rm.apriltag_pose_list_dict:
+                        apriltag_id = possible_apriltag_id
+                        shape_property_dict = shape_dict[apriltag_id]
+                        marker_pose_apriltag_frame_list = shape_property_dict['marker_pose_apriltag_frame_list']
+                        object_vertex_array = shape_property_dict['object_vertex_array']
+                        apriltag_pos = shape_property_dict['apriltag_pos']
+
+
+            if apriltag_id is not None:
                 # obj apriltag pose in camera frame
                 obj_apriltag_in_camera_pose_list = rm.apriltag_pose_list_dict[apriltag_id]
 

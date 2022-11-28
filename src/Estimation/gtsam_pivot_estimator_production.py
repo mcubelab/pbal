@@ -101,11 +101,11 @@ class gtsam_pivot_estimator(object):
         changing_factor_package = []
 
         state_factor_package.append(gtsam.CustomFactor(self.error_contact_model, [self.n_wm_sym,self.t_wm_sym_list[-1],self.s_sym_list[-1],self.d_sym],
-            partial(self.error_kinematic_d, measurement)))
+            partial(self.eval_error_kinematic_d, measurement)))
         state_factor_package.append(gtsam.CustomFactor(self.error_contact_model, [self.n_wm_sym,self.t_wm_sym_list[-1],self.s_sym_list[-1],self.d_sym],
-            partial(self.error_kinematic_s, measurement)))
+            partial(self.eval_error_kinematic_s, measurement)))
         # state_factor_package.append(gtsam.CustomFactor(self.error_torque_model, [self.n_wm_sym,self.t_wm_sym_list[-1]],
-        #     partial(self.error_torque_balance, measurement)))
+        #     partial(self.eval_error_torque_balance, measurement)))
 
  
         if self.num_data_points>1:
@@ -137,7 +137,7 @@ class gtsam_pivot_estimator(object):
 
 
           
-    def error_kinematic_d(self,measurement: np.ndarray, this: gtsam.CustomFactor,
+    def eval_error_kinematic_d(self,measurement: np.ndarray, this: gtsam.CustomFactor,
                   values: gtsam.Values,
                   jacobians: Optional[List[np.ndarray]]) -> float:
 
@@ -171,7 +171,7 @@ class gtsam_pivot_estimator(object):
 
         return [error_d]
 
-    def error_kinematic_s(self,measurement: np.ndarray, this: gtsam.CustomFactor,
+    def eval_error_kinematic_s(self,measurement: np.ndarray, this: gtsam.CustomFactor,
                   values: gtsam.Values,
                   jacobians: Optional[List[np.ndarray]]) -> float:
 
@@ -205,7 +205,7 @@ class gtsam_pivot_estimator(object):
 
         return [error_s]
 
-    def error_torque_balance(self,measurement: np.ndarray, this: gtsam.CustomFactor,
+    def eval_error_torque_balance(self,measurement: np.ndarray, this: gtsam.CustomFactor,
                   values: gtsam.Values,
                   jacobians: Optional[List[np.ndarray]]) -> float:
 
