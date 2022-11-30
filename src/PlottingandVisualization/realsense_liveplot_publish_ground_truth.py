@@ -19,14 +19,27 @@ if __name__ == '__main__':
     sys_params = SystemParams()
     cam_choice = 'near'
 
-    #use if playing from pickle file
-    # path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
-    # path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
-    # fname = '/test_data-experiment0003.pickle'
-    # rm = ros_manager(load_mode = True, path=path, fname=fname)
+    read_from_file = True
+    write_to_file = True and read_from_file
+    display_overlay = False
 
-    #use if running live
-    rm = ros_manager()
+    write_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
+    fname_out = '/pivot_estimator_video_01.avi'
+    
+
+    rm = None
+    fname = None
+    path = None
+    if read_from_file:
+        #use if playing from pickle file
+        read_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
+        # read_path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
+        fname_in = '/test_data-experiment0024.pickle'
+        rm = ros_manager(load_mode = True, path=read_path, fname=fname_in)
+
+    else:
+        #use if running live
+        rm = ros_manager()
 
     if rm.load_mode:
         rm.setRate(100)
@@ -34,6 +47,8 @@ if __name__ == '__main__':
         import rospy
         rospy.init_node("realsense_liveplot_test")
         rate = rospy.Rate(60)
+
+    img_array = []
     
     rm.spawn_transform_listener()
 
@@ -159,7 +174,7 @@ if __name__ == '__main__':
             robot_apriltag_pose_matrix = np.dot(rm.ee_pose_in_world_manipulation_homog,apriltag_in_hand_homog)
 
 
-            ioh.shape_overlay(cv_image,robot_apriltag_pose_matrix,hand_tag_boundary_pts,camera_transformation_matrix)
+            # ioh.shape_overlay(cv_image,robot_apriltag_pose_matrix,hand_tag_boundary_pts,camera_transformation_matrix)
 
             if np.abs(rm.measured_contact_wrench_6D[0]) > .1:
                 hand_COP_hand_frame, hand_COP_world_frame = ioh.estimate_hand_COP(rm.measured_contact_wrench_6D,hand_points,rm.ee_pose_in_world_manipulation_homog,l_contact)
@@ -171,8 +186,8 @@ if __name__ == '__main__':
 
                 ioh.plot_hand_slide_arrow(cv_image,rm.qp_debug_dict,hand_points,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
 
-                if rm.target_frame_homog is not None:
-                    ioh.plot_impedance_target(cv_image,hand_points,np.dot(base_in_wm_homog,rm.target_frame_homog),camera_transformation_matrix)
+                # if rm.target_frame_homog is not None:
+                #     ioh.plot_impedance_target(cv_image,hand_points,np.dot(base_in_wm_homog,rm.target_frame_homog),camera_transformation_matrix)
 
             apriltag_id = None
             shape_property_dict = None
@@ -221,11 +236,27 @@ if __name__ == '__main__':
             if rm.pivot_xyz_estimated is not None:
                 ioh.plot_pivot_dot(cv_image,np.array([rm.pivot_xyz_estimated+[1.0]]),camera_transformation_matrix)
 
-            cv2.imshow("Image window", cv_image)
+            if display_overlay:
+                cv2.imshow("Image window", cv_image)
+                cv2.waitKey(3)
 
-            cv2.waitKey(3)
+            if write_to_file:
+                img_array.append(cv_image)
 
+
+            
         if rm.load_mode:
-            rm.sleep()
+            rm.sleep(display_overlay)
         else:
             rate.sleep()
+
+    if write_to_file and len(img_array)>0:
+
+        height, width, layers = img_array[0].shape
+        size = (width, height)
+
+        video_out = cv2.VideoWriter(write_path + fname_out, cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
+
+        for i in range(len(img_array)):
+            video_out.write(img_array[i])
+        video_out.release()

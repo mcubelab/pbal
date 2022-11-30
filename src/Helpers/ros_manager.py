@@ -235,14 +235,16 @@ class ros_manager(object):
 	def setRate(self,RATE):
 		self.dt_rate= 1.0/RATE
 				
-	def sleep(self):
+	def sleep(self,actually_sleep=True):
 		if self.dt_rate is None:
 			dt = .001
 		else:
 			dt = self.dt_rate
 
 		self.t_current_record+=dt
-		time.sleep(dt)
+
+		if actually_sleep:
+			time.sleep(dt)
 
 	def init_time_logger(self,node_name=None):
 		if node_name is not None:
@@ -1252,7 +1254,7 @@ class ros_manager(object):
 			self.friction_parameter_has_new = False
 
 	def pivot_xyz_realsense_callback(self,data):
-		self.pivot_xyz_realsense_buffer.append([data,time.time()])
+		self.pivot_xyz_realsense_buffer.append(data)
 		if len(self.pivot_xyz_realsense_buffer)>self.max_queue_size:
 			self.pivot_xyz_realsense_buffer.pop(0)
 		self.data_available[self.pivot_xyz_realsense_available_index]=True
@@ -1262,9 +1264,9 @@ class ros_manager(object):
 			if self.load_mode:
 				self.pivot_xyz_realsense = self.pivot_xyz_realsense_buffer.pop(0)[0:3]
 			else:
-				msg = self.pivot_xyz_realsense_buffer.pop(0)
-				data = msg[0]
-				self.pivot_message_realsense_time = msg[1]
+				data = self.pivot_xyz_realsense_buffer.pop(0)
+				
+				self.pivot_message_realsense_time = data.header.stamp.to_sec()
 				self.pivot_xyz_realsense =  [data.transform.translation.x,
 					data.transform.translation.y,
 					data.transform.translation.z]
@@ -1276,7 +1278,7 @@ class ros_manager(object):
 			self.pivot_xyz_realsense_has_new = False
 
 	def pivot_xyz_estimated_callback(self,data):
-		self.pivot_xyz_estimated_buffer.append([data,time.time()])
+		self.pivot_xyz_estimated_buffer.append(data)
 		if len(self.pivot_xyz_estimated_buffer)>self.max_queue_size:
 			self.pivot_xyz_estimated_buffer.pop(0)
 		self.data_available[self.pivot_xyz_estimated_available_index]=True
@@ -1286,9 +1288,9 @@ class ros_manager(object):
 			if self.load_mode:
 				self.pivot_xyz_estimated = self.pivot_xyz_estimated_buffer.pop(0)[0:3]
 			else:
-				msg = self.pivot_xyz_estimated_buffer.pop(0)
-				data = msg[0]
-				self.pivot_message_estimated_time = msg[1]
+				data = self.pivot_xyz_estimated_buffer.pop(0)
+				
+				self.pivot_message_estimated_time = data.header.stamp.to_sec()
 				self.pivot_xyz_estimated =  [data.transform.translation.x,
 					data.transform.translation.y,
 					data.transform.translation.z]
