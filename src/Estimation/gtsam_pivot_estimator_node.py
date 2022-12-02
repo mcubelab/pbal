@@ -56,7 +56,7 @@ if __name__ == '__main__':
                           '/end_effector_sensor_in_world_manipulation_frame'],True)
 
 
-    rm.spawn_publisher_list(['/pivot_frame_estimated',])
+    rm.spawn_publisher_list(['/pivot_frame_estimated'])
 
     rm.wait_for_necessary_data()
 
@@ -66,6 +66,12 @@ if __name__ == '__main__':
     hand_front_center = np.array([0.0, 0.0, .041, 1.0])
 
     error_count = 0
+
+    y_average = None
+    y_sum = 0.0
+    y_weight_sum = 0.0
+    decay_rate = .94
+
     while (rm.load_mode and rm.read_still_running()) or (not rm.load_mode and not rospy.is_shutdown()):
         rm.unpack_all()
 
@@ -76,6 +82,9 @@ if __name__ == '__main__':
 
         hand_front_center_world = np.dot(rm.ee_pose_in_world_manipulation_homog,hand_front_center)
 
+
+
+
         if  my_pivot_estimator.num_data_points%1==0:
             try:
                 pivot_estimate_new = my_pivot_estimator.compute_estimate()
@@ -83,21 +92,37 @@ if __name__ == '__main__':
                 e_s = my_pivot_estimator.eval_recent_error_kinematic_d()
                 e_d = my_pivot_estimator.eval_recent_error_kinematic_s()
                 e_tau = my_pivot_estimator.eval_recent_error_torque_balance()
+                obvious_failure_occured = my_pivot_estimator.test_for_obvious_failures()
 
-                e_norm1 = 4*(10.0**5)*(e_s*e_s+e_d*e_d)
-                e_norm2 = .5*(10.0**0)*(e_tau*e_tau)
+                e_norm1 = 1.2*(10.0**6)*(e_s*e_s+e_d*e_d)
+                e_norm2 = 1.2*(10.0**0)*(e_tau*e_tau)
 
                 # print(np.log(e_norm1)/np.log(10))
                 # print(np.log(e_norm2)/np.log(10))
 
-                if (e_norm1>1.0 or e_norm2>1.0) and my_pivot_estimator.num_data_points>100 and (not rm.sliding_state['csf']) and (not rm.sliding_state['psf']):
+
+                if (((e_norm1>1.0 or e_norm2>1.0) and my_pivot_estimator.num_data_points>100 and (not rm.sliding_state['csf']) and (not rm.sliding_state['psf']))
+                    or (obvious_failure_occured and my_pivot_estimator.num_data_points>100)):
                     my_pivot_estimator.reset_system()
 
+                    my_pivot_estimator.add_strong_prior_ground_height(y_average)
+
                 if my_pivot_estimator.num_data_points>200:
+                    y_val = pivot_estimate_new[0]
+
+                    y_weight = 1/(e_norm1+e_norm2)
+                    y_sum += y_val*y_weight
+                    y_weight_sum+= y_weight
+
+                    y_sum*=decay_rate
+                    y_weight_sum*=decay_rate
+                    y_average = y_sum/y_weight_sum
+
                     rm.pub_pivot_frame_estimated([pivot_estimate_new[0],pivot_estimate_new[1],hand_front_center_world[2]])
             except:
                 error_count+=1
                 print('not enough data, singular answer. error #'+str(error_count))
+                break
 
             # print(pivot_estimate_new)
             # pivot_estimate_vector = np.array([[-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]])

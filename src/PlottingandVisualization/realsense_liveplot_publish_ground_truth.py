@@ -19,9 +19,9 @@ if __name__ == '__main__':
     sys_params = SystemParams()
     cam_choice = 'near'
 
-    read_from_file = True
+    read_from_file = False
     write_to_file = True and read_from_file
-    display_overlay = False
+    display_overlay = True or (not read_from_file)
 
     write_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
     fname_out = '/pivot_estimator_video_01.avi'
