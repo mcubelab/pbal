@@ -202,6 +202,11 @@ if __name__ == '__main__':
         rotation_vector = None
         if s_hand is not None and l_hand is not None:
             rotation_vector = np.array([-s_hand, l_hand, 1.])
+
+        if rm.pivot_xyz_estimated is not None:
+            time_since_prev_estimate = rm.eval_current_time()-rm.pivot_message_estimated_time
+            
+            
             
         # update controller
         pbc.update_controller(

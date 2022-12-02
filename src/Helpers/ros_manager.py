@@ -246,6 +246,12 @@ class ros_manager(object):
 		if actually_sleep:
 			time.sleep(dt)
 
+	def eval_current_time(self):
+		if self.load_mode:
+			return self.t_current_record
+		else:
+			return rospy.Time.now().to_sec()
+
 	def init_time_logger(self,node_name=None):
 		if node_name is not None:
 			self.node_name = node_name

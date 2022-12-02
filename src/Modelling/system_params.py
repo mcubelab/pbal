@@ -48,7 +48,7 @@ class SystemParams(object):
 
         self.pivot_params= { 
 
-            "DEFAULT_PIVOT_LOCATION": .1,
+            "DEFAULT_PIVOT_LOCATION": .1,#.2,#.1,
 
             "K_theta": 600., #150.,                                         # objective function parameters: theta, line/line plus point/line
             "theta_scale": 0.3,
