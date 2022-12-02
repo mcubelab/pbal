@@ -12,10 +12,11 @@ class gtsam_pivot_estimator(object):
     def __init__(self):
 
         self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
-        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .3)
+        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
         self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .0002)
         self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
 
+        self.error_strong_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .12)
         self.reset_system()
 
     def reset_system(self):
@@ -27,6 +28,14 @@ class gtsam_pivot_estimator(object):
         self.n_wm_sym = gtsam.symbol('n', 0)
         self.d_sym = gtsam.symbol('d',0)
 
+
+        self.use_gravity = True
+
+        self.gcostheta_sym = None
+        self.gsintheta_sym = None
+
+        self.gcostheta_sym = gtsam.symbol('a', 0)
+        self.gsintheta_sym = gtsam.symbol('b',0)
 
         self.s_current_val = None
         self.d_current_val = None
@@ -71,11 +80,20 @@ class gtsam_pivot_estimator(object):
         self.d_current_val = d[0]
         self.n_wm_current_val = n_wm_pivot[0]
         self.t_wm_current_val = t_wm_pivot[0]
-        
+
+        self.gcostheta_current_val = 0.0
+        self.gsintheta_current_val = 0.0
+
+        if self.use_gravity:
+            self.gcostheta_current_val = result.atVector(self.gcostheta_sym)[0]
+            self.gsintheta_current_val = result.atVector(self.gsintheta_sym)[0]
+
+
+
         self.my_graph.resize(0)
         self.v.clear()
 
-        return [n_wm_pivot[0],t_wm_pivot[0],s[0],d[0]]
+        return [n_wm_pivot[0],t_wm_pivot[0],s[0],d[0],self.gcostheta_current_val,self.gsintheta_current_val]
 
     def eval_recent_error_kinematic_d(self):
         return self.error_error_kinematic_d(self.current_hand_pose,[self.n_wm_current_val,self.t_wm_current_val,self.s_current_val,self.d_current_val])
@@ -84,7 +102,18 @@ class gtsam_pivot_estimator(object):
         return self.error_error_kinematic_s(self.current_hand_pose,[self.n_wm_current_val,self.t_wm_current_val,self.s_current_val,self.d_current_val])    
 
     def eval_recent_error_torque_balance(self):
-        return self.error_torque_balance(self.current_hand_pose,self.current_measured_world_manipulation_wrench,[self.n_wm_current_val,self.t_wm_current_val])
+        return self.error_torque_balance(self.current_hand_pose,self.current_measured_world_manipulation_wrench,[self.n_wm_current_val,self.t_wm_current_val,self.gcostheta_current_val,self.gsintheta_current_val])
+
+    def test_for_obvious_failures(self):
+        failure1 = not self.test_pivot_below_end_effector(self.current_hand_pose,[self.n_wm_current_val,self.t_wm_current_val,self.s_current_val,self.d_current_val])
+        return failure1
+
+    def add_strong_prior_ground_height(self,val_in):
+        if val_in is not None:
+            regularization_factor = gtsam.CustomFactor(self.error_strong_prior_model, [self.n_wm_sym],
+                    partial(self.error_var_regularization, np.array([val_in]) ))
+
+            self.my_graph.add(regularization_factor)
 
     def add_data_point(self,hand_pose,measured_world_manipulation_wrench,sliding_state_dict):
 
@@ -114,11 +143,21 @@ class gtsam_pivot_estimator(object):
             self.v.insert(self.d_sym, np.array([d_guess]))
             self.v.insert(self.n_wm_sym,np.array([n_wm_hand_guess]))
 
+            self.v.insert(self.gcostheta_sym, np.array([0.0]))
+            self.v.insert(self.gsintheta_sym, np.array([0.0]))
+            
+
             regularization_factor_package.append(gtsam.CustomFactor(self.error_var_regularization_model, [self.d_sym],
                 partial(self.error_var_regularization, np.array([0.0]) )))
 
-            regularization_factor_package.append(gtsam.CustomFactor(self.error_var_regularization_model, [self.n_wm_sym],
-                partial(self.error_var_regularization, np.array([0.0]) )))
+            # regularization_factor_package.append(gtsam.CustomFactor(self.error_var_regularization_model, [self.n_wm_sym],
+            #     partial(self.error_var_regularization, np.array([0.0]) )))
+
+            if self.use_gravity:
+                regularization_factor_package.append(gtsam.CustomFactor(self.error_var_regularization_model, [self.gcostheta_sym],
+                    partial(self.error_var_regularization, np.array([0.0]) )))
+                regularization_factor_package.append(gtsam.CustomFactor(self.error_var_regularization_model, [self.gsintheta_sym],
+                    partial(self.error_var_regularization, np.array([0.0]) )))
         else:
 
             if self.s_current_val is not None:
@@ -140,8 +179,13 @@ class gtsam_pivot_estimator(object):
             partial(self.eval_error_kinematic_d, measurement)))
         state_factor_package.append(gtsam.CustomFactor(self.error_contact_model, [self.n_wm_sym,self.t_wm_sym_list[-1],self.s_sym_list[-1],self.d_sym],
             partial(self.eval_error_kinematic_s, measurement)))
-        state_factor_package.append(gtsam.CustomFactor(self.error_torque_model, [self.n_wm_sym,self.t_wm_sym_list[-1]],
-            partial(self.eval_error_torque_balance, measurement)))
+
+        if self.use_gravity:
+            state_factor_package.append(gtsam.CustomFactor(self.error_torque_model, [self.n_wm_sym,self.t_wm_sym_list[-1],self.gcostheta_sym,self.gsintheta_sym],
+                partial(self.eval_error_torque_balance, measurement)))
+        else:
+            state_factor_package.append(gtsam.CustomFactor(self.error_torque_model, [self.n_wm_sym,self.t_wm_sym_list[-1]],
+                partial(self.eval_error_torque_balance, measurement)))
 
  
         if self.num_data_points>1:
@@ -177,7 +221,7 @@ class gtsam_pivot_estimator(object):
                   jacobians: Optional[List[np.ndarray]]) -> float:
 
         estimate_vec = []
-        for i in range(4):
+        for i in range(len(this.keys())):
             estimate_vec.append(values.atVector(this.keys()[i])[0])
 
         return [self.error_error_kinematic_d(measurement[0:3],estimate_vec,jacobians)]
@@ -214,7 +258,7 @@ class gtsam_pivot_estimator(object):
                   jacobians: Optional[List[np.ndarray]]) -> float:
 
         estimate_vec = []
-        for i in range(4):
+        for i in range(len(this.keys())):
             estimate_vec.append(values.atVector(this.keys()[i])[0])
 
         return [self.error_error_kinematic_s(measurement[0:3],estimate_vec,jacobians)]
@@ -245,13 +289,20 @@ class gtsam_pivot_estimator(object):
 
         return error_s
 
+    def test_pivot_below_end_effector(self,hand_pose,estimate_vec):
+        n_wm_pivot = estimate_vec[0]
+        t_wm_pivot = estimate_vec[1]
+        s = estimate_vec[2]
+        d = estimate_vec[3]
+
+        return d<-.03
+
     def eval_error_torque_balance(self,measurement: np.ndarray, this: gtsam.CustomFactor,
                   values: gtsam.Values,
                   jacobians: Optional[List[np.ndarray]]) -> float:
 
-
         estimate_vec = []
-        for i in range(2):
+        for i in range(len(this.keys())):
             estimate_vec.append(values.atVector(this.keys()[i])[0])
 
         return [self.error_torque_balance(measurement[0:3],measurement[3:6],estimate_vec,jacobians)]
@@ -260,6 +311,12 @@ class gtsam_pivot_estimator(object):
 
         n_wm_pivot = estimate_vec[0]
         t_wm_pivot = estimate_vec[1]
+        gcostheta = None
+        gsintheta = None
+
+        if len(estimate_vec)==4:
+            gcostheta = estimate_vec[2]
+            gsintheta = estimate_vec[3]
 
         n_wm_hand = hand_pose[0]
         t_wm_hand = hand_pose[1]
@@ -275,11 +332,21 @@ class gtsam_pivot_estimator(object):
 
 
         moment_arm = rh-rp
-        error = moment_arm[0]*ft_wm-moment_arm[1]*fn_wm+tau_wm
+
+        error = None
+
+        if len(estimate_vec)==2:
+            error = moment_arm[0]*ft_wm-moment_arm[1]*fn_wm+tau_wm
+        elif len(estimate_vec)==4:
+            error = moment_arm[0]*ft_wm-moment_arm[1]*fn_wm+tau_wm+gcostheta*np.cos(theta_hand)+gsintheta*np.sin(theta_hand)
 
         if jacobians is not None:
             jacobians[0] = np.array([-ft_wm])
             jacobians[1] = np.array([fn_wm])
+
+            if len(estimate_vec)==4:
+                jacobians[2] = np.array([np.cos(theta_hand)])
+                jacobians[3] = np.array([np.sin(theta_hand)])               
 
         return error
 
