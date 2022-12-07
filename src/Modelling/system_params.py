@@ -71,7 +71,7 @@ class SystemParams(object):
             "wrench_regularization_constant": 0.00001,
 
             "tr_friction": [0.5 , 3.0], #[0.5 , 3.0],                            # barrier function parameters for line/line plus point/line
-            "friction_margin": 2.0, #.9, #.8
+            "friction_margin": 3.0, #2.0, #.9, #.8
 
             "mu_contact": .1,
             "use_measured_mu_contact": True,
@@ -81,7 +81,7 @@ class SystemParams(object):
             "l_contact_multiplier": .84, #.95, #.9
             
             "tr_friction_external": [.9 , 1],
-            "friction_ground_margin": 1.5, #.6, #.4, #.8
+            "friction_ground_margin": 1.8, #1.5, #.6, #.4, #.8
             "mu_ground": .3, # .2,
             "use_measured_mu_ground": True,
 

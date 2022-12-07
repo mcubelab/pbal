@@ -203,11 +203,25 @@ if __name__ == '__main__':
         if s_hand is not None and l_hand is not None:
             rotation_vector = np.array([-s_hand, l_hand, 1.])
 
+        time_since_prev_estimate = None
+
         if rm.pivot_xyz_estimated is not None:
             time_since_prev_estimate = rm.eval_current_time()-rm.pivot_message_estimated_time
+
             
-            
-            
+        if time_since_prev_estimate is not None and time_since_prev_estimate<.5:
+            dx_robot_pivot = current_xyz_theta_robot_frame[0]-rm.pivot_xyz_estimated[0]
+            dy_robot_pivot = current_xyz_theta_robot_frame[1]-rm.pivot_xyz_estimated[1]
+
+            ds_robot_pivot = dx_robot_pivot * np.sin(theta_hand) + dy_robot_pivot* -np.cos(theta_hand)
+            dd_robot_pivot = dx_robot_pivot *-np.cos(theta_hand) + dy_robot_pivot*-np.sin(theta_hand)
+
+            rotation_vector = np.array([-ds_robot_pivot, dd_robot_pivot, 1.])
+
+            # print(rotation_vector)
+
+            # rotation_vector = None
+
         # update controller
         pbc.update_controller(
             mode = mode, 
