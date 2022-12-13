@@ -19,7 +19,7 @@ if __name__ == '__main__':
     sys_params = SystemParams()
     cam_choice = 'near'
 
-    read_from_file = True
+    read_from_file = False
     write_to_file = True and read_from_file
     display_overlay = False or (not read_from_file)
 
@@ -186,8 +186,8 @@ if __name__ == '__main__':
 
                 ioh.plot_hand_slide_arrow(cv_image,rm.qp_debug_dict,hand_points,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
 
-                # if rm.target_frame_homog is not None:
-                #     ioh.plot_impedance_target(cv_image,hand_points,np.dot(base_in_wm_homog,rm.target_frame_homog),camera_transformation_matrix)
+                if rm.target_frame_homog is not None:
+                    ioh.plot_impedance_target(cv_image,hand_points,np.dot(base_in_wm_homog,rm.target_frame_homog),camera_transformation_matrix)
 
             apriltag_id = None
             shape_property_dict = None
