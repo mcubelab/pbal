@@ -96,10 +96,10 @@ class gtsam_pivot_estimator(object):
         return [n_wm_pivot[0],t_wm_pivot[0],s[0],d[0],self.gcostheta_current_val,self.gsintheta_current_val]
 
     def eval_recent_error_kinematic_d(self):
-        return self.error_error_kinematic_d(self.current_hand_pose,[self.n_wm_current_val,self.t_wm_current_val,self.s_current_val,self.d_current_val])
+        return self.error_kinematic_d(self.current_hand_pose,[self.n_wm_current_val,self.t_wm_current_val,self.s_current_val,self.d_current_val])
 
     def eval_recent_error_kinematic_s(self):
-        return self.error_error_kinematic_s(self.current_hand_pose,[self.n_wm_current_val,self.t_wm_current_val,self.s_current_val,self.d_current_val])    
+        return self.error_kinematic_s(self.current_hand_pose,[self.n_wm_current_val,self.t_wm_current_val,self.s_current_val,self.d_current_val])    
 
     def eval_recent_error_torque_balance(self):
         return self.error_torque_balance(self.current_hand_pose,self.current_measured_world_manipulation_wrench,[self.n_wm_current_val,self.t_wm_current_val,self.gcostheta_current_val,self.gsintheta_current_val])
@@ -224,10 +224,10 @@ class gtsam_pivot_estimator(object):
         for i in range(len(this.keys())):
             estimate_vec.append(values.atVector(this.keys()[i])[0])
 
-        return [self.error_error_kinematic_d(measurement[0:3],estimate_vec,jacobians)]
+        return [self.error_kinematic_d(measurement[0:3],estimate_vec,jacobians)]
 
 
-    def error_error_kinematic_d(self,hand_pose,estimate_vec,jacobians=None):
+    def error_kinematic_d(self,hand_pose,estimate_vec,jacobians=None):
         n_wm_pivot = estimate_vec[0]
         t_wm_pivot = estimate_vec[1]
         s = estimate_vec[2]
@@ -261,9 +261,9 @@ class gtsam_pivot_estimator(object):
         for i in range(len(this.keys())):
             estimate_vec.append(values.atVector(this.keys()[i])[0])
 
-        return [self.error_error_kinematic_s(measurement[0:3],estimate_vec,jacobians)]
+        return [self.error_kinematic_s(measurement[0:3],estimate_vec,jacobians)]
 
-    def error_error_kinematic_s(self,hand_pose,estimate_vec,jacobians=None):
+    def error_kinematic_s(self,hand_pose,estimate_vec,jacobians=None):
         n_wm_pivot = estimate_vec[0]
         t_wm_pivot = estimate_vec[1]
         s = estimate_vec[2]
