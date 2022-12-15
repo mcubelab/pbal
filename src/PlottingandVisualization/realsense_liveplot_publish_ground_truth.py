@@ -296,7 +296,7 @@ if __name__ == '__main__':
     sys_params = SystemParams()
     cam_choice = 'near'
 
-    read_from_file = True
+    read_from_file = False
     write_to_file = False and read_from_file
     display_overlay = True or (not read_from_file)
 
@@ -363,10 +363,10 @@ if __name__ == '__main__':
                 'display_impedance_target':False,
                 'display_hand_apriltag_overlay':False,
                 'display_hand_slide_arrow':False,
-                'display_pivot_arrow':True,
+                'display_pivot_arrow':False,
                 'display_ground_slide_arrow':False,
-                'display_pivot_apriltag':True,
-                'display_pivot_estimate':False,
+                'display_pivot_apriltag':False,
+                'display_pivot_estimate':True,
                 'display_shape_overlay':False}
     
     my_visualizer = system_visualizer(rm,options)

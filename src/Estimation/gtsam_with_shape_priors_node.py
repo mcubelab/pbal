@@ -8,72 +8,74 @@ import time
 
 from Modelling.system_params import SystemParams
 from gtsam_pivot_estimator_production import gtsam_pivot_estimator
+from gtsam_with_shape_priors_estimator import gtsam_with_shape_priors_estimator
 from Helpers.ros_manager import ros_manager
 import Helpers.kinematics_helper as kh
 import PlottingandVisualization.image_overlay_helper as ioh
+import random
 
-def get_outward_normals(object_vertex_array):
-    wrap_angle = 0.0
+# def get_outward_normals(object_vertex_array):
+#     wrap_angle = 0.0
 
-    num_vertices = len(object_vertex_array[0])
-    for i in range(num_vertices):
-        dx0 = object_vertex_array[0,(i+1)%num_vertices]-object_vertex_array[0,i]
-        dy0 = object_vertex_array[1,(i+1)%num_vertices]-object_vertex_array[1,i]
-        norm0 = np.sqrt(dx0**2+dy0**2)
-        dx0/=norm0
-        dy0/=norm0
+#     num_vertices = len(object_vertex_array[0])
+#     for i in range(num_vertices):
+#         dx0 = object_vertex_array[0,(i+1)%num_vertices]-object_vertex_array[0,i]
+#         dy0 = object_vertex_array[1,(i+1)%num_vertices]-object_vertex_array[1,i]
+#         norm0 = np.sqrt(dx0**2+dy0**2)
+#         dx0/=norm0
+#         dy0/=norm0
 
-        dx1 = object_vertex_array[0,(i+2)%num_vertices]-object_vertex_array[0,(i+1)%num_vertices]
-        dy1 = object_vertex_array[1,(i+2)%num_vertices]-object_vertex_array[1,(i+1)%num_vertices]
-        norm1 = np.sqrt(dx1**2+dy1**2)
-        dx1/=norm1
-        dy1/=norm1
+#         dx1 = object_vertex_array[0,(i+2)%num_vertices]-object_vertex_array[0,(i+1)%num_vertices]
+#         dy1 = object_vertex_array[1,(i+2)%num_vertices]-object_vertex_array[1,(i+1)%num_vertices]
+#         norm1 = np.sqrt(dx1**2+dy1**2)
+#         dx1/=norm1
+#         dy1/=norm1
 
-        wrap_angle+= np.arcsin(dx0*dy1-dy0*dx1)
+#         wrap_angle+= np.arcsin(dx0*dy1-dy0*dx1)
 
-    object_normal_array = 0.0*object_vertex_array
+#     object_normal_array = 0.0*object_vertex_array
 
-    for i in range(num_vertices):
-        dx0 = object_vertex_array[0,(i+1)%num_vertices]-object_vertex_array[0,i]
-        dy0 = object_vertex_array[1,(i+1)%num_vertices]-object_vertex_array[1,i]
-        norm0 = np.sqrt(dx0**2+dy0**2)
-        dx0/=norm0
-        dy0/=norm0
+#     for i in range(num_vertices):
+#         dx0 = object_vertex_array[0,(i+1)%num_vertices]-object_vertex_array[0,i]
+#         dy0 = object_vertex_array[1,(i+1)%num_vertices]-object_vertex_array[1,i]
+#         norm0 = np.sqrt(dx0**2+dy0**2)
+#         dx0/=norm0
+#         dy0/=norm0
 
-        if wrap_angle>0:
-            object_normal_array[0,i]=dy0
-            object_normal_array[1,i]=-dx0
-        else:
-            object_normal_array[0,i]=-dy0
-            object_normal_array[1,i]=dx0
+#         if wrap_angle>0:
+#             object_normal_array[0,i]=dy0
+#             object_normal_array[1,i]=-dx0
+#         else:
+#             object_normal_array[0,i]=-dy0
+#             object_normal_array[1,i]=dx0
 
-    return object_normal_array
+#     return object_normal_array
 
-def identify_contact_face(object_normal_array_world,hand_normal_world):
-    min_val = np.inf
-    current_face = None
+# def identify_contact_face(object_normal_array_world,hand_normal_world):
+#     min_val = np.inf
+#     current_face = None
 
-    for i in range(len(object_normal_array_world[0])):
-        compare_val = np.dot(object_normal_array_world[:3,i],hand_normal_world[:3,0])
-        if compare_val<min_val:
-            min_val = compare_val
-            current_face = i
+#     for i in range(len(object_normal_array_world[0])):
+#         compare_val = np.dot(object_normal_array_world[:3,i],hand_normal_world[:3,0])
+#         if compare_val<min_val:
+#             min_val = compare_val
+#             current_face = i
 
-    return current_face
+#     return current_face
 
-def reorient_vertices(object_vertex_array,object_normal_array,contact_face):
-    nx = object_normal_array[0,contact_face]
-    ny = object_normal_array[1,contact_face]
+# def reorient_vertices(object_vertex_array,object_normal_array,contact_face):
+#     nx = object_normal_array[0,contact_face]
+#     ny = object_normal_array[1,contact_face]
 
-    rot_mat = np.array([[ nx, ny,0.0,0.0],
-                        [-ny, nx,0.0,0.0],
-                        [0.0,0.0,1.0,0.0],
-                        [0.0,0.0,0.0,1.0]])
+#     rot_mat = np.array([[ nx, ny,0.0,0.0],
+#                         [-ny, nx,0.0,0.0],
+#                         [0.0,0.0,1.0,0.0],
+#                         [0.0,0.0,0.0,1.0]])
 
-    object_vertex_array = np.dot(rot_mat,object_vertex_array)
-    object_normal_array = np.dot(rot_mat,object_normal_array)
+#     object_vertex_array = np.dot(rot_mat,object_vertex_array)
+#     object_normal_array = np.dot(rot_mat,object_normal_array)
 
-    return object_vertex_array,object_normal_array
+#     return object_vertex_array,object_normal_array
 
 
 if __name__ == '__main__':
@@ -198,48 +200,52 @@ if __name__ == '__main__':
         obj_pose_list = kh.convert_reference_frame(marker_pose_apriltag_frame_list, identity_pose_list, obj_apriltag_in_world_pose_list)
         obj_pose_homog = kh.matrix_from_pose_list(obj_pose_list)
 
-    object_normal_array = get_outward_normals(object_vertex_array)
 
-    hand_normal_world = np.dot(rm.ee_pose_in_world_manipulation_homog,hand_normal)
-    object_normal_array_world = np.dot(obj_pose_homog,object_normal_array)
-    contact_face = identify_contact_face(object_normal_array_world,hand_normal_world)
 
-    test_object_vertex_array,test_object_normal_array = reorient_vertices(object_vertex_array,object_normal_array,contact_face)
+    current_estimator = gtsam_with_shape_priors_estimator(object_vertex_array,obj_pose_homog,rm.ee_pose_in_world_manipulation_homog)
+
+    # object_normal_array = get_outward_normals(object_vertex_array)
+
+    # hand_normal_world = np.dot(rm.ee_pose_in_world_manipulation_homog,hand_normal)
+    # object_normal_array_world = np.dot(obj_pose_homog,object_normal_array)
+    # contact_face = identify_contact_face(object_normal_array_world,hand_normal_world)
+
+    # test_object_vertex_array,test_object_normal_array = reorient_vertices(object_vertex_array,object_normal_array,contact_face)
 
     # print(np.dot(obj_pose_homog,object_vertex_array))
 
     error_count = 0
 
-    y_average = None
-    y_sum = 0.0
-    y_weight_sum = 0.0
-    decay_rate = .94
+    # y_average = None
+    # y_sum = 0.0
+    # y_weight_sum = 0.0
+    # decay_rate = .94
 
-    pivot_estimator_dict = {}
+    # pivot_estimator_dict = {}
 
     while (rm.load_mode and rm.read_still_running()) or (not rm.load_mode and not rospy.is_shutdown()):
         rm.unpack_all()
 
         theta_hand = kh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
 
-        rot_mat = np.array([[np.cos(theta_hand),-np.sin(theta_hand),0.0,0.0],
-                            [np.sin(theta_hand), np.cos(theta_hand),0.0,0.0],
-                            [               0.0,                0.0,1.0,0.0],
-                            [               0.0,                0.0,0.0,1.0]])
+        # rot_mat = np.array([[np.cos(theta_hand),-np.sin(theta_hand),0.0,0.0],
+        #                     [np.sin(theta_hand), np.cos(theta_hand),0.0,0.0],
+        #                     [               0.0,                0.0,1.0,0.0],
+        #                     [               0.0,                0.0,0.0,1.0]])
 
-        threshold_mat = np.dot(rot_mat,test_object_vertex_array)
-        height_indices = np.argsort(threshold_mat[0])
+        # threshold_mat = np.dot(rot_mat,test_object_vertex_array)
+        # height_indices = np.argsort(threshold_mat[0])
 
-        if height_indices[0] not in pivot_estimator_dict:
-            pivot_estimator_dict[height_indices[0]] = gtsam_pivot_estimator()
+        # if height_indices[0] not in pivot_estimator_dict:
+        #     pivot_estimator_dict[height_indices[0]] = gtsam_pivot_estimator()
 
-        current_estimator = None
-        if np.abs(threshold_mat[0,height_indices[0]]-threshold_mat[0,height_indices[1]])>.02:
-            current_estimator = pivot_estimator_dict[height_indices[0]]
-            print(height_indices[0])
-        else:
-            print('indeterminate')
-            continue
+        # current_estimator = None
+        # if np.abs(threshold_mat[0,height_indices[0]]-threshold_mat[0,height_indices[1]])>.02:
+        #     current_estimator = pivot_estimator_dict[height_indices[0]]
+        #     print(height_indices[0])
+        # else:
+        #     print('indeterminate')
+        #     continue
 
         hand_pose_pivot_estimator = np.array([rm.ee_pose_in_world_manipulation_list[0],rm.ee_pose_in_world_manipulation_list[1], theta_hand])
         measured_wrench_pivot_estimator = np.array(rm.measured_world_manipulation_wrench)
@@ -252,44 +258,55 @@ if __name__ == '__main__':
 
 
 
-        if  current_estimator.num_data_points%1==0:
-            try:
-                pivot_estimate_new = current_estimator.compute_estimate()
+        if  current_estimator.num_data_points>40 and current_estimator.num_data_points%1==0:
+            # try:
+            current_estimate_dict = current_estimator.compute_estimate()
+            
 
-                e_s = current_estimator.eval_recent_error_kinematic_d()
-                e_d = current_estimator.eval_recent_error_kinematic_s()
-                e_tau = current_estimator.eval_recent_error_torque_balance()
-                obvious_failure_occured = current_estimator.test_for_obvious_failures()
+            height_indices = np.argsort(current_estimate_dict['vertex_positions_wm_current'][0])
+            # contact_index = height_indices[0]
+            # contact_index = random.randint(0,len(height_indices)-1)
+            contact_index = current_estimator.contact_vertices[0]
+            pn_wm = current_estimate_dict['vertex_positions_wm_current'][0][contact_index]
+            pt_wm = current_estimate_dict['vertex_positions_wm_current'][1][contact_index]
+            rm.pub_pivot_frame_estimated([pn_wm,pt_wm,hand_front_center_world[2]])
 
-                e_norm1 = .3*(10.0**6)*(e_s*e_s+e_d*e_d)
-                e_norm2 = .3*(10.0**0)*(e_tau*e_tau)
+                # e_s = current_estimator.eval_recent_error_kinematic_d()
+                # e_d = current_estimator.eval_recent_error_kinematic_s()
+                # e_tau = current_estimator.eval_recent_error_torque_balance()
+                # obvious_failure_occured = current_estimator.test_for_obvious_failures()
 
-                # print(np.log(e_norm1)/np.log(10))
-                # print(np.log(e_norm2)/np.log(10))
+                # e_norm1 = .3*(10.0**6)*(e_s*e_s+e_d*e_d)
+                # e_norm2 = .3*(10.0**0)*(e_tau*e_tau)
+
+                # # print(np.log(e_norm1)/np.log(10))
+                # # print(np.log(e_norm2)/np.log(10))
 
 
-                if (((e_norm1>1.0 or e_norm2>1.0) and current_estimator.num_data_points>100 and (not rm.sliding_state['csf']) and (not rm.sliding_state['psf']))
-                    or (obvious_failure_occured and current_estimator.num_data_points>100)):
-                    current_estimator.reset_system()
+                # if (((e_norm1>1.0 or e_norm2>1.0) and current_estimator.num_data_points>100 and (not rm.sliding_state['csf']) and (not rm.sliding_state['psf']))
+                #     or (obvious_failure_occured and current_estimator.num_data_points>100)):
+                #     current_estimator.reset_system()
 
-                    current_estimator.add_strong_prior_ground_height(y_average)
+                #     current_estimator.add_strong_prior_ground_height(y_average)
 
-                if current_estimator.num_data_points>200:
-                    y_val = pivot_estimate_new[0]
+                # if current_estimator.num_data_points>200:
+                #     y_val = pivot_estimate_new[0]
 
-                    y_weight = 1/(e_norm1+e_norm2)
-                    y_sum += y_val*y_weight
-                    y_weight_sum+= y_weight
+                #     y_weight = 1/(e_norm1+e_norm2)
+                #     y_sum += y_val*y_weight
+                #     y_weight_sum+= y_weight
 
-                    y_sum*=decay_rate
-                    y_weight_sum*=decay_rate
-                    y_average = y_sum/y_weight_sum
+                #     y_sum*=decay_rate
+                #     y_weight_sum*=decay_rate
+                #     y_average = y_sum/y_weight_sum
 
-                    rm.pub_pivot_frame_estimated([pivot_estimate_new[0],pivot_estimate_new[1],hand_front_center_world[2]])
-            except:
-                error_count+=1
-                print('not enough data, singular answer. error #'+str(error_count))
-                break
+                #     rm.pub_pivot_frame_estimated([pivot_estimate_new[0],pivot_estimate_new[1],hand_front_center_world[2]])
+
+
+            # except:
+            #     error_count+=1
+            #     print('not enough data, singular answer. error #'+str(error_count))
+            #     break
 
             # print(pivot_estimate_new)
             # pivot_estimate_vector = np.array([[-pivot_estimate_new[0],hand_front_center_world[1],pivot_estimate_new[1],1]])

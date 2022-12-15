@@ -11,7 +11,6 @@ import matplotlib.lines as lines
 import Helpers.kinematics_helper as kh
 import PlottingandVisualization.image_overlay_helper as ioh
 
-
 def get_outward_normals(object_vertex_array):
     wrap_angle = 0.0
 
@@ -82,17 +81,26 @@ def reorient_vertices(object_vertex_array,object_normal_array,contact_face):
 def generate_shape_prior(object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog):
     
     hand_normal = np.array([[1.0], [0.0], [0.0], [0.0]])
+    hand_tangent = np.array([[0.0], [1.0], [0.0], [0.0]])
+
+    pos_diff = obj_pose_homog[:,3]-ee_pose_in_world_manipulation_homog[:,3]
+    dn = np.dot(hand_normal.transpose()[0],pos_diff)
+    dt = np.dot(hand_tangent.transpose()[0],pos_diff)
+    
 
     object_normal_array = get_outward_normals(object_vertex_array)
 
-    hand_normal_world = np.dot(rm.ee_pose_in_world_manipulation_homog,hand_normal)
+    hand_normal_world = np.dot(ee_pose_in_world_manipulation_homog,hand_normal)
     object_normal_array_world = np.dot(obj_pose_homog,object_normal_array)
     contact_face = identify_contact_face(object_normal_array_world,hand_normal_world)
 
     test_object_vertex_array,test_object_normal_array = reorient_vertices(object_vertex_array,object_normal_array,contact_face)
+    test_object_vertex_array[0]-=dn
+    test_object_vertex_array[1]-=dt
+
     return test_object_vertex_array, test_object_normal_array
 
-def determine_contact_vertices(theta_hand,test_object_vertex_array)
+def determine_contact_vertices(theta_hand,test_object_vertex_array):
 
     
     rot_mat = np.array([[-np.cos(theta_hand), np.sin(theta_hand),0.0,0.0],
@@ -195,21 +203,21 @@ class gtsam_with_shape_priors_estimator(object):
 
         self.vertex_positions_wm_current = [[],[]]
         self.vertex_positions_ee_current = [[],[]]
-        self.s_current = result.atVector(self.s_sym_list[-1])
+        self.s_current = result.atVector(self.s_sym_list[-1])[0]
         self.mglcostheta_current = [0.0]*self.num_vertices
         self.mglsintheta_current = [0.0]*self.num_vertices
 
 
         for i in range(self.num_vertices):
-            self.vertex_positions_ee_current[0].append(result.atVector(self.n_ee_vertex_sym_list[i]))
-            self.vertex_positions_ee_current[1].append(result.atVector(self.t_ee_vertex_sym_list[i]))
+            self.vertex_positions_ee_current[0].append(result.atVector(self.n_ee_vertex_sym_list[i])[0])
+            self.vertex_positions_ee_current[1].append(result.atVector(self.t_ee_vertex_sym_list[i])[0])
 
-            self.vertex_positions_wm_current[0].append(result.atVector(self.n_wm_vertex_sym_list[i][-1]))
-            self.vertex_positions_wm_current[1].append(result.atVector(self.t_wm_vertex_sym_list[i][-1]))
+            self.vertex_positions_wm_current[0].append(result.atVector(self.n_wm_vertex_sym_list[i][-1])[0])
+            self.vertex_positions_wm_current[1].append(result.atVector(self.t_wm_vertex_sym_list[i][-1])[0])
 
             if self.use_gravity:
-                self.mglcostheta_current[i]=result.atVector(self.mglcostheta_sym_list[i])
-                self.mglsintheta_current[i]=result.atVector(self.mglsintheta_sym_list[i])
+                self.mglcostheta_current[i]=result.atVector(self.mglcostheta_sym_list[i])[0]
+                self.mglsintheta_current[i]=result.atVector(self.mglsintheta_sym_list[i])[0]
 
         self.my_graph.resize(0)
         self.v.clear()
@@ -258,7 +266,7 @@ class gtsam_with_shape_priors_estimator(object):
 
         if self.num_data_points==1:
             for i in range(self.num_vertices):
-                
+
                 self.v.insert(self.n_ee_vertex_sym_list[i], np.array([self.test_object_vertex_array[0][i]]))
                 self.v.insert(self.t_ee_vertex_sym_list[i], np.array([self.test_object_vertex_array[1][i]]))
 
@@ -294,7 +302,7 @@ class gtsam_with_shape_priors_estimator(object):
             rot_mat = np.array([[-np.cos(theta_hand),  np.sin(theta_hand)], 
                                 [-np.sin(theta_hand), -np.cos(theta_hand)]])
 
-            r_wm_vertex_guess = np.dot(rot_mat,r_ee_vertex)+r_wm_hand
+            r_wm_vertex_guess = np.dot(rot_mat,r_ee_vertex_guess)+r_wm_hand
 
             self.v.insert(self.n_wm_vertex_sym_list[i][-1], np.array([r_wm_vertex_guess[0]]))
             self.v.insert(self.t_wm_vertex_sym_list[i][-1], np.array([r_wm_vertex_guess[1]]))
@@ -312,9 +320,9 @@ class gtsam_with_shape_priors_estimator(object):
             contact_symbols = [self.n_wm_vertex_sym_list[i][-1],self.t_wm_vertex_sym_list[i][-1],self.n_ee_vertex_sym_list[i],self.t_ee_vertex_sym_list[i],self.s_sym_list[-1]]
             
             state_factor_package.append(gtsam.CustomFactor(self.error_contact_model, contact_symbols,
-                partial(self.error_kinematic_n_wm, measurement)))
+                partial(self.eval_error_kinematic_n_wm, measurement)))
             state_factor_package.append(gtsam.CustomFactor(self.error_contact_model, contact_symbols,
-                partial(self.error_kinematic_t_wm, measurement)))
+                partial(self.eval_error_kinematic_t_wm, measurement)))
 
 
         if len(contact_vertices)==1:
@@ -324,14 +332,14 @@ class gtsam_with_shape_priors_estimator(object):
                 torque_symbols = [self.n_wm_vertex_sym_list[contact_vertex][-1],self.t_wm_vertex_sym_list[contact_vertex][-1],self.mglcostheta_sym_list[contact_vertex],self.mglsintheta_sym_list[contact_vertex]]
 
                 state_factor_package.append(gtsam.CustomFactor(self.error_torque_model, torque_symbols,
-                    partial(self.eval_error_torque_balance, measurement)))
+                    partial(self.eval_error_torque_balance_point_contact, measurement)))
             else:
                 torque_symbols = [self.n_wm_vertex_sym_list[contact_vertex][-1],self.t_wm_vertex_sym_list[contact_vertex][-1]]
 
                 state_factor_package.append(gtsam.CustomFactor(self.error_torque_model, torque_symbols,
-                    partial(self.eval_error_torque_balance, measurement)))
+                    partial(self.eval_error_torque_balance_point_contact, measurement)))
 
-
+        self.contact_vertices = contact_vertices
 
 
         if self.num_data_points>1:
