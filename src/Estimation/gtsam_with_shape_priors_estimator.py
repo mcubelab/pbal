@@ -126,6 +126,7 @@ class gtsam_with_shape_priors_estimator(object):
         self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
         self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .0002)
         self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
+        self.error_oject_vertex_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
 
         self.error_strong_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .12)
 
@@ -270,10 +271,10 @@ class gtsam_with_shape_priors_estimator(object):
                 self.v.insert(self.n_ee_vertex_sym_list[i], np.array([self.test_object_vertex_array[0][i]]))
                 self.v.insert(self.t_ee_vertex_sym_list[i], np.array([self.test_object_vertex_array[1][i]]))
 
-                regularization_factor_package.append(gtsam.CustomFactor(self.error_var_regularization_model, [self.n_ee_vertex_sym_list[i]],
+                regularization_factor_package.append(gtsam.CustomFactor(self.error_oject_vertex_prior_model, [self.n_ee_vertex_sym_list[i]],
                         partial(self.error_var_regularization, np.array([self.test_object_vertex_array[0][i]]) )))
 
-                regularization_factor_package.append(gtsam.CustomFactor(self.error_var_regularization_model, [self.t_ee_vertex_sym_list[i]],
+                regularization_factor_package.append(gtsam.CustomFactor(self.error_oject_vertex_prior_model, [self.t_ee_vertex_sym_list[i]],
                         partial(self.error_var_regularization, np.array([self.test_object_vertex_array[1][i]]) )))
 
                 if self.use_gravity:
@@ -342,9 +343,13 @@ class gtsam_with_shape_priors_estimator(object):
         self.contact_vertices = contact_vertices
 
 
+        
+
         if self.num_data_points>1:
+
             #if in point contact, the pivot does not move vertically
             if len(contact_vertices)==1:
+                contact_vertex = contact_vertices[0]
                 changing_factor_package.append(gtsam.CustomFactor(self.error_var_change_model, [self.n_wm_vertex_sym_list[contact_vertex][-1],self.n_wm_vertex_sym_list[contact_vertex][-2]],
                     partial(self.error_var_constant, np.array([]))))
 
