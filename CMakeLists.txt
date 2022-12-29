@@ -62,6 +62,8 @@ add_message_files(
   SlidingStateStamped.msg
   GeneralizedPositionsStamped.msg
   PivotSlidingCommandedFlagStamped.msg
+  PolygonContactState.msg
+  PolygonContactStateStamped.msg
   TorqueConeBoundaryFlagStamped.msg
   TorqueConeBoundaryTestStamped.msg
   TorqueBoundsStamped.msg
