@@ -77,6 +77,7 @@ if __name__ == '__main__':
     # initial impedance target in the world manipulation frame
     impedance_target = get_robot_world_manipulation_xyz_theta2(rm.ee_pose_in_world_manipulation_list)
 
+    command_flag, mode, coord_set, t_recent_command = None, None, None, None
     mode, theta_start, pivot, coord_set = None, None, None, {}
     l_hand, s_hand, theta_hand = None, None, None
 
@@ -110,6 +111,7 @@ if __name__ == '__main__':
 
         # unpack current message
         if rm.barrier_func_control_command_has_new:
+            t_recent_command = time.time()
             command_flag = rm.command_msg['command_flag']
             mode = rm.command_msg['mode']
 
@@ -157,12 +159,12 @@ if __name__ == '__main__':
                     else:
                         s_pivot_target = pivot[1] + delta_s_pivot
 
-                        
             # publish if we intend to slide at pivot
             if mode == 2 or mode == 3:
                 pivot_sliding_commanded_flag = True
             else:
                 pivot_sliding_commanded_flag = False
+
 
         # compute error
 
@@ -218,6 +220,7 @@ if __name__ == '__main__':
 
             rotation_vector = np.array([-ds_robot_pivot, dd_robot_pivot, 1.])
 
+        rotation_vector = None
             # print(rotation_vector)
 
             # rotation_vector = None
@@ -247,6 +250,7 @@ if __name__ == '__main__':
 
         # compute impedance increment
         impedance_increment_robot = np.array(wrench_increment_robot)
+
         impedance_target[0]+= impedance_increment_robot[0]*INTEGRAL_MULTIPLIER/(TIPI*RATE)
         impedance_target[1]+= impedance_increment_robot[1]*INTEGRAL_MULTIPLIER/(TIPI*RATE)
         impedance_target[3]+= impedance_increment_robot[2]*INTEGRAL_MULTIPLIER/(RIPI*RATE)

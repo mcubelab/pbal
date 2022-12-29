@@ -22,7 +22,7 @@ delta_rotate_left = {
     'name': 'delta_rotate_left',
     'command_flag' : 1,
     'mode' : -1,
-    'delta_theta' : np.pi/30,
+    'delta_theta' : np.pi/12,
     'delta_s_pivot' : 0.0,
     'delta_s_hand' : 0.0,
 }
@@ -31,7 +31,7 @@ delta_rotate_right = {
     'name': 'delta_rotate_right',
     'command_flag' : 1,
     'mode' : -1,
-    'delta_theta' : -np.pi/30,
+    'delta_theta' : -np.pi/12,
     'delta_s_pivot' : 0.0,
     'delta_s_hand' : 0.0,
 }
@@ -95,7 +95,7 @@ delta_slide_pivot_left = {
     'command_flag' : 1,
     'mode' : 2,
     'delta_theta' : 0.0,
-    'delta_s_pivot' : 0.01,
+    'delta_s_pivot' : 0.03,
     'delta_s_hand' : 0.00,
 }
 
@@ -104,7 +104,7 @@ delta_slide_pivot_right = {
     'command_flag' : 1,
     'mode' : 3,
     'delta_theta' : 0.0,
-    'delta_s_pivot' : -0.01,
+    'delta_s_pivot' : -0.03,
     'delta_s_hand' : 0.00,
 }
 
@@ -152,8 +152,6 @@ def on_press(key):
     except:
         k = key.name  # other keys
 
-    can_publish = True
-
     if k == 'c':  # center
         command_msg_dict = absolute_rotate_center
         print('absolute_rotate_center')
@@ -187,10 +185,8 @@ def on_press(key):
     elif k == 'e': # object right
         command_msg_dict = delta_slide_pivot_right
         print('delta_slide_pivot_right')
-    else:
-        can_publish = False
 
-    if can_publish:
+    if command_msg_dict is not None:
         rm.pub_barrier_func_control_command(command_msg_dict)
 
 
