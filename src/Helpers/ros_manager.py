@@ -71,7 +71,7 @@ class ros_manager(object):
 
 		global SlidingStateStamped, FrictionParamsStamped, ControlCommandStamped, QPDebugStamped
 		global TorqueConeBoundaryFlagStamped, PivotSlidingCommandedFlagStamped, TorqueConeBoundaryTestStamped
-		global TorqueBoundsStamped, GeneralizedPositionsStamped
+		global TorqueBoundsStamped, GeneralizedPositionsStamped, PolygonContactStateStamped
 
 		global pmh, tf, time_logger, tf2_ros, CvBridge
 
@@ -86,6 +86,7 @@ class ros_manager(object):
 								QPDebugStamped,
 								TorqueConeBoundaryFlagStamped,
 								PivotSlidingCommandedFlagStamped,
+								PolygonContactStateStamped,
 								TorqueConeBoundaryTestStamped,
 		 						TorqueBoundsStamped, 
 		 						GeneralizedPositionsStamped)
@@ -802,6 +803,26 @@ class ros_manager(object):
 			self.buffer_dict[topic] = self.near_cam_camera_info_buffer
 			self.callback_dict[topic] = self.near_cam_camera_info_callback
 
+		elif topic == '/polygon_contact_estimate':
+			self.unpack_functions.append(self.polygon_contact_estimate_unpack)
+			self.polygon_contact_estimate_buffer = []
+			self.polygon_contact_estimate_available_index = len(self.data_available)-1
+			self.polygon_contact_estimate_has_new = False
+
+			self.polygon_contact_estimate_dict = None
+
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic,
+					PolygonContactStateStamped,
+					self.polygon_contact_estimate_callback,
+					queue_size = self.subscriber_queue_size)
+
+
+			self.message_type_dict[topic] = 'PolygonContactStateStamped'
+			self.buffer_dict[topic] = self.polygon_contact_estimate_buffer
+			self.callback_dict[topic] = self.polygon_contact_estimate_callback
+
 		else:
 			self.unpack_functions.append(None)
 			self.subscriber_dict[topic] = None
@@ -963,6 +984,15 @@ class ros_manager(object):
 					# set up transform broadcaster
 				self.pivot_frame_estimated_broadcaster = tf2_ros.TransformBroadcaster()
 
+		elif topic == '/polygon_contact_estimate':
+			if self.load_mode:
+				pass
+			else:
+				self.polygon_contact_estimate_pub = rospy.Publisher(
+					topic,
+					PolygonContactStateStamped,
+					queue_size=10)
+
 
 
 	def pub_ee_pose_in_world_manipulation_from_franka(self,ee_pose_in_world_manipulation_list):
@@ -1095,6 +1125,14 @@ class ros_manager(object):
 			qp_debug_stamped = pmh.qp_debug_dict_to_qp_debug_stamped(qp_debug_dict = debug_dict)
 			qp_debug_stamped.header.stamp = rospy.Time.now()
 			self.qp_debug_message_pub.publish(qp_debug_stamped)
+
+	def pub_polygon_contact_estimate(self,vertex_array,contact_indices):
+		if self.load_mode:
+			pass
+		else:
+			polygon_contact_state_stamped = pmh.generate_polygon_contact_state_stamped(vertex_array,contact_indices)
+			polygon_contact_state_stamped.header.stamp = rospy.Time.now()
+			self.polygon_contact_estimate_pub.publish(polygon_contact_state_stamped)
 
 	def force_callback(self,data):
 		self.ft_wrench_in_ft_sensor_buffer.append(data)
@@ -1572,3 +1610,21 @@ class ros_manager(object):
 			self.near_cam_camera_info_has_new = True
 		else:
 			self.near_cam_camera_info_has_new = False
+
+	def polygon_contact_estimate_callback(self,data):
+		self.polygon_contact_estimate_buffer.append(data)
+		if len(self.polygon_contact_estimate_buffer)>self.max_queue_size:
+			self.polygon_contact_estimate_buffer.pop(0)
+		self.data_available[self.polygon_contact_estimate_available_index]=True
+
+	def polygon_contact_estimate_unpack(self):
+		if len(self.polygon_contact_estimate_buffer)>0:
+			if self.load_mode:
+				self.polygon_contact_estimate_dict = self.polygon_contact_estimate_buffer.pop(0)
+			else:
+				data = self.polygon_contact_estimate_buffer.pop(0)
+				self.polygon_contact_estimate_dict = pmh.parse_polygon_contact_state_stamped(data)
+
+			self.polygon_contact_estimate_has_new = True
+		else:
+			self.polygon_contact_estimate_has_new = False

@@ -22,6 +22,7 @@ class pickle_manager(object):
             'FrictionParamsStamped': pmh.friction_stamped_to_friction_dict,
             'GeneralizedPositionsStamped': pmh.parse_generalized_positions_stamped,
             'PivotSlidingCommandedFlagStamped': pmh.parse_pivot_sliding_commanded_flag,
+            'PolygonContactStateStamped': pmh.parse_polygon_contact_state_stamped,
             'QPDebugStamped': pmh.qp_debug_stamped_to_qp_debug_dict,
             'SlidingStateStamped': pmh.sliding_stamped_to_sliding_dict,
             'TorqueBoundsStamped': pmh.parse_torque_bounds_stamped,

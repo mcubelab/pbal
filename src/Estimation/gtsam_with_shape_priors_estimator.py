@@ -114,7 +114,7 @@ def determine_contact_vertices(theta_hand,test_object_vertex_array):
     
 
     current_estimator = None
-    if np.abs(threshold_mat[0,height_indices[0]]-threshold_mat[0,height_indices[1]])>.02:
+    if np.abs(threshold_mat[0,height_indices[0]]-threshold_mat[0,height_indices[1]])>.015:
         return height_indices[:1]
     else:
         return height_indices[:2]
@@ -348,7 +348,8 @@ class gtsam_with_shape_priors_estimator(object):
         if self.num_data_points>1:
 
             #if in point contact, the pivot does not move vertically
-            if len(contact_vertices)==1:
+            # if len(contact_vertices)==1:
+            if True:
                 contact_vertex = contact_vertices[0]
                 changing_factor_package.append(gtsam.CustomFactor(self.error_var_change_model, [self.n_wm_vertex_sym_list[contact_vertex][-1],self.n_wm_vertex_sym_list[contact_vertex][-2]],
                     partial(self.error_var_constant, np.array([]))))

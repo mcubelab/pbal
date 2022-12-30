@@ -3,7 +3,8 @@ from pbal.msg import   (SlidingStateStamped,
                         FrictionParamsStamped, 
                         ControlCommandStamped, 
                         QPDebugStamped,
-                        PivotSlidingCommandedFlagStamped, 
+                        PivotSlidingCommandedFlagStamped,
+                        PolygonContactStateStamped, 
                         TorqueConeBoundaryFlagStamped, 
                         TorqueConeBoundaryTestStamped,
                         TorqueBoundsStamped, 
@@ -153,6 +154,31 @@ def generate_generalized_positions_stamped(generalized_positions):
 
 def parse_generalized_positions_stamped(generalized_positions_message):
     return generalized_positions_message.generalized_positions
+
+def generate_polygon_contact_state_stamped(vertex_array,contact_indices):
+    polygon_contact_state_message = PolygonContactStateStamped()
+    polygon_contact_state_message.polygon_contact_state.x_coords = list(vertex_array[0])
+    polygon_contact_state_message.polygon_contact_state.y_coords = list(vertex_array[1])
+    polygon_contact_state_message.polygon_contact_state.z_coords = list(vertex_array[2])
+
+    polygon_contact_state_message.polygon_contact_state.contact_indices = list(contact_indices)
+
+    return polygon_contact_state_message
+
+def parse_polygon_contact_state_stamped(polygon_contact_state_message):
+    x_coords = list(polygon_contact_state_message.polygon_contact_state.x_coords)
+    y_coords = list(polygon_contact_state_message.polygon_contact_state.y_coords)
+    z_coords = list(polygon_contact_state_message.polygon_contact_state.z_coords)
+
+    vertex_array = np.array([x_coords,y_coords,z_coords])
+
+    contact_indices = list(polygon_contact_state_message.polygon_contact_state.contact_indices)
+
+    polygon_contact_state_dict = {}
+    polygon_contact_state_dict['vertex_array'] = vertex_array
+    polygon_contact_state_dict['contact_indices'] = contact_indices
+
+    return polygon_contact_state_dict
 
 
 def sliding_dict_to_sliding_stamped(sliding_dict):

@@ -261,9 +261,17 @@ class system_visualizer(object):
             if self.rm.pivot_xyz_estimated is not None and self.display_pivot_estimate:
                 self.dot_overlay(self.rm.pivot_xyz_estimated)
 
+            if self.rm.polygon_contact_estimate_dict is not None and self.display_pivot_estimate:
+                vertex_array_to_display = self.rm.polygon_contact_estimate_dict['vertex_array']
+
+                for i in range(len(vertex_array_to_display[0])):
+                    vertex_to_display = vertex_array_to_display[:,i]
+                    vertex_to_display = np.transpose(vertex_to_display)
+                    self.dot_overlay(vertex_to_display)
+
     def dot_overlay(self,p_dot):
         if len(p_dot)==3:
-            ioh.plot_pivot_dot(self.cv_image,np.array([p_dot+[1.0]]),self.camera_transformation_matrix)
+            ioh.plot_pivot_dot(self.cv_image,np.array([list(p_dot)+[1.0]]),self.camera_transformation_matrix)
         elif len(p_dot)==4:
             ioh.plot_pivot_dot(self.cv_image,np.array([p_dot]),self.camera_transformation_matrix)
 
@@ -339,6 +347,7 @@ if __name__ == '__main__':
                           '/target_frame',
                           '/tag_detections',
                           '/pivot_sliding_commanded_flag',
+                          '/polygon_contact_estimate',
                           '/sliding_state',
                           '/torque_cone_boundary_flag',
                           '/torque_cone_boundary_test',

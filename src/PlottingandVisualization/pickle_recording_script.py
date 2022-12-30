@@ -24,6 +24,7 @@ if __name__ == '__main__':
                           '/friction_parameters',
                           '/pivot_frame_realsense',
                           '/pivot_frame_estimated',
+                          '/polygon_contact_estimate',
                           '/generalized_positions',
                           '/barrier_func_control_command',
                           '/torque_bound_message',

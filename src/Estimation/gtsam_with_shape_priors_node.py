@@ -127,7 +127,7 @@ if __name__ == '__main__':
                           '/tag_detections'],True)
 
 
-    rm.spawn_publisher_list(['/pivot_frame_estimated'])
+    rm.spawn_publisher_list(['/pivot_frame_estimated','/polygon_contact_estimate'])
 
     
     if cam_choice == 'far':
@@ -270,6 +270,11 @@ if __name__ == '__main__':
             pn_wm = current_estimate_dict['vertex_positions_wm_current'][0][contact_index]
             pt_wm = current_estimate_dict['vertex_positions_wm_current'][1][contact_index]
             rm.pub_pivot_frame_estimated([pn_wm,pt_wm,hand_front_center_world[2]])
+
+            vertex_positions_wm_current_z = [hand_front_center_world[2]]*len(current_estimate_dict['vertex_positions_wm_current'][0])
+            vertex_array_out = np.array([list(current_estimate_dict['vertex_positions_wm_current'][0]),list(current_estimate_dict['vertex_positions_wm_current'][1]),vertex_positions_wm_current_z])
+            contact_indices = list(current_estimator.contact_vertices)
+            rm.pub_polygon_contact_estimate(vertex_array_out,contact_indices)
 
                 # e_s = current_estimator.eval_recent_error_kinematic_d()
                 # e_d = current_estimator.eval_recent_error_kinematic_s()
