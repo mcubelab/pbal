@@ -119,6 +119,24 @@ def determine_contact_vertices(theta_hand,test_object_vertex_array):
     else:
         return height_indices[:2]
 
+def estimate_external_COP(obj_vertices_world_manipulation, measured_world_manipulation_wrench_6D, contact_pose_homog, contact_indices):
+    P_a = obj_vertices_world_manipulation[:, contact_indices[0]]
+    P_b = obj_vertices_world_manipulation[:, contact_indices[1]]
+    P_e = contact_pose_homog[:, 3]
+
+    Tau_a = np.dot(np.cross(P_a[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), contact_pose_homog[0:3, 2])
+    Tau_b = np.dot(np.cross(P_b[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), contact_pose_homog[0:3, 2])
+    Tau_net = np.dot(measured_world_manipulation_wrench_6D[3:6], contact_pose_homog[0:3, 2])
+
+    alpha1 = (Tau_net - Tau_b) / (Tau_a - Tau_b)
+    alpha1 = np.max([np.min([alpha1, 1]), 0])
+
+    alpha2 = 1 - alpha1
+
+    # P0 = alpha1 * P_a + alpha2 * P_b
+    return alpha1, alpha2
+
+
 class gtsam_with_shape_priors_estimator(object):
     def __init__(self,object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog):
         
