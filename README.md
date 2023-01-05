@@ -42,4 +42,8 @@ The ros_manager class has two mode: default and load. In the default mode, it ac
 
 -the contact configuration controller: src/ControlandExecution/impedance_control_barrier_function.py 
 
+-basic kinematic estimator node: src/Estimation/gtsam_pivot_estimator_node.py 
+
+-estimation node using apriltag based shape priors: src/Estimation/gtsam_with_shape_priors_node.py
+
 It should be noted that the controllers and estimators (as currently designed) just send their outputs as ROS messages (or into the void when in load mode). There currently is not any infrastructure in place to pipe their output to a visualizer when the system is in load mode. They still will run, you just won't be able to see anything unless you print the output to the terminal or insert your own visualization. I'm sorry, I'll try to get to this eventually.
