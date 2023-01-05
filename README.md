@@ -28,4 +28,18 @@ The ros_manager class has two mode: default and load. In the default mode, it ac
   rm = ros_manager(load_mode = True, path=path, fname=fname)
 
 ```
+# scripts you can run:
 
+-the visaulizer that overlays what the controller/estimator are currently thinking: src/PlottingandVisualization/realsense_liveplot_publish_ground_truth.py 
+
+-the test that runs the convex hull estimator: src/Modelling/tests/test_convex_hull_estimator.py
+
+-the visualizer that shows what the quadratic program inside the controller is doing: src/PlottingandVisualization/qp_debug_plot_node.py 
+
+-the friction cone estimator: src/Estimation/wrench_cone_estimation.py 
+
+-the sliding state estimator: src/Estimation/sliding_estimation_wrench_cone.py
+
+-the contact configuration controller: src/ControlandExecution/impedance_control_barrier_function.py 
+
+It should be noted that the controllers and estimators (as currently designed) just send their outputs as ROS messages (or into the void when in load mode). There currently is not any infrastructure in place to pipe their output to a visualizer when the system is in load mode. They still will run, you just won't be able to see anything unless you print the output to the terminal or insert your own visualization. I'm sorry, I'll try to get to this eventually.
