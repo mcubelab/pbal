@@ -4,13 +4,15 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 sys.path.insert(0,os.path.dirname(currentdir))
 
 from livestats import livestats
+from Modelling.boundary_estimator import BoundaryEstimator
 import numpy as np
 
 
 class RobotFrictionConeEstimator(object):
 
     def __init__(self, quantile_value, vertical_offset, theta_threshold):   
-        self.stats = livestats.LiveStats([quantile_value])   
+        # self.stats = livestats.LiveStats([quantile_value]) 
+        self.stats = BoundaryEstimator()  
         self.vertical_offset =  vertical_offset
         self.theta_threshold = theta_threshold
 
@@ -21,10 +23,12 @@ class RobotFrictionConeEstimator(object):
         f_tangential_diff = f_tangential
         f_normal_diff     = f_normal+self.vertical_offset
 
-        self.stats.add(min(np.arctan2(f_tangential_diff,f_normal_diff),np.pi/2))
+        # self.stats.add(min(np.arctan2(f_tangential_diff,f_normal_diff),np.pi/2))
+        self.stats.add_data_point(min(np.arctan2(f_tangential_diff,f_normal_diff),np.pi/2),can_increase=True)
 
     def update_estimator(self):    
-        self.theta_friction_contact=self.stats.quantiles()[0][1]
+        # self.theta_friction_contact=self.stats.quantiles()[0][1]
+        self.theta_friction_contact=self.stats.get_boundary_val()
         self.A_right = np.array([-np.sin(self.theta_friction_contact), np.cos(self.theta_friction_contact),0])
         self.A_left  = np.array([-np.sin(self.theta_friction_contact),-np.cos(self.theta_friction_contact),0])
         self.B_right = 0

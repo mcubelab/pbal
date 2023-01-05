@@ -71,7 +71,7 @@ def generate_randomized_triangle_point(my_triangle):
 
 if __name__ == '__main__':
 
-    num_divisions = 10
+    num_divisions = 64
   
     theta_range = 2*np.pi*(1.0*np.array(range(num_divisions)))/num_divisions
 

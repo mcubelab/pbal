@@ -11,6 +11,7 @@ from matplotlib import cm
 import matplotlib.lines as lines
 from livestats import livestats
 from Modelling.system_params import SystemParams
+from Modelling.boundary_estimator import BoundaryEstimator
 
 from cvxopt import matrix, solvers
 solvers.options['show_progress'] = False
@@ -30,18 +31,21 @@ class ConvexHullEstimator(object):
         self.distance_threshold = distance_threshold
 
         for i in range(self.num_external_params):
-           self.stats_external_list.append(livestats.LiveStats([quantile_value]))
+           # self.stats_external_list.append(livestats.LiveStats([quantile_value]))
+           self.stats_external_list.append(BoundaryEstimator())
            self.A_external_stats_intermediate[i][0] = np.cos(self.theta_range[i])
            self.A_external_stats_intermediate[i][1] = np.sin(self.theta_range[i])
 
     def add_data_point(self,data_point):
         b_temp = np.dot(self.A_external_stats_intermediate,data_point)
         for i in range(self.num_external_params):
-            self.stats_external_list[i].add(b_temp[i])
+            # self.stats_external_list[i].add(b_temp[i])
+            self.stats_external_list[i].add_data_point(b_temp[i],can_increase=True)
 
     def update_quantile_list(self):
         for i in range(self.num_external_params):
-            self.B_external_stats_intermediate[i] = self.stats_external_list[i].quantiles()[0][1]
+            # self.B_external_stats_intermediate[i] = self.stats_external_list[i].quantiles()[0][1]
+            self.B_external_stats_intermediate[i] = self.stats_external_list[i].get_boundary_val()
 
     def enumerate_vertices_of_constraint_polygon(self,theta_list,b_list,closed=True):
         if len(theta_list)<3:
