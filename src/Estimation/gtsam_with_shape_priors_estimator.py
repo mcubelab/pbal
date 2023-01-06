@@ -82,21 +82,35 @@ def generate_shape_prior(object_vertex_array,obj_pose_homog,ee_pose_in_world_man
     
     hand_normal = np.array([[1.0], [0.0], [0.0], [0.0]])
     hand_tangent = np.array([[0.0], [1.0], [0.0], [0.0]])
-
-    pos_diff = obj_pose_homog[:,3]-ee_pose_in_world_manipulation_homog[:,3]
-    dn = np.dot(hand_normal.transpose()[0],pos_diff)
-    dt = np.dot(hand_tangent.transpose()[0],pos_diff)
     
-
     object_normal_array = get_outward_normals(object_vertex_array)
 
     hand_normal_world = np.dot(ee_pose_in_world_manipulation_homog,hand_normal)
+    hand_tangent_world = np.dot(ee_pose_in_world_manipulation_homog,hand_tangent)
+
+    object_vertex_array_world = np.dot(obj_pose_homog,object_vertex_array)
     object_normal_array_world = np.dot(obj_pose_homog,object_normal_array)
     contact_face = identify_contact_face(object_normal_array_world,hand_normal_world)
 
     test_object_vertex_array,test_object_normal_array = reorient_vertices(object_vertex_array,object_normal_array,contact_face)
-    test_object_vertex_array[0]-=dn
-    test_object_vertex_array[1]-=dt
+
+    contact_vertex_world = object_vertex_array_world[:,contact_face]
+    # print('contact_vertex_world = ',contact_vertex_world)
+
+    hand_pos_world = ee_pose_in_world_manipulation_homog[:,3]
+    # print('hand_pos_world = ', hand_pos_world)
+
+    pos_diff_vertex_hand = contact_vertex_world-hand_pos_world
+    # print('pos_diff_vertex_hand', pos_diff_vertex_hand)
+
+    # print('hand_tangent_world = ', hand_tangent_world)
+
+    dt = np.dot(pos_diff_vertex_hand,hand_tangent_world.transpose()[0])
+    # print('dt = ',dt)
+
+    test_object_vertex_array[0]-=test_object_vertex_array[0][contact_face]
+    test_object_vertex_array[1]-=test_object_vertex_array[1][contact_face]
+    test_object_vertex_array[1]+=dt
 
     return test_object_vertex_array, test_object_normal_array
 
@@ -119,34 +133,63 @@ def determine_contact_vertices(theta_hand,test_object_vertex_array):
     else:
         return height_indices[:2]
 
-def estimate_external_COP(obj_vertices_world_manipulation, measured_world_manipulation_wrench_6D, contact_pose_homog, contact_indices):
+def estimate_external_COP(theta_hand, s_hand, measured_world_manipulation_wrench, test_object_vertex_array, contact_indices):
+
+    # print('s_hand: ', s_hand)
+    # s_hand = 0.0
+    if s_hand is None:
+        s_hand = 0.0
+
+    rot_mat = np.array([[-np.cos(theta_hand), np.sin(theta_hand),0.0,0.0],
+                        [-np.sin(theta_hand),-np.cos(theta_hand),0.0,0.0],
+                        [                0.0,                0.0,1.0,0.0],
+                        [                0.0,                0.0,0.0,1.0]])
+
+    temp_vertices = np.array(test_object_vertex_array)
+    temp_vertices[1]-=s_hand
+
+    obj_vertices_world_manipulation = np.dot(rot_mat,temp_vertices)
+
     P_a = obj_vertices_world_manipulation[:, contact_indices[0]]
     P_b = obj_vertices_world_manipulation[:, contact_indices[1]]
-    P_e = contact_pose_homog[:, 3]
+    P_e = np.array([0.0,0.0,0.0])
 
-    Tau_a = np.dot(np.cross(P_a[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), contact_pose_homog[0:3, 2])
-    Tau_b = np.dot(np.cross(P_b[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), contact_pose_homog[0:3, 2])
-    Tau_net = np.dot(measured_world_manipulation_wrench_6D[3:6], contact_pose_homog[0:3, 2])
+    moment_arm_a = P_e[0:2] - P_a[0:2]
+    moment_arm_b = P_e[0:2] - P_b[0:2]
 
-    alpha1 = (Tau_net - Tau_b) / (Tau_a - Tau_b)
-    alpha1 = np.max([np.min([alpha1, 1]), 0])
+    fn_wm  = measured_world_manipulation_wrench[0]
+    ft_wm  = measured_world_manipulation_wrench[1]
+    tau_wm = measured_world_manipulation_wrench[2]
 
-    alpha2 = 1 - alpha1
+
+    Tau_a = moment_arm_a[0]*ft_wm-moment_arm_a[1]*fn_wm+tau_wm
+    Tau_b = moment_arm_b[0]*ft_wm-moment_arm_b[1]*fn_wm+tau_wm
+
+    # print(moment_arm_a,moment_arm_b,measured_world_manipulation_wrench)
+    # print(Tau_a,Tau_b)
+    # print(moment_arm_a[0]*ft_wm,moment_arm_b[0]*ft_wm)
+    # print(-moment_arm_a[1]*fn_wm,-moment_arm_b[1]*fn_wm)
+
+    alpha0 = Tau_b/(Tau_b-Tau_a)
+    alpha1 = Tau_a/(Tau_a-Tau_b)
+
 
     # P0 = alpha1 * P_a + alpha2 * P_b
-    return alpha1, alpha2
+    return alpha0, alpha1
+
+
 
 
 class gtsam_with_shape_priors_estimator(object):
     def __init__(self,object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog):
         
         self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
-        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
+        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .01)
         self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .0002)
         self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
         self.error_oject_vertex_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
 
-        self.error_strong_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .12)
+        self.error_strong_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .01)
 
         self.reset_system(object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog)
 
@@ -278,7 +321,17 @@ class gtsam_with_shape_priors_estimator(object):
         vertices_ee_guess = self.test_object_vertex_array
 
         contact_vertices = determine_contact_vertices(theta_hand,self.test_object_vertex_array)
-        
+
+        if len(contact_vertices)==2:
+            alpha0,alpha1 = estimate_external_COP(theta_hand, self.s_current, measured_world_manipulation_wrench, self.test_object_vertex_array, contact_vertices)
+            
+            if alpha0>1.0:
+                contact_vertices = [contact_vertices[0]]
+                
+            elif alpha1>1.0:
+                contact_vertices = [contact_vertices[1]]
+            
+
         state_factor_package = []
         changing_factor_package = []
         regularization_factor_package = []
@@ -294,6 +347,9 @@ class gtsam_with_shape_priors_estimator(object):
 
                 regularization_factor_package.append(gtsam.CustomFactor(self.error_oject_vertex_prior_model, [self.t_ee_vertex_sym_list[i]],
                         partial(self.error_var_regularization, np.array([self.test_object_vertex_array[1][i]]) )))
+
+                regularization_factor_package.append(gtsam.CustomFactor(self.error_strong_prior_model, [self.s_sym_list[-1]],
+                        partial(self.error_var_regularization, np.array([0.0]) )))
 
                 if self.use_gravity:
                     self.v.insert(self.mglcostheta_sym_list[i], np.array([0.0]))
@@ -345,9 +401,8 @@ class gtsam_with_shape_priors_estimator(object):
 
 
         if len(contact_vertices)==1:
+            contact_vertex = contact_vertices[0]
             if self.use_gravity:
-                contact_vertex = contact_vertices[0]
-
                 torque_symbols = [self.n_wm_vertex_sym_list[contact_vertex][-1],self.t_wm_vertex_sym_list[contact_vertex][-1],self.mglcostheta_sym_list[contact_vertex],self.mglsintheta_sym_list[contact_vertex]]
 
                 state_factor_package.append(gtsam.CustomFactor(self.error_torque_model, torque_symbols,
@@ -361,18 +416,20 @@ class gtsam_with_shape_priors_estimator(object):
         self.contact_vertices = contact_vertices
 
 
-        
+        # print(sliding_state_dict['psf'],sliding_state_dict['csf'])
 
         if self.num_data_points>1:
 
             #if in point contact, the pivot does not move vertically
             # if len(contact_vertices)==1:
-            if True:
-                contact_vertex = contact_vertices[0]
+            # if True:
+            for contact_vertex in contact_vertices:
+                # contact_vertex = contact_vertices[0]
                 changing_factor_package.append(gtsam.CustomFactor(self.error_var_change_model, [self.n_wm_vertex_sym_list[contact_vertex][-1],self.n_wm_vertex_sym_list[contact_vertex][-2]],
                     partial(self.error_var_constant, np.array([]))))
 
-            if not sliding_state_dict['csf'] or sliding_state_dict['psf']:
+            # if (not sliding_state_dict['csf']) or sliding_state_dict['psf']:
+            if True:
                 changing_factor_package.append(gtsam.CustomFactor(self.error_var_change_model, [self.s_sym_list[-1],self.s_sym_list[-2]],
                     partial(self.error_var_constant, np.array([]))))
             else:
@@ -385,7 +442,7 @@ class gtsam_with_shape_priors_estimator(object):
                         partial(self.error_var_decreasing, np.array([]))))
 
             for contact_vertex in contact_vertices:
-                if not sliding_state_dict['psf'] or sliding_state_dict['csf']:
+                if (not sliding_state_dict['psf']) or sliding_state_dict['csf'] or abs(theta_hand)<np.pi/13:
                     changing_factor_package.append(gtsam.CustomFactor(self.error_var_change_model, [self.t_wm_vertex_sym_list[contact_vertex][-1],self.t_wm_vertex_sym_list[contact_vertex][-2]],
                         partial(self.error_var_constant, np.array([]))))
                 else:
