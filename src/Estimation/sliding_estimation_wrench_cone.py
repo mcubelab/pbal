@@ -33,9 +33,13 @@ if __name__ == '__main__':
     #parameters describing how close to the friction 
     #cone boundary you need to be
     #to be considered sliding
-    contact_friction_cone_boundary_margin = 3
-    external_friction_cone_boundary_margin = 3
-    reset_time_length = .25
+    # contact_friction_cone_boundary_margin = 3
+    # external_friction_cone_boundary_margin = 3
+    # reset_time_length = .25
+
+    contact_friction_cone_boundary_margin = 1.0
+    external_friction_cone_boundary_margin = 1.0
+    reset_time_length = .05
 
     dummy, last_slide_time_dict, sliding_state_dict = friction_reasoning.initialize_friction_dictionaries()
 
