@@ -217,6 +217,8 @@ class gtsam_with_shape_priors_estimator(object):
         self.mglcostheta_sym_list = []
         self.mglsintheta_sym_list = []
 
+        self.ground_height_sym = gtsam.symbol('h', 0)
+
         for i in range(self.num_vertices):
             self.n_wm_vertex_sym_list.append([])
             self.t_wm_vertex_sym_list.append([])
@@ -337,6 +339,10 @@ class gtsam_with_shape_priors_estimator(object):
         regularization_factor_package = []
 
         if self.num_data_points==1:
+
+            self.v.insert(self.ground_height_sym, np.array([0.0]))
+            
+
             for i in range(self.num_vertices):
 
                 self.v.insert(self.n_ee_vertex_sym_list[i], np.array([self.test_object_vertex_array[0][i]]))
@@ -414,6 +420,11 @@ class gtsam_with_shape_priors_estimator(object):
                     partial(self.eval_error_torque_balance_point_contact, measurement)))
 
         self.contact_vertices = contact_vertices
+
+        for contact_vertex in contact_vertices:
+            changing_factor_package.append(gtsam.CustomFactor(self.error_var_change_model, [self.n_wm_vertex_sym_list[contact_vertex][-1],self.ground_height_sym],
+                partial(self.error_var_constant, np.array([]))))
+
 
 
         # print(sliding_state_dict['psf'],sliding_state_dict['csf'])
