@@ -220,7 +220,7 @@ if __name__ == '__main__':
 
             rotation_vector = np.array([-ds_robot_pivot, dd_robot_pivot, 1.])
 
-        rotation_vector = None
+        # rotation_vector = None
             # print(rotation_vector)
 
             # rotation_vector = None
