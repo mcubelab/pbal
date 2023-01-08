@@ -22,6 +22,8 @@ class ros_manager(object):
 		self.unpack_functions = []
 		self.callback_dict = {}
 		self.topic_list = []
+		self.subscriber_topic_dict = {}
+		self.publisher_topic_dict = {}
 		self.subscriber_dict = {}
 		self.message_type_dict = {}
 		self.buffer_dict = {}
@@ -43,6 +45,8 @@ class ros_manager(object):
 		self.load_mode = load_mode
 
 		self.read_dict = None
+
+		self.has_spawned_transform_listener = False
 
 		if self.load_mode:
 			if fname is not None:
@@ -301,8 +305,9 @@ class ros_manager(object):
 			self.my_impedance_mode_helper.initialize_impedance_mode(torque_upper=torque_upper,force_upper=force_upper)
 
 	def spawn_transform_listener(self):
-		if not self.load_mode:
+		if not self.load_mode and not self.has_spawned_transform_listener:
 			self.listener = tf.TransformListener()
+			self.has_spawned_transform_listener = True
 
 	# calls the ROS service that tares (zeroes) the force-torque sensor
 	def zero_ft_sensor(self):
@@ -342,6 +347,9 @@ class ros_manager(object):
 				return (None, None)
 
 	def subscribe(self,topic, isNecessary = True):
+		if topic in self.subscriber_topic_dict:
+			return None
+
 		self.available_mask.append(not isNecessary)
 		self.data_available.append(False)
 		self.topic_list.append(topic)
@@ -830,8 +838,12 @@ class ros_manager(object):
 			self.buffer_dict[topic] = None
 			self.callback_dict[topic] = None
 
+		self.subscriber_topic_dict[topic]=None
+
 
 	def spawn_publisher(self,topic):
+		if topic in self.publisher_topic_dict:
+			return None
 
 		if topic == '/ee_pose_in_world_manipulation_from_franka_publisher':
 			if self.load_mode:
@@ -993,9 +1005,13 @@ class ros_manager(object):
 					PolygonContactStateStamped,
 					queue_size=10)
 
+		self.publisher_topic_dict[topic]=None
 
 
 	def pub_ee_pose_in_world_manipulation_from_franka(self,ee_pose_in_world_manipulation_list):
+		if '/ee_pose_in_world_manipulation_from_franka_publisher' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1004,6 +1020,9 @@ class ros_manager(object):
 			self.ee_pose_in_world_manipulation_from_franka_pub.publish(ee_pose_in_world_manipulation_pose_stamped)
 
 	def pub_ee_pose_in_base_from_franka(self,ee_pose_in_base_list):
+		if '/ee_pose_in_base_from_franka_publisher' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1012,6 +1031,9 @@ class ros_manager(object):
 			self.ee_pose_in_base_from_franka_pub.publish(ee_pose_in_base_pose_stamped)
 
 	def pub_end_effector_sensor_in_end_effector_frame(self,end_effector_wrench_in_end_effector_list,frame_id):
+		if '/end_effector_sensor_in_end_effector_frame' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1020,6 +1042,9 @@ class ros_manager(object):
 			self.end_effector_sensor_in_end_effector_frame_pub.publish(msg)
 
 	def pub_end_effector_sensor_in_world_manipulation_frame(self,end_effector_wrench_in_world_manipulation_list,frame_id):
+		if '/end_effector_sensor_in_world_manipulation_frame' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1028,6 +1053,9 @@ class ros_manager(object):
 			self.end_effector_sensor_in_world_manipulation_frame_pub.publish(msg)
 
 	def pub_torque_cone_boundary_test(self,torque_boundary_boolean):
+		if '/torque_cone_boundary_test' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1036,6 +1064,9 @@ class ros_manager(object):
 			self.torque_cone_boundary_test_pub.publish(torque_boundary_boolean_message)
 
 	def pub_torque_cone_boundary_flag(self,torque_boundary_flag):
+		if '/torque_cone_boundary_flag' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1044,6 +1075,9 @@ class ros_manager(object):
 			self.torque_cone_boundary_flag_pub.publish(torque_boundary_flag_message)
 
 	def pub_friction_parameter(self,friction_parameter_dict):
+		if '/friction_parameters' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1052,6 +1086,9 @@ class ros_manager(object):
 			self.friction_parameter_pub.publish(friction_parameter_msg)
 
 	def pub_sliding_state(self,sliding_state_dict):
+		if '/sliding_state' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1060,6 +1097,9 @@ class ros_manager(object):
 			self.sliding_state_pub.publish(sliding_state_stamped)
 
 	def pub_pivot_sliding_commanded_flag(self,pivot_sliding_commanded_flag):
+		if '/pivot_sliding_commanded_flag' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1068,6 +1108,9 @@ class ros_manager(object):
 			self.pivot_sliding_commanded_flag_pub.publish(pivot_sliding_commanded_flag_message)
 
 	def pub_barrier_func_control_command(self,command_msg_dict):
+		if '/barrier_func_control_command' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1077,6 +1120,9 @@ class ros_manager(object):
 
 
 	def pub_target_frame(self,waypoint_pose_list):
+		if '/target_frame' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1086,6 +1132,9 @@ class ros_manager(object):
 			self.target_frame_broadcaster.sendTransform(waypoint_pose_stamped)
 
 	def pub_ee_apriltag_frame(self,ee_apriltag_in_world_pose_list):
+		if '/ee_apriltag_in_world' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1095,6 +1144,9 @@ class ros_manager(object):
 			self.ee_apriltag_in_world_frame_broadcaster.sendTransform(ee_apriltag_in_world_pose_stamped)
 
 	def pub_pivot_frame_realsense(self,pivot_pose_list):
+		if '/pivot_frame_realsense' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1107,6 +1159,9 @@ class ros_manager(object):
 			self.pivot_frame_realsense_broadcaster.sendTransform(pivot_pose_stamped)
 
 	def pub_pivot_frame_estimated(self,pivot_pose_list):
+		if '/pivot_frame_estimated' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1119,6 +1174,9 @@ class ros_manager(object):
 			self.pivot_frame_estimated_broadcaster.sendTransform(pivot_pose_stamped)
 
 	def pub_qp_debug_message(self,debug_dict):
+		if '/qp_debug_message' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
@@ -1127,6 +1185,9 @@ class ros_manager(object):
 			self.qp_debug_message_pub.publish(qp_debug_stamped)
 
 	def pub_polygon_contact_estimate(self,vertex_array,contact_indices):
+		if '/polygon_contact_estimate' not in self.publisher_topic_dict:
+			return None
+
 		if self.load_mode:
 			pass
 		else:
