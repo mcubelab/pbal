@@ -106,41 +106,42 @@ if __name__ == '__main__':
  
             current_estimate_dict = current_estimator.compute_estimate()
             
+            if current_estimate_dict is not None:
 
-            height_indices = np.argsort(current_estimate_dict['vertex_positions_wm_current'][0])
+                height_indices = np.argsort(current_estimate_dict['vertex_positions_wm_current'][0])
 
-            contact_index = current_estimator.contact_vertices[0]
-            pn_wm = current_estimate_dict['vertex_positions_wm_current'][0][contact_index]
-            pt_wm = current_estimate_dict['vertex_positions_wm_current'][1][contact_index]
-            rm.pub_pivot_frame_estimated([pn_wm,pt_wm,hand_front_center_world[2]])
+                contact_index = current_estimator.contact_vertices[0]
+                pn_wm = current_estimate_dict['vertex_positions_wm_current'][0][contact_index]
+                pt_wm = current_estimate_dict['vertex_positions_wm_current'][1][contact_index]
+                rm.pub_pivot_frame_estimated([pn_wm,pt_wm,hand_front_center_world[2]])
 
-            # vertex_positions_wm_current_z = [hand_front_center_world[2]]*len(current_estimate_dict['vertex_positions_wm_current'][0])
+                # vertex_positions_wm_current_z = [hand_front_center_world[2]]*len(current_estimate_dict['vertex_positions_wm_current'][0])
 
-            
+                
 
-            # vertex_array_out = np.array([list(current_estimate_dict['vertex_positions_wm_current'][0]),list(current_estimate_dict['vertex_positions_wm_current'][1]),vertex_positions_wm_current_z])
-            # contact_indices = list(current_estimator.contact_vertices)
+                # vertex_array_out = np.array([list(current_estimate_dict['vertex_positions_wm_current'][0]),list(current_estimate_dict['vertex_positions_wm_current'][1]),vertex_positions_wm_current_z])
+                # contact_indices = list(current_estimator.contact_vertices)
 
-            contact_indices = []
-            vertex_array_n = []
-            vertex_array_t = []
-            vertex_array_z = []
+                contact_indices = []
+                vertex_array_n = []
+                vertex_array_t = []
+                vertex_array_z = []
 
-            count = 0
-            for i in range(len(current_estimate_dict['vertex_positions_wm_current'][0])):
-                if i in current_estimate_dict['contact_vertices_dict']:
-                    vertex_array_n.append(current_estimate_dict['vertex_positions_wm_current'][0][i])
-                    vertex_array_t.append(current_estimate_dict['vertex_positions_wm_current'][1][i])
-                    vertex_array_z.append(hand_front_center_world[2])
+                count = 0
+                for i in range(len(current_estimate_dict['vertex_positions_wm_current'][0])):
+                    if i in current_estimate_dict['contact_vertices_dict']:
+                        vertex_array_n.append(current_estimate_dict['vertex_positions_wm_current'][0][i])
+                        vertex_array_t.append(current_estimate_dict['vertex_positions_wm_current'][1][i])
+                        vertex_array_z.append(hand_front_center_world[2])
 
-                    if i in current_estimator.contact_vertices:
-                        contact_indices.append(count)
-                        
-                    count+=1
+                        if i in current_estimator.contact_vertices:
+                            contact_indices.append(count)
+                            
+                        count+=1
 
-            vertex_array_out = np.array([vertex_array_n,vertex_array_t,vertex_array_z])
+                vertex_array_out = np.array([vertex_array_n,vertex_array_t,vertex_array_z])
 
-            rm.pub_polygon_contact_estimate(vertex_array_out,contact_indices)
+                rm.pub_polygon_contact_estimate(vertex_array_out,contact_indices)
 
  
         if rm.load_mode:

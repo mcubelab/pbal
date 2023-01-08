@@ -17,23 +17,24 @@ import image_overlay_helper as ioh
 if __name__ == '__main__':
     global rospy
 
+    frame_rate = None
     cam_choice = 'near'
 
-    read_from_file = False
-    write_to_file = False and read_from_file
-    display_overlay = True or (not read_from_file)
+    read_from_file = True
+    write_to_file = True and read_from_file
+    display_overlay = False or (not write_to_file)
 
     write_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
-    fname_out = '/pivot_estimator_video_05.avi'
+    fname_out = '/pivot_estimator_video_07.avi'
     
     rm = None
     fname = None
     path = None
     if read_from_file:
         #use if playing from pickle file
-        # read_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
-        read_path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
-        fname_in = '/test_data-experiment0028.pickle'
+        read_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
+        # read_path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
+        fname_in = '/test_data-experiment0032.pickle'
         rm = ros_manager(load_mode = True, path=read_path, fname=fname_in)
 
     else:
@@ -41,7 +42,8 @@ if __name__ == '__main__':
         rm = ros_manager()
 
     if rm.load_mode:
-        rm.setRate(100)
+        frame_rate = 60
+        rm.setRate(frame_rate)
     else:
         import rospy
         rospy.init_node('realsense_liveplot_test')
@@ -77,8 +79,8 @@ if __name__ == '__main__':
 
 
     options =  {'cam_choice':'near',
-                'display_overlay':True, 
-                'write_to_file':False,
+                'display_overlay':display_overlay, 
+                'write_to_file':write_to_file,
                 'write_path':write_path,
                 'fname_out':fname_out,
                 'display_friction_cones':True,
@@ -105,4 +107,4 @@ if __name__ == '__main__':
 
 
     if write_to_file:
-        my_visualizer.store_video()
+        my_visualizer.store_video(frame_rate)

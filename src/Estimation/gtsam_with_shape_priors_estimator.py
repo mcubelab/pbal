@@ -18,13 +18,13 @@ class gtsam_with_shape_priors_estimator(object):
     def __init__(self,object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog):
         
         self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
-        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, 5.0)
+        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .8)
         self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
         self.error_s_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
-        self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, 10.0)
+        self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, 1000.0)
         self.error_oject_vertex_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.)
 
-        self.error_limited_movement_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.)
+        self.error_limited_movement_model = gtsam.noiseModel.Isotropic.Sigma(1, 10.)
 
         self.error_strong_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.)
 
@@ -37,7 +37,6 @@ class gtsam_with_shape_priors_estimator(object):
         test_object_vertex_array,test_object_normal_array = shape_prior_helper.generate_shape_prior(object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog)
 
         self.test_object_vertex_array = test_object_vertex_array
-        self.test_object_normal_array = test_object_normal_array
 
         self.num_vertices = len(object_vertex_array[0])
 
@@ -89,6 +88,8 @@ class gtsam_with_shape_priors_estimator(object):
         self.current_hand_pose = None
         self.current_measured_world_manipulation_wrench = None
 
+        self.updated_set = {}
+
 
     def runISAM(self):
         while self.packages_added<self.num_data_points:
@@ -106,6 +107,9 @@ class gtsam_with_shape_priors_estimator(object):
         return result
 
     def compute_estimate(self):
+        for contact_vertex in self.contact_vertices_dict:
+            if self.contact_vertices_dict[contact_vertex]<20:
+                return None
         
         result = self.runISAM()
 
@@ -119,6 +123,16 @@ class gtsam_with_shape_priors_estimator(object):
         for i in range(self.num_vertices):
             self.vertex_positions_ee_current[0].append(result.atVector(self.n_ee_vertex_sym_list[i])[0])
             self.vertex_positions_ee_current[1].append(result.atVector(self.t_ee_vertex_sym_list[i])[0])
+
+
+            if i in self.contact_vertices_dict and self.contact_vertices_dict[i]>350:
+                self.test_object_vertex_array[0,i] = self.vertex_positions_ee_current[0][i]
+                self.test_object_vertex_array[1,i] = self.vertex_positions_ee_current[1][i]
+
+                if i not in self.updated_set:
+                    self.updated_set[i]=True
+                    print('oracle no longer uses vertex: ',i)
+
 
             vertex_obj_frame_temp = [self.vertex_positions_ee_current[0][-1],self.vertex_positions_ee_current[1][-1]]
             r_wm_vertex_temp, dummy0, dummy1 = self.transform_pts_obj_to_wm(self.current_hand_pose,vertex_obj_frame_temp,self.s_current)
@@ -187,7 +201,10 @@ class gtsam_with_shape_priors_estimator(object):
         self.contact_vertices_list.append(contact_vertices)
 
         for contact_vertex in contact_vertices:
-            self.contact_vertices_dict[contact_vertex]=None
+            if contact_vertex not in self.contact_vertices_dict:
+                self.contact_vertices_dict[contact_vertex]=0
+            if len(contact_vertices)==1:
+                self.contact_vertices_dict[contact_vertex]+=1
 
         s_guess = 0.0
 
@@ -201,17 +218,17 @@ class gtsam_with_shape_priors_estimator(object):
                 self.v.insert(self.n_ee_vertex_sym_list[i], np.array([self.test_object_vertex_array[0][i]]))
                 self.v.insert(self.t_ee_vertex_sym_list[i], np.array([self.test_object_vertex_array[1][i]]))
 
-                regularization_factor_package.append(gtsam.CustomFactor(self.error_oject_vertex_prior_model, [self.n_ee_vertex_sym_list[i]],
-                        partial(self.error_var_regularization, np.array([self.test_object_vertex_array[0][i]]) )))
+                # regularization_factor_package.append(gtsam.CustomFactor(self.error_oject_vertex_prior_model, [self.n_ee_vertex_sym_list[i]],
+                #         partial(self.error_var_regularization, np.array([self.test_object_vertex_array[0][i]]) )))
 
-                regularization_factor_package.append(gtsam.CustomFactor(self.error_oject_vertex_prior_model, [self.t_ee_vertex_sym_list[i]],
-                        partial(self.error_var_regularization, np.array([self.test_object_vertex_array[1][i]]) )))
+                # regularization_factor_package.append(gtsam.CustomFactor(self.error_oject_vertex_prior_model, [self.t_ee_vertex_sym_list[i]],
+                #         partial(self.error_var_regularization, np.array([self.test_object_vertex_array[1][i]]) )))
 
                 regularization_factor_package.append(gtsam.CustomFactor(self.error_strong_prior_model, [self.s_sym_list[-1]],
                         partial(self.error_var_regularization, np.array([0.0]) )))
 
-                regularization_factor_package.append(gtsam.CustomFactor(self.error_var_regularization_model, [self.h_ground_sym],
-                        partial(self.error_var_regularization, np.array([0.0]) )))
+                # regularization_factor_package.append(gtsam.CustomFactor(self.error_var_regularization_model, [self.h_ground_sym],
+                #         partial(self.error_var_regularization, np.array([0.0]) )))
 
                 if self.use_gravity:
                     self.v.insert(self.mglcostheta_sym_list[i], np.array([0.0]))

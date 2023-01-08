@@ -1560,10 +1560,11 @@ class ros_manager(object):
 
 			if self.load_mode:
 				detection_dict = self.apriltag_buffer.pop(0)
-				for detection in detection_dict:
-					pose_list = detection_dict[detection]['position']+detection_dict[detection]['orientation']
-					self.apriltag_pose_list_dict[detection] = pose_list
-					self.apriltag_pose_homog_dict[detection] = kh.matrix_from_pose_list(pose_list)
+				if detection_dict is not None:
+					for detection in detection_dict:
+						pose_list = detection_dict[detection]['position']+detection_dict[detection]['orientation']
+						self.apriltag_pose_list_dict[detection] = pose_list
+						self.apriltag_pose_homog_dict[detection] = kh.matrix_from_pose_list(pose_list)
 			else:
 				apriltag_array = self.apriltag_buffer.pop(0)
 

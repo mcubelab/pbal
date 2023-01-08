@@ -244,14 +244,17 @@ class system_visualizer(object):
         if self.write_to_file:
             self.img_array.append(self.cv_image)
 
-    def store_video(self):
+    def store_video(self,frame_rate = 30):
+
+        if frame_rate is None:
+            frame_rate = 30
 
         if self.write_to_file and len(self.img_array)>0:
 
             height, width, layers = self.img_array[0].shape
             size = (width, height)
 
-            video_out = cv2.VideoWriter(self.write_path + self.fname_out, cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
+            video_out = cv2.VideoWriter(self.write_path + self.fname_out, cv2.VideoWriter_fourcc(*'DIVX'), frame_rate, size)
 
             for i in range(len(self.img_array)):
                 video_out.write(self.img_array[i])
