@@ -17,7 +17,7 @@ import PlottingandVisualization.image_overlay_helper as ioh
 class gtsam_with_shape_priors_estimator(object):
     def __init__(self,object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog):
         
-        self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
+        self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
         self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .8)
         self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
         self.error_s_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
@@ -108,7 +108,7 @@ class gtsam_with_shape_priors_estimator(object):
 
     def compute_estimate(self):
         for contact_vertex in self.contact_vertices_dict:
-            if self.contact_vertices_dict[contact_vertex]<20:
+            if self.contact_vertices_dict[contact_vertex][2]-self.contact_vertices_dict[contact_vertex][1]<np.pi/35 or self.contact_vertices_dict[contact_vertex][0]<20:
                 return None
         
         result = self.runISAM()
@@ -124,8 +124,8 @@ class gtsam_with_shape_priors_estimator(object):
             self.vertex_positions_ee_current[0].append(result.atVector(self.n_ee_vertex_sym_list[i])[0])
             self.vertex_positions_ee_current[1].append(result.atVector(self.t_ee_vertex_sym_list[i])[0])
 
+            if i in self.contact_vertices_dict and (self.contact_vertices_dict[i][2]-self.contact_vertices_dict[i][1]>np.pi/35 and self.contact_vertices_dict[i][0]>30):
 
-            if i in self.contact_vertices_dict and self.contact_vertices_dict[i]>350:
                 self.test_object_vertex_array[0,i] = self.vertex_positions_ee_current[0][i]
                 self.test_object_vertex_array[1,i] = self.vertex_positions_ee_current[1][i]
 
@@ -202,9 +202,12 @@ class gtsam_with_shape_priors_estimator(object):
 
         for contact_vertex in contact_vertices:
             if contact_vertex not in self.contact_vertices_dict:
-                self.contact_vertices_dict[contact_vertex]=0
+                self.contact_vertices_dict[contact_vertex]=[0,np.inf,-np.inf]
             if len(contact_vertices)==1:
-                self.contact_vertices_dict[contact_vertex]+=1
+                self.contact_vertices_dict[contact_vertex][0]+=1
+                self.contact_vertices_dict[contact_vertex][1] = min(self.contact_vertices_dict[contact_vertex][1],theta_hand)
+                self.contact_vertices_dict[contact_vertex][2] = max(self.contact_vertices_dict[contact_vertex][2],theta_hand)
+
 
         s_guess = 0.0
 
@@ -276,15 +279,17 @@ class gtsam_with_shape_priors_estimator(object):
             #if in sticking contact at ground, contact points do not move horizontally
             for contact_vertex in contact_vertices:
                 if contact_vertex in self.contact_vertices_list[-2]:
-                    ds_ground_model = self.error_limited_movement_model
+                    # ds_ground_model = self.error_limited_movement_model
 
-                    if (not sliding_state_dict['psf']) or sliding_state_dict['csf'] or abs(theta_hand)<np.pi/13:
+                    # if (not sliding_state_dict['psf']) or sliding_state_dict['csf']:
+                    if (not sliding_state_dict['psf']):
+
                         ds_ground_model = self.error_var_change_model
 
-                    ground_stick_symbols = [self.n_ee_vertex_sym_list[contact_vertex],self.t_ee_vertex_sym_list[contact_vertex],
-                                            self.s_sym_list[-2],self.s_sym_list[-1]]
-                    changing_factor_package.append(gtsam.CustomFactor(ds_ground_model, ground_stick_symbols,
-                        partial(self.eval_error_kinematic_t_wm_const, [self.measurement_list[-2],self.measurement_list[-1]])))
+                        ground_stick_symbols = [self.n_ee_vertex_sym_list[contact_vertex],self.t_ee_vertex_sym_list[contact_vertex],
+                                                self.s_sym_list[-2],self.s_sym_list[-1]]
+                        changing_factor_package.append(gtsam.CustomFactor(ds_ground_model, ground_stick_symbols,
+                            partial(self.eval_error_kinematic_t_wm_const, [self.measurement_list[-2],self.measurement_list[-1]])))
     
 
         self.state_factor_package_list.append(state_factor_package)

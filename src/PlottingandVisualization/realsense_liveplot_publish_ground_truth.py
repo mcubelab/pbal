@@ -22,10 +22,10 @@ if __name__ == '__main__':
 
     read_from_file = True
     write_to_file = True and read_from_file
-    display_overlay = False or (not write_to_file)
+    display_overlay = False or (not write_to_file) or (not read_from_file)
 
     write_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
-    fname_out = '/pivot_estimator_video_07.avi'
+    fname_out = '/pivot_estimator_video_11.avi'
     
     rm = None
     fname = None
@@ -34,7 +34,7 @@ if __name__ == '__main__':
         #use if playing from pickle file
         read_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
         # read_path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
-        fname_in = '/test_data-experiment0032.pickle'
+        fname_in = '/test_data-experiment0036.pickle'
         rm = ros_manager(load_mode = True, path=read_path, fname=fname_in)
 
     else:
