@@ -14,8 +14,31 @@ from Helpers.camera_transform_manager import camera_transform_manager
 from PlottingandVisualization.system_visualizer import system_visualizer
 import Helpers.kinematics_helper as kh
 import PlottingandVisualization.image_overlay_helper as ioh
+import Estimation.image_segmentation as img_seg
 import random
 
+def get_shape_prior():
+    rm = ros_manager()
+    rm.spawn_transform_listener()
+    rm.subscribe_to_list(['/near_cam/color/image_raw',
+                          '/near_cam/color/camera_info',
+                          '/ee_pose_in_world_manipulation_from_franka_publisher',
+                          '/ee_pose_in_base_from_franka_publisher',],True)
+
+    ctm = camera_transform_manager(rm,'near')
+    ctm.setup_frames()
+    camera_transformation_matrix = ctm.generate_camera_transformation_matrix()
+
+    rm.wait_for_necessary_data()
+    rm.unpack_all()
+
+    cv_image = rm.near_cam_image_raw
+
+    vertex_list = img_seg.find_the_object(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
+
+    rm.unregister_all()
+
+    return np.vstack(vertex_list).T
 
 if __name__ == '__main__':
     global rospy
@@ -59,33 +82,26 @@ if __name__ == '__main__':
     rm.subscribe_to_list(['/torque_cone_boundary_test',
                           '/sliding_state',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
-                          '/end_effector_sensor_in_world_manipulation_frame',
-                          '/tag_detections'],True)
+                          '/end_effector_sensor_in_world_manipulation_frame'],True)
 
 
     rm.spawn_publisher_list(['/pivot_frame_estimated','/polygon_contact_estimate'])
 
     shape_name_list = ['big_triangle','big_square','rectangle','square','triangle','big_rectangle','rectangle_bump_in','rectangle_bump_out']
 
-    ctm = camera_transform_manager(rm,cam_choice)
-    ctm.setup_frames()
-    ctm.load_shape_data(shape_name_list)
 
-
-    hand_tangent = np.array([[0.0], [1.0], [0.0], [0.0]])
-    hand_normal = np.array([[1.0], [0.0], [0.0], [0.0]])
     hand_front_center = np.array([0.0, 0.0, .041, 1.0])
 
+    object_vertex_array = get_shape_prior()
+
+    print('shape prior acquired')
 
     rm.wait_for_necessary_data()
     rm.unpack_all()
 
-    ctm.find_valid_apriltag_id(rm.apriltag_pose_list_dict)
-    object_vertex_array = ctm.get_object_vertex_array()
-    obj_pose_homog = ctm.generate_obj_pose_from_apriltag(rm.apriltag_pose_list_dict)
+    current_estimator = gtsam_with_shape_priors_estimator(object_vertex_array,kh.unit_pose_homog(),rm.ee_pose_in_world_manipulation_homog)
 
-
-    current_estimator = gtsam_with_shape_priors_estimator(object_vertex_array,obj_pose_homog,rm.ee_pose_in_world_manipulation_homog)
+    print('starting estimator')
 
     while (rm.load_mode and rm.read_still_running()) or (not rm.load_mode and not rospy.is_shutdown()):
         rm.unpack_all()
@@ -114,13 +130,6 @@ if __name__ == '__main__':
                 pn_wm = current_estimate_dict['vertex_positions_wm_current'][0][contact_index]
                 pt_wm = current_estimate_dict['vertex_positions_wm_current'][1][contact_index]
                 rm.pub_pivot_frame_estimated([pn_wm,pt_wm,hand_front_center_world[2]])
-
-                # vertex_positions_wm_current_z = [hand_front_center_world[2]]*len(current_estimate_dict['vertex_positions_wm_current'][0])
-
-                
-
-                # vertex_array_out = np.array([list(current_estimate_dict['vertex_positions_wm_current'][0]),list(current_estimate_dict['vertex_positions_wm_current'][1]),vertex_positions_wm_current_z])
-                # contact_indices = list(current_estimator.contact_vertices)
 
                 contact_indices = []
                 vertex_array_n = []
