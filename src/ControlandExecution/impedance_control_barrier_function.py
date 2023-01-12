@@ -108,9 +108,9 @@ if __name__ == '__main__':
             pivot = None
         else:
             pivot = np.array([rm.pivot_xyz[0], rm.pivot_xyz[1]])
-
+            
         # unpack current message
-        if rm.barrier_func_control_command_has_new:
+        if rm.barrier_func_control_command_has_new and (rm.command_msg['command_flag']==0 or rm.command_msg['command_flag']==1):
             t_recent_command = time.time()
             command_flag = rm.command_msg['command_flag']
             mode = rm.command_msg['mode']

@@ -108,7 +108,6 @@ delta_slide_pivot_right = {
     'delta_s_hand' : 0.00,
 }
 
-
 absolute_rotate_center = {
     'name': 'absolute_rotate_center',
     'command_flag' : 0,
@@ -132,6 +131,24 @@ absolute_rotate_right = {
     'command_flag' : 0,
     'mode' : -1,
     'theta' : -1.1*np.pi/6,
+    's_pivot' : 0.0,
+    's_hand' : 0.0,
+}
+
+wall_contact_on = {
+    'name': 'wall_contact_on',
+    'command_flag' : 2,
+    'mode' : 0,
+    'theta' : 0,
+    's_pivot' : 0.0,
+    's_hand' : 0.0,
+}
+
+wall_contact_off = {
+    'name': 'wall_contact_off',
+    'command_flag' : 2,
+    'mode' : 1,
+    'theta' : 0,
     's_pivot' : 0.0,
     's_hand' : 0.0,
 }
@@ -185,6 +202,12 @@ def on_press(key):
     elif k == 'e': # object right
         command_msg_dict = delta_slide_pivot_right
         print('delta_slide_pivot_right')
+    elif k == 'o': #wall_contact_on
+        command_msg_dict = wall_contact_on
+        print('wall_contact_on')
+    elif k == 'p': # wall_contact_off
+        command_msg_dict = wall_contact_off
+        print('wall_contact_off')
 
     if command_msg_dict is not None:
         rm.pub_barrier_func_control_command(command_msg_dict)
@@ -205,6 +228,8 @@ if __name__ == '__main__':
     print('q: slide pivot left')
     print('e: slide pivote right')
     print('Space: pause')
+    print('o: wall contact on')
+    print('p: wall contact off')
     print('-----------------------------')
 
     rm = ros_manager()

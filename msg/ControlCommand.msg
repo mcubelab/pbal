@@ -1,5 +1,5 @@
 string name                     # name of current command
-bool command_flag               # 0 = absolute, 1 = relative
+int8 command_flag               # 0 = absolute, 1 = relative
 int8 mode                       # primitive
 
 # relative commands
