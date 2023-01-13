@@ -99,6 +99,8 @@ class camera_transform_manager(object):
         return obj_pose_homog
 
     def generate_camera_transformation_matrix(self):
+        self.rm.wait_for_necessary_data()
+
         if self.cam_choice == 'near':
             self.rm.near_cam_camera_info_unpack()
             self.camera_matrix = self.rm.near_cam_camera_matrix

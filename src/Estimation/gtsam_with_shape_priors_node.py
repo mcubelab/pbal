@@ -24,7 +24,7 @@ def get_shape_prior():
                           '/near_cam/color/camera_info',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/ee_pose_in_base_from_franka_publisher',],True)
-
+    
     ctm = camera_transform_manager(rm,'near')
     ctm.setup_frames()
     camera_transformation_matrix = ctm.generate_camera_transformation_matrix()
@@ -84,6 +84,10 @@ if __name__ == '__main__':
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/end_effector_sensor_in_world_manipulation_frame'],True)
 
+    rm.subscribe_to_list(['/barrier_func_control_command'],False)
+
+    wall_contact_on = False
+
 
     rm.spawn_publisher_list(['/pivot_frame_estimated','/polygon_contact_estimate'])
 
@@ -99,13 +103,21 @@ if __name__ == '__main__':
     rm.wait_for_necessary_data()
     rm.unpack_all()
 
-    current_estimator = gtsam_with_shape_priors_estimator(object_vertex_array,kh.unit_pose_homog(),rm.ee_pose_in_world_manipulation_homog)
+    object_vertex_array = np.dot(kh.invert_transform_homog(rm.ee_pose_in_world_manipulation_homog),object_vertex_array)
+
+    current_estimator = gtsam_with_shape_priors_estimator(object_vertex_array,rm.ee_pose_in_world_manipulation_homog,rm.ee_pose_in_world_manipulation_homog)
 
     print('starting estimator')
 
     while (rm.load_mode and rm.read_still_running()) or (not rm.load_mode and not rospy.is_shutdown()):
         rm.unpack_all()
 
+        if rm.barrier_func_control_command_has_new and rm.command_msg['command_flag']==2:
+            if rm.command_msg['mode']==0:
+                wall_contact_on = True
+            elif rm.command_msg['mode']==1:
+                wall_contact_on = False
+                
         theta_hand = kh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
 
 
@@ -113,7 +125,7 @@ if __name__ == '__main__':
         measured_wrench_pivot_estimator = np.array(rm.measured_world_manipulation_wrench)
 
 
-        current_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,rm.sliding_state)
+        current_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,rm.sliding_state,wall_contact_on)
 
         hand_front_center_world = np.dot(rm.ee_pose_in_world_manipulation_homog,hand_front_center)
 

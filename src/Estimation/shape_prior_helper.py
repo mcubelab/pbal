@@ -103,7 +103,7 @@ def generate_shape_prior(object_vertex_array,obj_pose_homog,ee_pose_in_world_man
 
     return test_object_vertex_array, test_object_normal_array
 
-def determine_contact_vertices(theta_hand,test_object_vertex_array):
+def determine_contact_vertices(theta_hand,test_object_vertex_array,measured_world_manipulation_wrench):
 
     
     rot_mat = np.array([[-np.cos(theta_hand), np.sin(theta_hand),0.0,0.0],
@@ -111,16 +111,31 @@ def determine_contact_vertices(theta_hand,test_object_vertex_array):
                         [                0.0,                0.0,1.0,0.0],
                         [                0.0,                0.0,0.0,1.0]])
 
+    direction_vec = -np.array([measured_world_manipulation_wrench[0],measured_world_manipulation_wrench[1],0.0,0.0])
+
+    if np.linalg.norm(direction_vec)<2:
+        direction_vec = np.array([1.0,0.0,0.0,0.0])
+    else:
+        direction_vec/=np.linalg.norm(direction_vec)
+
     threshold_mat = np.dot(rot_mat,test_object_vertex_array)
     height_indices = np.argsort(threshold_mat[0])
 
-    
-
-    current_estimator = None
     if np.abs(threshold_mat[0,height_indices[0]]-threshold_mat[0,height_indices[1]])>.015:
         return height_indices[:1]
     else:
         return height_indices[:2]
+
+    # threshold_mat = np.dot(rot_mat,test_object_vertex_array)
+    # threshold_mat = np.dot(direction_vec,threshold_mat)
+    # height_indices = np.argsort(threshold_mat)
+
+    # return height_indices[:2]
+
+    # if np.abs(threshold_mat[height_indices[0]]-threshold_mat[height_indices[1]])>.015:
+    #     return height_indices[:1]
+    # else:
+    #     return height_indices[:2]    
 
 def estimate_external_COP(theta_hand, s_hand, measured_world_manipulation_wrench, test_object_vertex_array, contact_indices):
 

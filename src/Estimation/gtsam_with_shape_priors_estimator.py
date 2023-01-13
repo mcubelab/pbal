@@ -162,7 +162,7 @@ class gtsam_with_shape_priors_estimator(object):
 
         return current_estimate_dict
 
-    def add_data_point(self,hand_pose,measured_world_manipulation_wrench,sliding_state_dict):
+    def add_data_point(self,hand_pose,measured_world_manipulation_wrench,sliding_state_dict,wall_contact_on=False):
 
         state_factor_package = []
         changing_factor_package = []
@@ -185,7 +185,7 @@ class gtsam_with_shape_priors_estimator(object):
         t_wm_hand = measurement[1]
         theta_hand = measurement[2]
 
-        contact_vertices = shape_prior_helper.determine_contact_vertices(theta_hand,self.test_object_vertex_array)
+        contact_vertices = shape_prior_helper.determine_contact_vertices(theta_hand,self.test_object_vertex_array,measured_world_manipulation_wrench)
 
         if len(contact_vertices)==2:
             alpha0,alpha1 = shape_prior_helper.estimate_external_COP(theta_hand, self.s_current, measured_world_manipulation_wrench, self.test_object_vertex_array, contact_vertices)
@@ -256,8 +256,9 @@ class gtsam_with_shape_priors_estimator(object):
             if self.use_gravity:
                 torque_symbols+=[self.mglcostheta_sym_list[contact_vertex],self.mglsintheta_sym_list[contact_vertex]]
 
-            state_factor_package.append(gtsam.CustomFactor(self.error_torque_model, torque_symbols,
-                partial(self.eval_error_torque_balance_from_obj_pts, measurement)))
+            if not wall_contact_on:
+                state_factor_package.append(gtsam.CustomFactor(self.error_torque_model, torque_symbols,
+                    partial(self.eval_error_torque_balance_from_obj_pts, measurement)))
 
         #if in point contact, height of contact points are at the ground
         for contact_vertex in contact_vertices:

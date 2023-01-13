@@ -147,3 +147,18 @@ def get_transform_homog(target_frame_pose_list, source_frame_pose_list):
     target_world_homog = matrix_from_pose_list(target_frame_pose_list)
     source_world_homog = matrix_from_pose_list(source_frame_pose_list)
     return np.matmul(target_world_homog, np.linalg.inv(source_world_homog))
+
+def invert_transform_homog(homog_in):
+    R = homog_in[0:3,0:3]
+    T = homog_in[0:3,3]
+    bottom_row = homog_in[3,:]
+
+    R_new = R.T
+    T_new = -np.dot(R_new,T)
+
+    T_new = np.array([T_new]).T
+    bottom_row = np.array([bottom_row])
+
+    homog_inv = np.vstack([np.hstack([R_new,T_new]),bottom_row])
+
+    return homog_inv
