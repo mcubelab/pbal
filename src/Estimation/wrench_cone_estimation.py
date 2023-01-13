@@ -30,6 +30,11 @@ if __name__ == '__main__':
     rate = rospy.Rate(sys_params.estimator_params["RATE"])
     rm.subscribe('/end_effector_sensor_in_end_effector_frame')
     rm.subscribe('/end_effector_sensor_in_world_manipulation_frame')
+
+    rm.subscribe_to_list(['/barrier_func_control_command'],False)
+
+    wall_contact_on = False
+
     rm.spawn_publisher('/friction_parameters')
 
 
@@ -66,6 +71,12 @@ if __name__ == '__main__':
         rm.tl_reset()
         rm.unpack_all()
 
+        if rm.barrier_func_control_command_has_new and rm.command_msg['command_flag']==2:
+            if rm.command_msg['mode']==0:
+                wall_contact_on = True
+            elif rm.command_msg['mode']==1:
+                wall_contact_on = False
+
         # updating quantiles for robot friction cone
         if rm.end_effector_wrench_has_new:
             hand_data_point_count +=1
@@ -78,7 +89,7 @@ if __name__ == '__main__':
             ground_data_point_count +=1
             update_ground_friction_cone = ground_data_point_count%ground_update_number == 0
 
-            if (ground_data_point_count % 2) == 0:
+            if (ground_data_point_count % 2) == 0 and (not wall_contact_on):
 
                 ground_hull_estimator.add_data_point(
                     np.array([rm.measured_world_manipulation_wrench[0],
