@@ -111,31 +111,29 @@ def determine_contact_vertices(theta_hand,test_object_vertex_array,measured_worl
                         [                0.0,                0.0,1.0,0.0],
                         [                0.0,                0.0,0.0,1.0]])
 
-    direction_vec = -np.array([measured_world_manipulation_wrench[0],measured_world_manipulation_wrench[1],0.0,0.0])
-
-    if np.linalg.norm(direction_vec)<2:
-        direction_vec = np.array([1.0,0.0,0.0,0.0])
-    else:
-        direction_vec/=np.linalg.norm(direction_vec)
-
     threshold_mat = np.dot(rot_mat,test_object_vertex_array)
     height_indices = np.argsort(threshold_mat[0])
 
     if np.abs(threshold_mat[0,height_indices[0]]-threshold_mat[0,height_indices[1]])>.015:
         return height_indices[:1]
     else:
-        return height_indices[:2]
+        return height_indices[:2]  
 
-    # threshold_mat = np.dot(rot_mat,test_object_vertex_array)
-    # threshold_mat = np.dot(direction_vec,threshold_mat)
-    # height_indices = np.argsort(threshold_mat)
+def determine_wall_contact_vertices_for_controller(vertex_array_wm,measured_world_manipulation_wrench):
+    vertex_array_wm = vertex_array_wm[0:3,:]
 
-    # return height_indices[:2]
+    direction_vec = -np.array([measured_world_manipulation_wrench[0],measured_world_manipulation_wrench[1],0.0])
 
-    # if np.abs(threshold_mat[height_indices[0]]-threshold_mat[height_indices[1]])>.015:
-    #     return height_indices[:1]
-    # else:
-    #     return height_indices[:2]    
+    if np.linalg.norm(direction_vec)<2.0:
+        direction_vec = np.array([1.0,0.0,0.0])
+    else:
+        direction_vec/=np.linalg.norm(direction_vec)
+
+    threshold_mat = np.dot(direction_vec,vertex_array_wm)
+    contact_indices = np.argsort(threshold_mat)
+
+    return contact_indices[:2]
+
 
 def estimate_external_COP(theta_hand, s_hand, measured_world_manipulation_wrench, test_object_vertex_array, contact_indices):
 

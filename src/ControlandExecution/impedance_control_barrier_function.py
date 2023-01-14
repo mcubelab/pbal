@@ -9,7 +9,7 @@ import time
 import Helpers.kinematics_helper as kh
 from Modelling.system_params import SystemParams
 from Modelling.modular_barrier_controller import ModularBarrierController
-
+from Estimation import shape_prior_helper
 from Helpers.ros_manager import ros_manager
 
 import rospy
@@ -37,6 +37,7 @@ if __name__ == '__main__':
     rospy.init_node(node_name)
     rate = rospy.Rate(RATE)
     rm.subscribe_to_list(['/end_effector_sensor_in_end_effector_frame',
+                          '/end_effector_sensor_in_world_manipulation_frame',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/barrier_func_control_command'])
 
@@ -44,7 +45,8 @@ if __name__ == '__main__':
                           '/pivot_frame_estimated',
                           '/generalized_positions',
                           '/friction_parameters',
-                          '/torque_bound_message'],False)
+                          '/torque_bound_message',
+                          '/polygon_contact_estimate',],False)
 
     rm.spawn_publisher_list(['/pivot_sliding_commanded_flag',
                              '/qp_debug_message',
@@ -108,7 +110,7 @@ if __name__ == '__main__':
             pivot = None
         else:
             pivot = np.array([rm.pivot_xyz[0], rm.pivot_xyz[1]])
-            
+
         # unpack current message
         if rm.barrier_func_control_command_has_new and (rm.command_msg['command_flag']==0 or rm.command_msg['command_flag']==1):
             t_recent_command = time.time()
@@ -205,13 +207,13 @@ if __name__ == '__main__':
         if s_hand is not None and l_hand is not None:
             rotation_vector = np.array([-s_hand, l_hand, 1.])
 
-        time_since_prev_estimate = None
+        time_since_prev_pivot_estimate = None
 
         if rm.pivot_xyz_estimated is not None:
-            time_since_prev_estimate = rm.eval_current_time()-rm.pivot_message_estimated_time
+            time_since_prev_pivot_estimate = rm.eval_current_time()-rm.pivot_message_estimated_time
 
             
-        if time_since_prev_estimate is not None and time_since_prev_estimate<.5:
+        if time_since_prev_pivot_estimate is not None and time_since_prev_pivot_estimate<.5:
             dx_robot_pivot = current_xyz_theta_robot_frame[0]-rm.pivot_xyz_estimated[0]
             dy_robot_pivot = current_xyz_theta_robot_frame[1]-rm.pivot_xyz_estimated[1]
 
@@ -219,6 +221,38 @@ if __name__ == '__main__':
             dd_robot_pivot = dx_robot_pivot *-np.cos(theta_hand) + dy_robot_pivot*-np.sin(theta_hand)
 
             rotation_vector = np.array([-ds_robot_pivot, dd_robot_pivot, 1.])
+
+        time_since_prev_polygon_contact_estimate = None
+
+        if rm.polygon_contact_estimate_dict is not None:
+            time_since_prev_polygon_contact_estimate = rm.eval_current_time()-rm.polygon_contact_estimate_time
+
+        if (time_since_prev_polygon_contact_estimate is not None and time_since_prev_polygon_contact_estimate<.5 and mode == 6):
+            vertex_array_wm  = rm.polygon_contact_estimate_dict['vertex_array']
+
+            contact_vertices = shape_prior_helper.determine_wall_contact_vertices_for_controller(vertex_array_wm,rm.measured_world_manipulation_wrench)
+
+            if len(contact_vertices)==2:
+                v0 = vertex_array_wm[:,contact_vertices[0]]
+                v1 = vertex_array_wm[:,contact_vertices[1]]
+
+                if v0[0]>v1[0]:
+                    temp = v0
+                    v0 = v1
+                    v1 = temp
+
+                if v1[0]-v0[0]>.015:
+
+                    dx_robot_pivot = current_xyz_theta_robot_frame[0]-(v1[0]+.015)
+                    dy_robot_pivot = current_xyz_theta_robot_frame[1]-v0[1]
+
+                    ds_robot_pivot = dx_robot_pivot * np.sin(theta_hand) + dy_robot_pivot* -np.cos(theta_hand)
+                    dd_robot_pivot = dx_robot_pivot *-np.cos(theta_hand) + dy_robot_pivot*-np.sin(theta_hand)
+
+                    rotation_vector = np.array([-ds_robot_pivot, dd_robot_pivot, 1.])
+
+
+
 
         # rotation_vector = None
             # print(rotation_vector)

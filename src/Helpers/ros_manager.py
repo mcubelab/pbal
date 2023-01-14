@@ -816,6 +816,7 @@ class ros_manager(object):
 			self.polygon_contact_estimate_buffer = []
 			self.polygon_contact_estimate_available_index = len(self.data_available)-1
 			self.polygon_contact_estimate_has_new = False
+			self.polygon_contact_estimate_time = None
 
 			self.polygon_contact_estimate_dict = None
 
@@ -1685,6 +1686,7 @@ class ros_manager(object):
 				self.polygon_contact_estimate_dict = self.polygon_contact_estimate_buffer.pop(0)
 			else:
 				data = self.polygon_contact_estimate_buffer.pop(0)
+				self.polygon_contact_estimate_time = data.header.stamp.to_sec()
 				self.polygon_contact_estimate_dict = pmh.parse_polygon_contact_state_stamped(data)
 
 			self.polygon_contact_estimate_has_new = True
