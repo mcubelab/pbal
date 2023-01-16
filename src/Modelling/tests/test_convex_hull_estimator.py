@@ -75,7 +75,8 @@ if __name__ == '__main__':
   
     theta_range = 2*np.pi*(1.0*np.array(range(num_divisions)))/num_divisions
 
-    hull_estimator = ConvexHullEstimator(theta_range=theta_range, quantile_value=.99, distance_threshold=.5, closed = True)
+    # hull_estimator = ConvexHullEstimator(theta_range=theta_range, quantile_value=.99, distance_threshold=.5, closed = True)
+    hull_estimator = ConvexHullEstimator(theta_range=theta_range, boundary_update_rate=.05,boundary_max_update_step_ratio=100, closed = True)
     hull_estimator.curvature_threshold = -0.0
 
     fig2, axs2 = plt.subplots(1,1)

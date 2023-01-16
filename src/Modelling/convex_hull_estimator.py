@@ -20,7 +20,8 @@ solvers.options['abstol'] = 1e-6
 solvers.options['feastol'] = 1e-6
 
 class ConvexHullEstimator(object):
-    def __init__(self, theta_range,quantile_value,distance_threshold=.5,closed=False):
+    def __init__(self, theta_range,boundary_update_rate=.05,boundary_max_update_step_ratio=100,closed=False):
+    # def __init__(self, theta_range,quantile_value,distance_threshold=.5,closed=False):
         self.curvature_threshold = 0.0
         self.closed=closed
         self.theta_range=theta_range
@@ -28,11 +29,11 @@ class ConvexHullEstimator(object):
         self.A_external_stats_intermediate = np.zeros([self.num_external_params,2])
         self.B_external_stats_intermediate = np.zeros(self.num_external_params)
         self.stats_external_list = []
-        self.distance_threshold = distance_threshold
+        # self.distance_threshold = distance_threshold
 
         for i in range(self.num_external_params):
            # self.stats_external_list.append(livestats.LiveStats([quantile_value]))
-           self.stats_external_list.append(BoundaryEstimator())
+           self.stats_external_list.append(BoundaryEstimator(update_rate=boundary_update_rate,max_update_step_ratio=boundary_max_update_step_ratio))
            self.A_external_stats_intermediate[i][0] = np.cos(self.theta_range[i])
            self.A_external_stats_intermediate[i][1] = np.sin(self.theta_range[i])
 

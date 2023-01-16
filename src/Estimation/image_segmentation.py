@@ -47,8 +47,10 @@ def find_blob(start_coord,cv_image,visited_dict):
 def compute_vertices(coord_dict,l0,l1):
     num_divisions = 64
     theta_range = 2*np.pi*(1.0*np.array(range(num_divisions)))/num_divisions
-    shape_hull_estimator = ConvexHullEstimator(theta_range=theta_range, quantile_value=.99, 
-                                                distance_threshold=.5,   closed = True)
+    # shape_hull_estimator = ConvexHullEstimator(theta_range=theta_range, quantile_value=.99, 
+    #                                             distance_threshold=.5,   closed = True)
+    shape_hull_estimator = ConvexHullEstimator(theta_range=theta_range,  boundary_update_rate=1.0,
+                                               boundary_max_update_step_ratio=1,   closed = True)
 
     for coord in coord_dict.keys():
         shape_hull_estimator.add_data_point(np.array([1.0*coord[0],1.0*coord[1]]))

@@ -6,13 +6,14 @@ sys.path.insert(0,os.path.dirname(currentdir))
 import numpy as np
 
 class BoundaryEstimator(object):
-    def __init__(self, update_rate = .05):
+    def __init__(self, update_rate = .05, max_update_step_ratio = 100):
         self.max_val = None
         self.min_val = None
         self.boundary_val = None
         self.update_rate = update_rate
         self.average_val = None
         self.num_data_points = 0
+        self.update_step_ratio = max_update_step_ratio
 
     def add_data_point(self,val,can_increase = False, can_decrease = False):
         if self.num_data_points==0:
@@ -30,7 +31,7 @@ class BoundaryEstimator(object):
             self.boundary_val = min(0.0,self.average_val)
 
 
-        max_update_step = (self.max_val-self.min_val)/min(self.num_data_points,100)
+        max_update_step = (self.max_val-self.min_val)/min(self.num_data_points,self.update_step_ratio)
 
         if can_increase and val>self.boundary_val:
             update_step = self.update_rate*(val-self.boundary_val)
