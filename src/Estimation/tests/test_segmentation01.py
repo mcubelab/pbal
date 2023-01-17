@@ -15,10 +15,14 @@ import time
 
 if __name__ == '__main__':
     
-    
+    RATE = 60
+
     rospy.init_node('test_segmentation')
 
+    rate = rospy.Rate(RATE)
+
     rm = ros_manager()
+    rm.setRate(60)
     rm.spawn_transform_listener()
     rm.subscribe_to_list(['/near_cam/color/image_raw',
                           '/near_cam/color/camera_info',
@@ -30,18 +34,24 @@ if __name__ == '__main__':
     camera_transformation_matrix = ctm.generate_camera_transformation_matrix()
 
     rm.wait_for_necessary_data()
-    rm.unpack_all()
-
-    cv_image = rm.near_cam_image_raw
-
-    vertex_list = img_seg.find_the_object(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
 
 
-    for vertex in vertex_list:
-        ioh.plot_pivot_dot(cv_image, np.array([vertex]), camera_transformation_matrix)
+    while not rospy.is_shutdown():
+        rm.unpack_all()
 
-    cv2.imshow('Image window', cv_image)
-    cv2.waitKey(1000)
+        cv_image = rm.near_cam_image_raw
+
+        t0 = time.time()
+        vertex_list = img_seg.find_the_object(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
+        t1 = time.time()
+
+        print('computation time: ',t1-t0)
+
+        for vertex in vertex_list:
+            ioh.plot_pivot_dot(cv_image, np.array([vertex]), camera_transformation_matrix)
+
+        cv2.imshow('Image window', cv_image)
+        cv2.waitKey(100)
 
 
     rm.unregister_all()

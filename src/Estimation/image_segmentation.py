@@ -7,6 +7,7 @@ import numpy as np
 from collections import deque
 from Modelling.convex_hull_estimator import ConvexHullEstimator
 import PlottingandVisualization.image_overlay_helper as ioh
+import random
 
 def find_blob(start_coord,cv_image,visited_dict):
     l0 = len(cv_image)
@@ -42,6 +43,25 @@ def find_blob(start_coord,cv_image,visited_dict):
 
                     num_points+=1
 
+def find_blob_boundaries(dict_in):
+    dict_out = {}
+
+    direction_list = [np.array([0,1]),np.array([0,-1]),np.array([1,0]),np.array([-1,0])]
+
+    for coord in dict_in:
+        coord_array = np.array(list(coord))
+
+        is_boundary = False
+
+        for direction in direction_list:
+            neighbor_coord_array = coord_array+direction
+            is_boundary = is_boundary or (tuple(neighbor_coord_array.tolist()) not in dict_in)
+
+        if is_boundary:
+            dict_out[coord]=None
+
+    return dict_out
+
 
 
 def compute_vertices(coord_dict,l0,l1):
@@ -49,8 +69,8 @@ def compute_vertices(coord_dict,l0,l1):
     theta_range = 2*np.pi*(1.0*np.array(range(num_divisions)))/num_divisions
     # shape_hull_estimator = ConvexHullEstimator(theta_range=theta_range, quantile_value=.99, 
     #                                             distance_threshold=.5,   closed = True)
-    shape_hull_estimator = ConvexHullEstimator(theta_range=theta_range,  boundary_update_rate=1.0,
-                                               boundary_max_update_step_ratio=1,   closed = True)
+    shape_hull_estimator = ConvexHullEstimator(theta_range=theta_range,  boundary_update_rate=.05,
+                                               boundary_max_update_step_ratio=100,   closed = True)
 
     for coord in coord_dict.keys():
         shape_hull_estimator.add_data_point(np.array([1.0*coord[0],1.0*coord[1]]))
@@ -91,6 +111,11 @@ def compute_polygon_coords(cv_image,ee_pose_homog,camera_transformation_matrix):
 
             if my_dist<5**2 and (i,j) not in coord_dict:
                 find_blob((i,j),cv_image,coord_dict)
+
+
+
+
+    # coord_dict = find_blob_boundaries(coord_dict)
 
 
     x_list,y_list = compute_vertices(coord_dict,l0,l1)
