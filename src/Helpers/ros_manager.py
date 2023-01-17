@@ -1185,14 +1185,14 @@ class ros_manager(object):
 			qp_debug_stamped.header.stamp = rospy.Time.now()
 			self.qp_debug_message_pub.publish(qp_debug_stamped)
 
-	def pub_polygon_contact_estimate(self,vertex_array,contact_indices):
+	def pub_polygon_contact_estimate(self,vertex_array,contact_indices,mgl_cos_theta_list=None,mgl_sin_theta_list=None):
 		if '/polygon_contact_estimate' not in self.publisher_topic_dict:
 			return None
 
 		if self.load_mode:
 			pass
 		else:
-			polygon_contact_state_stamped = pmh.generate_polygon_contact_state_stamped(vertex_array,contact_indices)
+			polygon_contact_state_stamped = pmh.generate_polygon_contact_state_stamped(vertex_array,contact_indices,mgl_cos_theta_list,mgl_sin_theta_list)
 			polygon_contact_state_stamped.header.stamp = rospy.Time.now()
 			self.polygon_contact_estimate_pub.publish(polygon_contact_state_stamped)
 

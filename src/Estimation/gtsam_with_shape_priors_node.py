@@ -148,12 +148,18 @@ if __name__ == '__main__':
                 vertex_array_t = []
                 vertex_array_z = []
 
+                mgl_cos_theta_list = []
+                mgl_sin_theta_list = []
+
                 count = 0
                 for i in range(len(current_estimate_dict['vertex_positions_wm_current'][0])):
                     if i in current_estimate_dict['contact_vertices_dict']:
                         vertex_array_n.append(current_estimate_dict['vertex_positions_wm_current'][0][i])
                         vertex_array_t.append(current_estimate_dict['vertex_positions_wm_current'][1][i])
                         vertex_array_z.append(hand_front_center_world[2])
+
+                        mgl_cos_theta_list.append(current_estimate_dict['mglcostheta_current'][i])
+                        mgl_sin_theta_list.append(current_estimate_dict['mglsintheta_current'][i])
 
                         if i in current_estimator.contact_vertices:
                             contact_indices.append(count)
@@ -162,7 +168,7 @@ if __name__ == '__main__':
 
                 vertex_array_out = np.array([vertex_array_n,vertex_array_t,vertex_array_z])
 
-                rm.pub_polygon_contact_estimate(vertex_array_out,contact_indices)
+                rm.pub_polygon_contact_estimate(vertex_array_out,contact_indices,mgl_cos_theta_list,mgl_sin_theta_list)
 
  
         if rm.load_mode:

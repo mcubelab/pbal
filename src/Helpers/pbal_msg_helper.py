@@ -155,13 +155,23 @@ def generate_generalized_positions_stamped(generalized_positions):
 def parse_generalized_positions_stamped(generalized_positions_message):
     return generalized_positions_message.generalized_positions
 
-def generate_polygon_contact_state_stamped(vertex_array,contact_indices):
+def generate_polygon_contact_state_stamped(vertex_array,contact_indices,mgl_cos_theta_list=None,mgl_sin_theta_list=None):
     polygon_contact_state_message = PolygonContactStateStamped()
+
+    l = len(vertex_array[0])
+
     polygon_contact_state_message.polygon_contact_state.x_coords = list(vertex_array[0])
     polygon_contact_state_message.polygon_contact_state.y_coords = list(vertex_array[1])
     polygon_contact_state_message.polygon_contact_state.z_coords = list(vertex_array[2])
 
     polygon_contact_state_message.polygon_contact_state.contact_indices = list(contact_indices)
+
+    if mgl_cos_theta_list is None:
+        mgl_cos_theta_list = [0.0]*l
+        mgl_sin_theta_list = [0.0]*l
+
+    polygon_contact_state_message.polygon_contact_state.mgl_costheta_list = mgl_cos_theta_list
+    polygon_contact_state_message.polygon_contact_state.mgl_sintheta_list = mgl_sin_theta_list
 
     return polygon_contact_state_message
 
@@ -170,6 +180,9 @@ def parse_polygon_contact_state_stamped(polygon_contact_state_message):
     y_coords = list(polygon_contact_state_message.polygon_contact_state.y_coords)
     z_coords = list(polygon_contact_state_message.polygon_contact_state.z_coords)
 
+    mgl_cos_theta_list = list(polygon_contact_state_message.polygon_contact_state.mgl_costheta_list)
+    mgl_sin_theta_list = list(polygon_contact_state_message.polygon_contact_state.mgl_sintheta_list)
+
     vertex_array = np.array([x_coords,y_coords,z_coords])
 
     contact_indices = list(polygon_contact_state_message.polygon_contact_state.contact_indices)
@@ -177,6 +190,8 @@ def parse_polygon_contact_state_stamped(polygon_contact_state_message):
     polygon_contact_state_dict = {}
     polygon_contact_state_dict['vertex_array'] = vertex_array
     polygon_contact_state_dict['contact_indices'] = contact_indices
+    polygon_contact_state_dict['mgl_cos_theta_array'] = np.array(mgl_cos_theta_list)
+    polygon_contact_state_dict['mgl_sin_theta_array'] = np.array(mgl_sin_theta_list)
 
     return polygon_contact_state_dict
 
