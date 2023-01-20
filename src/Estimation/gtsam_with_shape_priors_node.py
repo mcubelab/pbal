@@ -23,7 +23,8 @@ def get_shape_prior():
     rm.subscribe_to_list(['/near_cam/color/image_raw',
                           '/near_cam/color/camera_info',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
-                          '/ee_pose_in_base_from_franka_publisher',],True)
+                          '/ee_pose_in_base_from_franka_publisher',
+                          '/torque_cone_boundary_test',],True)
     
     ctm = camera_transform_manager(rm,'near')
     ctm.setup_frames()
@@ -34,7 +35,9 @@ def get_shape_prior():
 
     cv_image = rm.near_cam_image_raw
 
-    vertex_list = img_seg.find_the_object(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
+    # vertex_list = img_seg.find_the_object(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
+    visited_array = np.zeros([len(cv_image),len(cv_image[0])])
+    vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array, is_fine = False)
 
     rm.unregister_all()
 
@@ -84,7 +87,7 @@ if __name__ == '__main__':
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/end_effector_sensor_in_world_manipulation_frame'],True)
 
-    rm.subscribe_to_list(['/barrier_func_control_command'],False)
+    rm.subscribe_to_list(['/barrier_func_control_command','/polygon_vision_estimate',],False)
 
     wall_contact_on = False
 
@@ -109,6 +112,8 @@ if __name__ == '__main__':
 
     print('starting estimator')
 
+    publish_count = 0
+
     while (rm.load_mode and rm.read_still_running()) or (not rm.load_mode and not rospy.is_shutdown()):
         rm.unpack_all()
 
@@ -124,10 +129,16 @@ if __name__ == '__main__':
         hand_pose_pivot_estimator = np.array([rm.ee_pose_in_world_manipulation_list[0],rm.ee_pose_in_world_manipulation_list[1], theta_hand])
         measured_wrench_pivot_estimator = np.array(rm.measured_world_manipulation_wrench)
 
+        if rm.torque_cone_boundary_test is not None and rm.torque_cone_boundary_test:
 
-        current_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,rm.sliding_state,wall_contact_on)
+            current_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,rm.sliding_state,wall_contact_on)
 
-        hand_front_center_world = np.dot(rm.ee_pose_in_world_manipulation_homog,hand_front_center)
+            if rm.polygon_vision_estimate_has_new:
+                vision_vertex_array = rm.polygon_vision_estimate_dict['vertex_array']
+
+                current_estimator.add_vision_data_point(vision_vertex_array,hand_pose_pivot_estimator,measured_wrench_pivot_estimator,rm.sliding_state,wall_contact_on)
+
+            hand_front_center_world = np.dot(rm.ee_pose_in_world_manipulation_homog,hand_front_center)
 
 
         if  current_estimator.num_data_points>40 and current_estimator.num_data_points%1==0:
@@ -152,22 +163,35 @@ if __name__ == '__main__':
                 mgl_sin_theta_list = []
 
                 count = 0
-                for i in range(len(current_estimate_dict['vertex_positions_wm_current'][0])):
-                    if i in current_estimate_dict['contact_vertices_dict']:
-                        vertex_array_n.append(current_estimate_dict['vertex_positions_wm_current'][0][i])
-                        vertex_array_t.append(current_estimate_dict['vertex_positions_wm_current'][1][i])
-                        vertex_array_z.append(hand_front_center_world[2])
+                # for i in range(len(current_estimate_dict['vertex_positions_wm_current'][0])):
+                #     if i in current_estimate_dict['contact_vertices_dict']:
+                #         vertex_array_n.append(current_estimate_dict['vertex_positions_wm_current'][0][i])
+                #         vertex_array_t.append(current_estimate_dict['vertex_positions_wm_current'][1][i])
+                #         vertex_array_z.append(hand_front_center_world[2])
 
-                        mgl_cos_theta_list.append(current_estimate_dict['mglcostheta_current'][i])
-                        mgl_sin_theta_list.append(current_estimate_dict['mglsintheta_current'][i])
+                #         mgl_cos_theta_list.append(current_estimate_dict['mglcostheta_current'][i])
+                #         mgl_sin_theta_list.append(current_estimate_dict['mglsintheta_current'][i])
 
-                        if i in current_estimator.contact_vertices:
-                            contact_indices.append(count)
+                #         if i in current_estimator.contact_vertices:
+                #             contact_indices.append(count)
                             
-                        count+=1
+                #         count+=1
+                for i in range(len(current_estimate_dict['vertex_positions_wm_current'][0])):
+                    
+                    vertex_array_n.append(current_estimate_dict['vertex_positions_wm_current'][0][i])
+                    vertex_array_t.append(current_estimate_dict['vertex_positions_wm_current'][1][i])
+                    vertex_array_z.append(hand_front_center_world[2])
 
+                    mgl_cos_theta_list.append(current_estimate_dict['mglcostheta_current'][i])
+                    mgl_sin_theta_list.append(current_estimate_dict['mglsintheta_current'][i])
+
+                    if i in current_estimator.contact_vertices:
+                        contact_indices.append(i)
+      
                 vertex_array_out = np.array([vertex_array_n,vertex_array_t,vertex_array_z])
 
+                publish_count+=1
+                # print('publishing: ',publish_count)
                 rm.pub_polygon_contact_estimate(vertex_array_out,contact_indices,mgl_cos_theta_list,mgl_sin_theta_list)
 
  

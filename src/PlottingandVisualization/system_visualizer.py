@@ -99,6 +99,13 @@ class system_visualizer(object):
             self.display_polygon_contact_estimate = False
         else:
             self.display_polygon_contact_estimate = options['display_polygon_contact_estimate']
+
+        if options is None or 'display_polygon_vision_estimate' not in options:
+            self.display_polygon_vision_estimate = False
+        else:
+            self.display_polygon_vision_estimate = options['display_polygon_vision_estimate']
+
+
             
         self.img_array = []
 
@@ -223,6 +230,15 @@ class system_visualizer(object):
 
             if self.display_polygon_contact_estimate and self.rm.polygon_contact_estimate_dict is not None:
                 vertex_array_to_display = self.rm.polygon_contact_estimate_dict['vertex_array']
+
+                for i in range(len(vertex_array_to_display[0])):
+                    vertex_to_display = vertex_array_to_display[:,i]
+                    vertex_to_display = np.transpose(vertex_to_display)
+                    self.dot_overlay(vertex_to_display)
+
+
+            if self.display_polygon_vision_estimate and self.rm.polygon_vision_estimate_dict is not None:
+                vertex_array_to_display = self.rm.polygon_vision_estimate_dict['vertex_array']
 
                 for i in range(len(vertex_array_to_display[0])):
                     vertex_to_display = vertex_array_to_display[:,i]

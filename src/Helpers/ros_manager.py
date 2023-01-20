@@ -832,6 +832,27 @@ class ros_manager(object):
 			self.buffer_dict[topic] = self.polygon_contact_estimate_buffer
 			self.callback_dict[topic] = self.polygon_contact_estimate_callback
 
+		elif topic == '/polygon_vision_estimate':
+			self.unpack_functions.append(self.polygon_vision_estimate_unpack)
+			self.polygon_vision_estimate_buffer = []
+			self.polygon_vision_estimate_available_index = len(self.data_available)-1
+			self.polygon_vision_estimate_has_new = False
+			self.polygon_vision_estimate_time = None
+
+			self.polygon_vision_estimate_dict = None
+
+			if not self.load_mode:
+				self.subscriber_dict[topic] = rospy.Subscriber(
+					topic,
+					PolygonContactStateStamped,
+					self.polygon_vision_estimate_callback,
+					queue_size = self.subscriber_queue_size)
+
+
+			self.message_type_dict[topic] = 'PolygonContactStateStamped'
+			self.buffer_dict[topic] = self.polygon_vision_estimate_buffer
+			self.callback_dict[topic] = self.polygon_vision_estimate_callback
+
 		else:
 			self.unpack_functions.append(None)
 			self.subscriber_dict[topic] = None
@@ -1002,6 +1023,15 @@ class ros_manager(object):
 				pass
 			else:
 				self.polygon_contact_estimate_pub = rospy.Publisher(
+					topic,
+					PolygonContactStateStamped,
+					queue_size=10)
+
+		elif topic == '/polygon_vision_estimate':
+			if self.load_mode:
+				pass
+			else:
+				self.polygon_vision_estimate_pub = rospy.Publisher(
 					topic,
 					PolygonContactStateStamped,
 					queue_size=10)
@@ -1195,6 +1225,20 @@ class ros_manager(object):
 			polygon_contact_state_stamped = pmh.generate_polygon_contact_state_stamped(vertex_array,contact_indices,mgl_cos_theta_list,mgl_sin_theta_list)
 			polygon_contact_state_stamped.header.stamp = rospy.Time.now()
 			self.polygon_contact_estimate_pub.publish(polygon_contact_state_stamped)
+
+	def pub_polygon_vision_estimate(self,vertex_array,contact_indices=None,mgl_cos_theta_list=None,mgl_sin_theta_list=None):
+		if contact_indices is None:
+			contact_indices = []
+
+		if '/polygon_vision_estimate' not in self.publisher_topic_dict:
+			return None
+
+		if self.load_mode:
+			pass
+		else:
+			polygon_contact_state_stamped = pmh.generate_polygon_contact_state_stamped(vertex_array,contact_indices,mgl_cos_theta_list,mgl_sin_theta_list)
+			polygon_contact_state_stamped.header.stamp = rospy.Time.now()
+			self.polygon_vision_estimate_pub.publish(polygon_contact_state_stamped)
 
 	def force_callback(self,data):
 		self.ft_wrench_in_ft_sensor_buffer.append(data)
@@ -1692,3 +1736,22 @@ class ros_manager(object):
 			self.polygon_contact_estimate_has_new = True
 		else:
 			self.polygon_contact_estimate_has_new = False
+
+	def polygon_vision_estimate_callback(self,data):
+		self.polygon_vision_estimate_buffer.append(data)
+		if len(self.polygon_vision_estimate_buffer)>self.max_queue_size:
+			self.polygon_vision_estimate_buffer.pop(0)
+		self.data_available[self.polygon_vision_estimate_available_index]=True
+
+	def polygon_vision_estimate_unpack(self):
+		if len(self.polygon_vision_estimate_buffer)>0:
+			if self.load_mode:
+				self.polygon_vision_estimate_dict = self.polygon_vision_estimate_buffer.pop(0)
+			else:
+				data = self.polygon_vision_estimate_buffer.pop(0)
+				self.polygon_vision_estimate_time = data.header.stamp.to_sec()
+				self.polygon_vision_estimate_dict = pmh.parse_polygon_contact_state_stamped(data)
+
+			self.polygon_vision_estimate_has_new = True
+		else:
+			self.polygon_vision_estimate_has_new = False

@@ -4,13 +4,11 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 sys.path.insert(0,os.path.dirname(currentdir))
 
 import numpy as np
-from scipy.spatial import ConvexHull, convex_hull_plot_2d
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.lines as lines
 # from livestats import livestats
-from Modelling.system_params import SystemParams
 from Modelling.boundary_estimator import BoundaryEstimator
 
 from cvxopt import matrix, solvers
@@ -49,6 +47,7 @@ class ConvexHullEstimator(object):
             self.B_external_stats_intermediate[i] = self.stats_external_list[i].get_boundary_val()
 
     def enumerate_vertices_of_constraint_polygon(self,theta_list,b_list,closed=True):
+        
         if len(theta_list)<3:
             return np.array([]),np.array([])
 

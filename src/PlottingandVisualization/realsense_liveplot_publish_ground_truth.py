@@ -64,6 +64,7 @@ if __name__ == '__main__':
                           '/tag_detections',
                           '/pivot_sliding_commanded_flag',
                           '/polygon_contact_estimate',
+                          '/polygon_vision_estimate',
                           '/sliding_state',
                           '/torque_cone_boundary_flag',
                           '/torque_cone_boundary_test',
@@ -93,7 +94,8 @@ if __name__ == '__main__':
                 'display_pivot_apriltag':False,
                 'display_pivot_estimate':True,
                 'display_shape_overlay':False,
-                'display_polygon_contact_estimate':True}
+                'display_polygon_contact_estimate':True,
+                'display_polygon_vision_estimate':False}
     
     my_visualizer = system_visualizer(rm,options)
 

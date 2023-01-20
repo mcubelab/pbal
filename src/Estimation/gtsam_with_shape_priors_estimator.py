@@ -23,10 +23,11 @@ class gtsam_with_shape_priors_estimator(object):
         self.error_s_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
         self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, 1000.0)
         self.error_oject_vertex_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.)
+        self.error_vision_reference_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
 
         self.error_limited_movement_model = gtsam.noiseModel.Isotropic.Sigma(1, 10.)
 
-        self.error_strong_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.)
+        self.error_strong_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
 
         self.reset_system(object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog)
 
@@ -34,7 +35,16 @@ class gtsam_with_shape_priors_estimator(object):
         self.packages_added = 0
         self.num_data_points = 0
 
+        self.vision_packages_added = 0 
+        self.num_vision_data_points = 0
+
         test_object_vertex_array,test_object_normal_array = shape_prior_helper.generate_shape_prior(object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog)
+
+        
+
+        self.vision_matching_array = np.array(test_object_vertex_array)+0.0
+
+        print(self.vision_matching_array)
 
         self.test_object_vertex_array = test_object_vertex_array
 
@@ -62,7 +72,7 @@ class gtsam_with_shape_priors_estimator(object):
 
         self.vertex_positions_wm_current = None
         self.vertex_positions_ee_current = None
-        self.s_current = None
+        self.s_current = 0.0
         self.mglcostheta_current = None
         self.mglsintheta_current = None
 
@@ -78,12 +88,15 @@ class gtsam_with_shape_priors_estimator(object):
         self.state_factor_package_list = []
         self.changing_factor_package_list = []
         self.regularization_factor_package_list = []
+        self.vision_factor_package_list = []
 
         self.hand_pose_list = []
         self.measured_world_manipulation_wrench_list = []
         self.measurement_list = []
         self.contact_vertices_list = []
         self.contact_vertices_dict = {}
+
+        self.vision_ref_dict = {}
 
         self.current_hand_pose = None
         self.current_measured_world_manipulation_wrench = None
@@ -101,6 +114,11 @@ class gtsam_with_shape_priors_estimator(object):
                 self.my_graph.add(my_factor)
             self.packages_added+=1
 
+        while self.vision_packages_added<self.num_vision_data_points:
+            for my_factor in self.regularization_factor_package_list[self.vision_packages_added]:
+                self.my_graph.add(my_factor)
+            self.vision_packages_added+=1
+
         self.isam.update(self.my_graph,self.v)
         result = self.isam.estimate()
 
@@ -108,9 +126,18 @@ class gtsam_with_shape_priors_estimator(object):
 
     def compute_estimate(self):
         for contact_vertex in self.contact_vertices_dict:
-            if self.contact_vertices_dict[contact_vertex][2]-self.contact_vertices_dict[contact_vertex][1]<np.pi/35 or self.contact_vertices_dict[contact_vertex][0]<20:
+            if ((self.contact_vertices_dict[contact_vertex][2]-self.contact_vertices_dict[contact_vertex][1]<np.pi/35 or self.contact_vertices_dict[contact_vertex][0]<20)
+                and (contact_vertex not in self.vision_ref_dict or self.vision_ref_dict[contact_vertex]<50)):
+
+                # num_vision_vals = 0 
+                # if contact_vertex in self.vision_ref_dict:
+                #     num_vision_vals = self.vision_ref_dict[contact_vertex]
+
+                # print('not running estimator: ',contact_vertex,' , ',num_vision_vals)
+
                 return None
         
+        print('attempting!')
         result = self.runISAM()
 
         self.vertex_positions_wm_current = [[],[]]
@@ -124,7 +151,10 @@ class gtsam_with_shape_priors_estimator(object):
             self.vertex_positions_ee_current[0].append(result.atVector(self.n_ee_vertex_sym_list[i])[0])
             self.vertex_positions_ee_current[1].append(result.atVector(self.t_ee_vertex_sym_list[i])[0])
 
-            if i in self.contact_vertices_dict and (self.contact_vertices_dict[i][2]-self.contact_vertices_dict[i][1]>np.pi/35 and self.contact_vertices_dict[i][0]>30):
+            # if ((i in self.contact_vertices_dict and (self.contact_vertices_dict[i][2]-self.contact_vertices_dict[i][1]>np.pi/35 and self.contact_vertices_dict[i][0]>30))
+            #     or (i not in self.contact_vertices_dict and i in self.vision_ref_dict and self.vision_ref_dict[i]>20)):
+
+            if True:
 
                 self.test_object_vertex_array[0,i] = self.vertex_positions_ee_current[0][i]
                 self.test_object_vertex_array[1,i] = self.vertex_positions_ee_current[1][i]
@@ -135,6 +165,7 @@ class gtsam_with_shape_priors_estimator(object):
 
 
             vertex_obj_frame_temp = [self.vertex_positions_ee_current[0][-1],self.vertex_positions_ee_current[1][-1]]
+
             r_wm_vertex_temp, dummy0, dummy1 = self.transform_pts_obj_to_wm(self.current_hand_pose,vertex_obj_frame_temp,self.s_current)
 
             self.vertex_positions_wm_current[0].append(r_wm_vertex_temp[0])
@@ -160,6 +191,7 @@ class gtsam_with_shape_priors_estimator(object):
 
         self.current_estimate_dict = current_estimate_dict
 
+        # print('running estimator')
         return current_estimate_dict
 
     def add_data_point(self,hand_pose,measured_world_manipulation_wrench,sliding_state_dict,wall_contact_on=False):
@@ -297,6 +329,74 @@ class gtsam_with_shape_priors_estimator(object):
         self.changing_factor_package_list.append(changing_factor_package)
         self.regularization_factor_package_list.append(regularization_factor_package)
 
+    def find_matching_vertices(self,vertex_array0,vertex_array1):
+
+        v_map0 = {}
+        v_map1 = {}
+        
+        for i in range(len(vertex_array0[0])):
+            for j in range(len(vertex_array1[0])):
+                v0 = vertex_array0[:,i]
+                v1 = vertex_array1[:,j]
+
+                if np.linalg.norm(v0-v1)<.035 and i not in v_map0 and j not in v_map1:
+                    v_map0[i]=j
+                    v_map1[j]=i
+
+        return v_map0,v_map1
+
+
+    def add_vision_data_point(self,vision_vertex_array,hand_pose,measured_world_manipulation_wrench,sliding_state_dict,wall_contact_on=False):
+        measurement = np.array([hand_pose[0],hand_pose[1],hand_pose[2],measured_world_manipulation_wrench[0],measured_world_manipulation_wrench[1],measured_world_manipulation_wrench[2]])
+
+        self.num_vision_data_points+=1
+
+        vision_factor_package = []
+
+        vision_vertex_array = vision_vertex_array[0:2,:]
+
+        self.current_hand_pose = hand_pose
+        self.current_measured_world_manipulation_wrench = measured_world_manipulation_wrench
+        self.measured_world_manipulation_wrench_list.append(measured_world_manipulation_wrench)
+
+        vertex_list0 = []
+        vertex_list1 = []
+
+
+        for i in range(len(self.test_object_vertex_array[0])):
+            vertex_obj_frame_temp = [self.vision_matching_array [0][i],self.vision_matching_array [1][i]]
+
+            r_wm_vertex_temp, dummy0, dummy1 = self.transform_pts_obj_to_wm(self.current_hand_pose,vertex_obj_frame_temp,self.s_current)
+
+            vertex_list0.append(r_wm_vertex_temp[0])
+            vertex_list1.append(r_wm_vertex_temp[1])
+
+        estimate_vertex_array = np.array([vertex_list0,vertex_list1])
+
+        v_map0,v_map1 = self.find_matching_vertices(vision_vertex_array,estimate_vertex_array)
+
+        print(v_map0)
+        for i in v_map0.keys():
+            j = v_map0[i]
+
+            if j not in self.vision_ref_dict:
+                self.vision_ref_dict[j] = 0
+
+            self.vision_ref_dict[j]+=1
+
+            v_ref = vision_vertex_array[:,i]
+
+            vision_ref_symbols = [self.n_ee_vertex_sym_list[j],self.t_ee_vertex_sym_list[j], self.s_sym_list[-1]]
+            
+            vision_factor_package.append(gtsam.CustomFactor(self.error_vision_reference_model, vision_ref_symbols,
+                partial(self.eval_error_kinematic_n_wm_with_reference, measurement, v_ref)))
+
+            vision_factor_package.append(gtsam.CustomFactor(self.error_vision_reference_model, vision_ref_symbols,
+                partial(self.eval_error_kinematic_t_wm_with_reference, measurement, v_ref)))
+
+        self.vision_factor_package_list.append(vision_factor_package)
+
+
 
     def eval_error_torque_balance_from_obj_pts(self,measurement, this, values, jacobians = None):
 
@@ -397,6 +497,64 @@ class gtsam_with_shape_priors_estimator(object):
         error_vec = r_wm_vertex[0]-h_ground
 
         return error_vec, dvertex_obj_frame[0], ds_hand[0], -1.0
+
+
+    def eval_error_kinematic_n_wm_with_reference(self,measurement,ref_val, this, values, jacobians = None):
+
+        estimate_vec = []
+        for i in range(len(this.keys())):
+            estimate_vec.append(values.atVector(this.keys()[i])[0])
+
+        hand_pose = measurement[0:3]
+
+        vertex_obj_frame = [estimate_vec[0],estimate_vec[1]]
+        s_hand = estimate_vec[2]
+        h_ground = estimate_vec[3]
+
+        error_val, dvertex_obj_frame, ds_hand = self.error_kinematic_n_wm_with_reference(hand_pose,vertex_obj_frame,s_hand,ref_val)
+
+        if jacobians is not None:
+            jacobians[0] = np.array([dvertex_obj_frame[0]])
+            jacobians[1] = np.array([dvertex_obj_frame[1]])
+            jacobians[2] = np.array([ds_hand])
+
+        return [error_val]
+
+    def error_kinematic_n_wm_with_reference(self,hand_pose,vertex_obj_frame,s_hand,ref_val):
+    
+        r_wm_vertex, dvertex_obj_frame, ds_hand = self.transform_pts_obj_to_wm(hand_pose,vertex_obj_frame,s_hand)
+
+        error_vec = r_wm_vertex[0]-ref_val[0]
+        return error_vec, dvertex_obj_frame[0], ds_hand[0]
+
+
+    def eval_error_kinematic_t_wm_with_reference(self,measurement,ref_val, this, values, jacobians = None):
+
+        estimate_vec = []
+        for i in range(len(this.keys())):
+            estimate_vec.append(values.atVector(this.keys()[i])[0])
+
+        hand_pose = measurement[0:3]
+
+        vertex_obj_frame = [estimate_vec[0],estimate_vec[1]]
+        s_hand = estimate_vec[2]
+        h_ground = estimate_vec[3]
+
+        error_val, dvertex_obj_frame, ds_hand = self.error_kinematic_t_wm_with_reference(hand_pose,vertex_obj_frame,s_hand,ref_val)
+
+        if jacobians is not None:
+            jacobians[0] = np.array([dvertex_obj_frame[0]])
+            jacobians[1] = np.array([dvertex_obj_frame[1]])
+            jacobians[2] = np.array([ds_hand])
+
+        return [error_val]
+
+    def error_kinematic_t_wm_with_reference(self,hand_pose,vertex_obj_frame,s_hand,ref_val):
+    
+        r_wm_vertex, dvertex_obj_frame, ds_hand = self.transform_pts_obj_to_wm(hand_pose,vertex_obj_frame,s_hand)
+
+        error_vec = r_wm_vertex[1]-ref_val[1]
+        return error_vec, dvertex_obj_frame[1], ds_hand[1]
 
     def eval_error_kinematic_t_wm_const(self,measurement, this, values, jacobians = None):
         estimate_vec = []
