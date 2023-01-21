@@ -21,9 +21,12 @@ class gtsam_with_shape_priors_estimator(object):
         self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .8)
         self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
         self.error_s_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
-        self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, 1000.0)
-        self.error_oject_vertex_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.)
-        self.error_vision_reference_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
+
+        self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
+
+
+        self.error_oject_vertex_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .01)
+        self.error_vision_reference_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
 
         self.error_limited_movement_model = gtsam.noiseModel.Isotropic.Sigma(1, 10.)
 
@@ -43,8 +46,6 @@ class gtsam_with_shape_priors_estimator(object):
         
 
         self.vision_matching_array = np.array(test_object_vertex_array)+0.0
-
-        print(self.vision_matching_array)
 
         self.test_object_vertex_array = test_object_vertex_array
 
@@ -115,7 +116,7 @@ class gtsam_with_shape_priors_estimator(object):
             self.packages_added+=1
 
         while self.vision_packages_added<self.num_vision_data_points:
-            for my_factor in self.regularization_factor_package_list[self.vision_packages_added]:
+            for my_factor in self.vision_factor_package_list[self.vision_packages_added]:
                 self.my_graph.add(my_factor)
             self.vision_packages_added+=1
 
@@ -126,8 +127,9 @@ class gtsam_with_shape_priors_estimator(object):
 
     def compute_estimate(self):
         for contact_vertex in self.contact_vertices_dict:
-            if ((self.contact_vertices_dict[contact_vertex][2]-self.contact_vertices_dict[contact_vertex][1]<np.pi/35 or self.contact_vertices_dict[contact_vertex][0]<20)
-                and (contact_vertex not in self.vision_ref_dict or self.vision_ref_dict[contact_vertex]<50)):
+            # if ((self.contact_vertices_dict[contact_vertex][2]-self.contact_vertices_dict[contact_vertex][1]<np.pi/35 or self.contact_vertices_dict[contact_vertex][0]<20)
+            #     and (contact_vertex not in self.vision_ref_dict or self.vision_ref_dict[contact_vertex]<10)):
+            if (self.contact_vertices_dict[contact_vertex][2]-self.contact_vertices_dict[contact_vertex][1]<np.pi/40 or self.contact_vertices_dict[contact_vertex][0]<20):
 
                 # num_vision_vals = 0 
                 # if contact_vertex in self.vision_ref_dict:
@@ -137,7 +139,6 @@ class gtsam_with_shape_priors_estimator(object):
 
                 return None
         
-        print('attempting!')
         result = self.runISAM()
 
         self.vertex_positions_wm_current = [[],[]]
@@ -151,17 +152,12 @@ class gtsam_with_shape_priors_estimator(object):
             self.vertex_positions_ee_current[0].append(result.atVector(self.n_ee_vertex_sym_list[i])[0])
             self.vertex_positions_ee_current[1].append(result.atVector(self.t_ee_vertex_sym_list[i])[0])
 
-            # if ((i in self.contact_vertices_dict and (self.contact_vertices_dict[i][2]-self.contact_vertices_dict[i][1]>np.pi/35 and self.contact_vertices_dict[i][0]>30))
-            #     or (i not in self.contact_vertices_dict and i in self.vision_ref_dict and self.vision_ref_dict[i]>20)):
+            self.test_object_vertex_array[0,i] = self.vertex_positions_ee_current[0][i]
+            self.test_object_vertex_array[1,i] = self.vertex_positions_ee_current[1][i]
 
-            if True:
-
-                self.test_object_vertex_array[0,i] = self.vertex_positions_ee_current[0][i]
-                self.test_object_vertex_array[1,i] = self.vertex_positions_ee_current[1][i]
-
-                if i not in self.updated_set:
-                    self.updated_set[i]=True
-                    print('oracle no longer uses vertex: ',i)
+            if i not in self.updated_set:
+                self.updated_set[i]=True
+                print('oracle no longer uses vertex: ',i)
 
 
             vertex_obj_frame_temp = [self.vertex_positions_ee_current[0][-1],self.vertex_positions_ee_current[1][-1]]
@@ -253,11 +249,11 @@ class gtsam_with_shape_priors_estimator(object):
                 self.v.insert(self.n_ee_vertex_sym_list[i], np.array([self.test_object_vertex_array[0][i]]))
                 self.v.insert(self.t_ee_vertex_sym_list[i], np.array([self.test_object_vertex_array[1][i]]))
 
-                # regularization_factor_package.append(gtsam.CustomFactor(self.error_oject_vertex_prior_model, [self.n_ee_vertex_sym_list[i]],
-                #         partial(self.error_var_regularization, np.array([self.test_object_vertex_array[0][i]]) )))
+                regularization_factor_package.append(gtsam.CustomFactor(self.error_oject_vertex_prior_model, [self.n_ee_vertex_sym_list[i]],
+                        partial(self.error_var_regularization, np.array([self.test_object_vertex_array[0][i]]) )))
 
-                # regularization_factor_package.append(gtsam.CustomFactor(self.error_oject_vertex_prior_model, [self.t_ee_vertex_sym_list[i]],
-                #         partial(self.error_var_regularization, np.array([self.test_object_vertex_array[1][i]]) )))
+                regularization_factor_package.append(gtsam.CustomFactor(self.error_oject_vertex_prior_model, [self.t_ee_vertex_sym_list[i]],
+                        partial(self.error_var_regularization, np.array([self.test_object_vertex_array[1][i]]) )))
 
                 regularization_factor_package.append(gtsam.CustomFactor(self.error_strong_prior_model, [self.s_sym_list[-1]],
                         partial(self.error_var_regularization, np.array([0.0]) )))
@@ -333,17 +329,52 @@ class gtsam_with_shape_priors_estimator(object):
 
         v_map0 = {}
         v_map1 = {}
-        
-        for i in range(len(vertex_array0[0])):
-            for j in range(len(vertex_array1[0])):
-                v0 = vertex_array0[:,i]
-                v1 = vertex_array1[:,j]
 
-                if np.linalg.norm(v0-v1)<.035 and i not in v_map0 and j not in v_map1:
-                    v_map0[i]=j
-                    v_map1[j]=i
+        l0 = len(vertex_array0[0])
+        l1 = len(vertex_array1[0])
+
+        if l0!=l1:
+            return v_map0,v_map1
+
+        normals_array0 = shape_prior_helper.get_outward_normals(vertex_array0)
+        normals_array1 = shape_prior_helper.get_outward_normals(vertex_array1)
+
+        matching_array = np.dot(normals_array0.T,normals_array1)
+
+        threshold = np.cos(20.0*(np.pi/180))
+
+        
+
+        for i in range(l0):
+            is_match = True
+            for j in range(l1):   
+                if matching_array[(i+j)%l0][j]<threshold:
+                    is_match = False
+                    break
+
+            if is_match:
+                for j in range(l1):
+                    index0 = (i+j)%l0
+                    index1 = j
+
+                    v_map0[index0]=index1
+                    v_map1[index1]=index0
+
+                return v_map0,v_map1
 
         return v_map0,v_map1
+
+        
+        # for i in range(len(vertex_array0[0])):
+        #     for j in range(len(vertex_array1[0])):
+        #         v0 = vertex_array0[:,i]
+        #         v1 = vertex_array1[:,j]
+
+        #         if np.linalg.norm(v0-v1)<.035 and i not in v_map0 and j not in v_map1:
+        #             v_map0[i]=j
+        #             v_map1[j]=i
+
+        # return v_map0,v_map1
 
 
     def add_vision_data_point(self,vision_vertex_array,hand_pose,measured_world_manipulation_wrench,sliding_state_dict,wall_contact_on=False):
@@ -375,8 +406,8 @@ class gtsam_with_shape_priors_estimator(object):
 
         v_map0,v_map1 = self.find_matching_vertices(vision_vertex_array,estimate_vertex_array)
 
-        print(v_map0)
         for i in v_map0.keys():
+
             j = v_map0[i]
 
             if j not in self.vision_ref_dict:
@@ -509,7 +540,6 @@ class gtsam_with_shape_priors_estimator(object):
 
         vertex_obj_frame = [estimate_vec[0],estimate_vec[1]]
         s_hand = estimate_vec[2]
-        h_ground = estimate_vec[3]
 
         error_val, dvertex_obj_frame, ds_hand = self.error_kinematic_n_wm_with_reference(hand_pose,vertex_obj_frame,s_hand,ref_val)
 
@@ -538,7 +568,6 @@ class gtsam_with_shape_priors_estimator(object):
 
         vertex_obj_frame = [estimate_vec[0],estimate_vec[1]]
         s_hand = estimate_vec[2]
-        h_ground = estimate_vec[3]
 
         error_val, dvertex_obj_frame, ds_hand = self.error_kinematic_t_wm_with_reference(hand_pose,vertex_obj_frame,s_hand,ref_val)
 
@@ -552,6 +581,7 @@ class gtsam_with_shape_priors_estimator(object):
     def error_kinematic_t_wm_with_reference(self,hand_pose,vertex_obj_frame,s_hand,ref_val):
     
         r_wm_vertex, dvertex_obj_frame, ds_hand = self.transform_pts_obj_to_wm(hand_pose,vertex_obj_frame,s_hand)
+
 
         error_vec = r_wm_vertex[1]-ref_val[1]
         return error_vec, dvertex_obj_frame[1], ds_hand[1]

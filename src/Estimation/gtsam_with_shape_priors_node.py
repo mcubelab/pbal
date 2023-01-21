@@ -37,7 +37,7 @@ def get_shape_prior():
 
     # vertex_list = img_seg.find_the_object(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
     visited_array = np.zeros([len(cv_image),len(cv_image[0])])
-    vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array, is_fine = False)
+    vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array, is_fine = True)
 
     rm.unregister_all()
 
@@ -133,7 +133,8 @@ if __name__ == '__main__':
 
             current_estimator.add_data_point(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,rm.sliding_state,wall_contact_on)
 
-            if rm.polygon_vision_estimate_has_new:
+            # if rm.polygon_vision_estimate_has_new:
+            if rm.polygon_vision_estimate_dict is not None:
                 vision_vertex_array = rm.polygon_vision_estimate_dict['vertex_array']
 
                 current_estimator.add_vision_data_point(vision_vertex_array,hand_pose_pivot_estimator,measured_wrench_pivot_estimator,rm.sliding_state,wall_contact_on)

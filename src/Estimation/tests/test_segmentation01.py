@@ -39,11 +39,11 @@ if __name__ == '__main__':
 
     visited_array = None
 
-    show_image = True
-    # show_image = False
+    # show_image = True
+    show_image = False
 
-    is_fine = True
-    # is_fine = False
+    # is_fine = True
+    is_fine = False
 
     while not rospy.is_shutdown():
         rm.unpack_all()

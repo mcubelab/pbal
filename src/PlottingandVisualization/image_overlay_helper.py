@@ -184,11 +184,14 @@ def enumerate_vertices_of_constraint_polygon(theta_list, b_list, closed=True):
 
     return np.array(vertex_x_list), np.array(vertex_y_list)
 
-def plot_pivot_dot(cv_image, pivot_location, camera_transformation_matrix):
-        x_coord, y_coord = get_pix_easier(pivot_location.T, camera_transformation_matrix)
-        cv2.circle(cv_image, (x_coord[0], y_coord[0]), 5 , (0, 0, 255), -1)
+def plot_pivot_dot(cv_image, pivot_location, camera_transformation_matrix,color = None):
+        if color is None:
+            color = (0, 0, 255)
 
-def estimate_ground_COP(obj_vertices_world_manipulation, measured_world_manipulation_wrench_6D, contact_pose_homog, obj_pose_homog, height_threshold=.01):
+        x_coord, y_coord = get_pix_easier(pivot_location.T, camera_transformation_matrix)
+        cv2.circle(cv_image, (x_coord[0], y_coord[0]), 5 , color, -1)
+
+def estimate_ground_COP(obj_vertices_world_manipulation, measured_world_manipulation_wrench_6D, contact_pose_homog, obj_pose_homog = None, height_threshold=.01):
     P0 = None
 
     if measured_world_manipulation_wrench_6D is not None and obj_vertices_world_manipulation is not None:
@@ -199,11 +202,11 @@ def estimate_ground_COP(obj_vertices_world_manipulation, measured_world_manipula
             P_e = contact_pose_homog[:, 3]
 
             Tau_a = np.dot(np.cross(
-                P_a[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), obj_pose_homog[0:3, 2])
+                P_a[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), np.array([0.0,0.0,1.0]))
             Tau_b = np.dot(np.cross(
-                P_b[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), obj_pose_homog[0:3, 2])
+                P_b[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), np.array([0.0,0.0,1.0]))
             Tau_net = np.dot(
-                measured_world_manipulation_wrench_6D[3:6], obj_pose_homog[0:3, 2])
+                measured_world_manipulation_wrench_6D[3:6], np.array([0.0,0.0,1.0]))
 
             epsilon1 = (Tau_net - Tau_b) / (Tau_a - Tau_b)
             epsilon1 = np.max([np.min([epsilon1, 1]), 0])
@@ -233,6 +236,7 @@ def estimate_hand_COP(measured_contact_wrench_6D, hand_points, contact_pose_homo
 
 
 def plot_force_arrow(cv_image, force_origin, force_vector, force_scale, camera_transformation_matrix):
+    force_origin = np.hstack([force_origin[0:3],np.array([1])])
     if force_origin is not None and force_vector is not None:
         force_tip = np.hstack(
             [force_origin[0:3] + force_scale * force_vector, np.array([1])])

@@ -206,7 +206,7 @@ class system_visualizer(object):
 
                 current_dot_positions = np.dot(obj_pose_homog,object_vertex_array)
 
-                P0 = ioh.estimate_ground_COP(current_dot_positions,self.rm.measured_world_manipulation_wrench_6D, self.rm.ee_pose_in_world_manipulation_homog,obj_pose_homog)
+                P0 = ioh.estimate_ground_COP(current_dot_positions,self.rm.measured_world_manipulation_wrench_6D, self.rm.ee_pose_in_world_manipulation_homog)
                 
                 if self.rm.friction_parameter_dict['elu'] and self.rm.friction_parameter_dict['eru'] and self.display_friction_cones:
                     ioh.plot_ground_friction_cone(self.cv_image,P0,self.rm.friction_parameter_dict,self.camera_transformation_matrix,self.force_scale)
@@ -231,10 +231,20 @@ class system_visualizer(object):
             if self.display_polygon_contact_estimate and self.rm.polygon_contact_estimate_dict is not None:
                 vertex_array_to_display = self.rm.polygon_contact_estimate_dict['vertex_array']
 
+                P0 = ioh.estimate_ground_COP(vertex_array_to_display,self.rm.measured_world_manipulation_wrench_6D, self.rm.ee_pose_in_world_manipulation_homog)
+                
+                if self.rm.friction_parameter_dict['elu'] and self.rm.friction_parameter_dict['eru'] and self.display_friction_cones:
+                    ioh.plot_ground_friction_cone(self.cv_image,P0,self.rm.friction_parameter_dict,self.camera_transformation_matrix,self.force_scale)
+
+                if self.display_force:
+                    ioh.plot_force_arrow(self.cv_image,P0,-np.array(self.rm.measured_world_manipulation_wrench_6D[0:3]),self.force_scale,self.camera_transformation_matrix)
+
+
                 for i in range(len(vertex_array_to_display[0])):
                     vertex_to_display = vertex_array_to_display[:,i]
                     vertex_to_display = np.transpose(vertex_to_display)
                     self.dot_overlay(vertex_to_display)
+
 
 
             if self.display_polygon_vision_estimate and self.rm.polygon_vision_estimate_dict is not None:
@@ -243,13 +253,13 @@ class system_visualizer(object):
                 for i in range(len(vertex_array_to_display[0])):
                     vertex_to_display = vertex_array_to_display[:,i]
                     vertex_to_display = np.transpose(vertex_to_display)
-                    self.dot_overlay(vertex_to_display)
+                    self.dot_overlay(vertex_to_display,color = (255,0,0))
 
-    def dot_overlay(self,p_dot):
+    def dot_overlay(self,p_dot,color = None):
         if len(p_dot)==3:
-            ioh.plot_pivot_dot(self.cv_image,np.array([list(p_dot)+[1.0]]),self.camera_transformation_matrix)
+            ioh.plot_pivot_dot(self.cv_image,np.array([list(p_dot)+[1.0]]),self.camera_transformation_matrix,color)
         elif len(p_dot)==4:
-            ioh.plot_pivot_dot(self.cv_image,np.array([p_dot]),self.camera_transformation_matrix)
+            ioh.plot_pivot_dot(self.cv_image,np.array([p_dot]),self.camera_transformation_matrix,color)
 
     def display_frame(self,wait_time=3):
 
