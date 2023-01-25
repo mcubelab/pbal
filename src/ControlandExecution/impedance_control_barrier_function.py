@@ -25,6 +25,39 @@ def wrench_transform_contact2world_manipulation(theta):
                     [ -np.sin(theta), -np.cos(theta), 0.0], 
                     [            0.0,            0.0, 1.0]])
 
+def compute_rotation_vector(pivot_wm,hand_pose,theta_hand):
+
+    dx_robot_pivot = hand_pose[0]-pivot_wm[0]
+    dy_robot_pivot = hand_pose[1]-pivot_wm[1]
+
+    ds_robot_pivot = dx_robot_pivot * np.sin(theta_hand) + dy_robot_pivot* -np.cos(theta_hand)
+    dd_robot_pivot = dx_robot_pivot *-np.cos(theta_hand) + dy_robot_pivot*-np.sin(theta_hand)
+
+    rotation_vector = np.array([-ds_robot_pivot, dd_robot_pivot, 1.])
+
+    return rotation_vector
+
+def compute_wall_rotation_vector(v0,v1,hand_pose,theta_hand):
+
+    rotation_vector = None
+
+    if v0[0]>v1[0]:
+        temp = v0
+        v0 = v1
+        v1 = temp
+
+    if v1[0]-v0[0]>.015:
+
+        dx_robot_pivot = hand_pose[0]-(v1[0]+.015)
+        dy_robot_pivot = hand_pose[1]-v0[1]
+
+        ds_robot_pivot = dx_robot_pivot * np.sin(theta_hand) + dy_robot_pivot* -np.cos(theta_hand)
+        dd_robot_pivot = dx_robot_pivot *-np.cos(theta_hand) + dy_robot_pivot*-np.sin(theta_hand)
+
+        rotation_vector = np.array([-ds_robot_pivot, dd_robot_pivot, 1.])
+
+    return rotation_vector
+
 if __name__ == '__main__':
 
     #initialize rosnode and load params
@@ -213,21 +246,18 @@ if __name__ == '__main__':
             time_since_prev_pivot_estimate = rm.eval_current_time()-rm.pivot_message_estimated_time
 
             
-        if time_since_prev_pivot_estimate is not None and time_since_prev_pivot_estimate<.5:
-            dx_robot_pivot = current_xyz_theta_robot_frame[0]-rm.pivot_xyz_estimated[0]
-            dy_robot_pivot = current_xyz_theta_robot_frame[1]-rm.pivot_xyz_estimated[1]
-
-            ds_robot_pivot = dx_robot_pivot * np.sin(theta_hand) + dy_robot_pivot* -np.cos(theta_hand)
-            dd_robot_pivot = dx_robot_pivot *-np.cos(theta_hand) + dy_robot_pivot*-np.sin(theta_hand)
-
-            rotation_vector = np.array([-ds_robot_pivot, dd_robot_pivot, 1.])
+        if time_since_prev_pivot_estimate is not None and time_since_prev_pivot_estimate<2.0:
+            rotation_vector = compute_rotation_vector(rm.pivot_xyz_estimated,current_xyz_theta_robot_frame,theta_hand)
 
         time_since_prev_polygon_contact_estimate = None
 
         if rm.polygon_contact_estimate_dict is not None:
             time_since_prev_polygon_contact_estimate = rm.eval_current_time()-rm.polygon_contact_estimate_time
 
-        if (time_since_prev_polygon_contact_estimate is not None and time_since_prev_polygon_contact_estimate<.5 and mode == 6):
+        torque_line_contact_external_A = None
+        torque_line_contact_external_B = None
+
+        if (time_since_prev_polygon_contact_estimate is not None and time_since_prev_polygon_contact_estimate<2.0):
             vertex_array_wm  = rm.polygon_contact_estimate_dict['vertex_array']
 
             contact_vertices = shape_prior_helper.determine_wall_contact_vertices_for_controller(vertex_array_wm,rm.measured_world_manipulation_wrench)
@@ -236,20 +266,51 @@ if __name__ == '__main__':
                 v0 = vertex_array_wm[:,contact_vertices[0]]
                 v1 = vertex_array_wm[:,contact_vertices[1]]
 
-                if v0[0]>v1[0]:
-                    temp = v0
-                    v0 = v1
-                    v1 = temp
 
-                if v1[0]-v0[0]>.015:
+                rotation_vector0 = compute_rotation_vector(v0,current_xyz_theta_robot_frame,theta_hand)
+                rotation_vector1 = compute_rotation_vector(v1,current_xyz_theta_robot_frame,theta_hand)
 
-                    dx_robot_pivot = current_xyz_theta_robot_frame[0]-(v1[0]+.015)
-                    dy_robot_pivot = current_xyz_theta_robot_frame[1]-v0[1]
+                if np.dot(rm.measured_contact_wrench,rotation_vector0)>np.dot(rm.measured_contact_wrench,rotation_vector1):          
+                    temp = rotation_vector0
+                    rotation_vector0 = rotation_vector1
+                    rotation_vector1 = temp
 
-                    ds_robot_pivot = dx_robot_pivot * np.sin(theta_hand) + dy_robot_pivot* -np.cos(theta_hand)
-                    dd_robot_pivot = dx_robot_pivot *-np.cos(theta_hand) + dy_robot_pivot*-np.sin(theta_hand)
 
-                    rotation_vector = np.array([-ds_robot_pivot, dd_robot_pivot, 1.])
+                torque_line_contact_external_A = np.array([rotation_vector0,-rotation_vector1])
+                torque_line_contact_external_B = np.array([-0.2,-0.2])
+
+                if mode == 7:
+                    torque_errors = np.dot(torque_line_contact_external_A,rm.measured_contact_wrench)-torque_line_contact_external_B
+
+                    if torque_errors[0]>0.0 and torque_errors[1]<=0.0:
+                        error_dict['error_theta'] = .05*(torque_errors[0]-torque_errors[1])
+
+                        torque_line_contact_external_A = None
+                        torque_line_contact_external_B = None
+
+                    elif torque_errors[1]>0.0 and torque_errors[0]<=0.0:
+                        error_dict['error_theta'] = .05*(torque_errors[0]-torque_errors[1])
+
+                        torque_line_contact_external_A = None
+                        torque_line_contact_external_B = None
+
+                    elif torque_errors[0]<=0.0 and torque_errors[1]<=0.0:
+
+                        error_dict['error_theta'] = .05*(torque_errors[0]-torque_errors[1])
+
+                        rotation_vector = (rotation_vector0+rotation_vector1)/2.0
+
+                    else:
+                        error_dict['error_theta'] = 0.0
+                        torque_line_contact_external_A = None
+                        torque_line_contact_external_B = None
+
+
+                    
+                if mode == 6:
+                    temp = compute_wall_rotation_vector(v0,v1,current_xyz_theta_robot_frame,theta_hand)
+                    if temp is not None:
+                        rotation_vector = temp
 
 
 
@@ -267,7 +328,9 @@ if __name__ == '__main__':
             friction_parameter_dict = rm.friction_parameter_dict,
             error_dict = error_dict,
             rotation_vector = rotation_vector,
-            torque_bounds = rm.torque_bounds)
+            torque_bounds = rm.torque_bounds,
+            torque_line_contact_external_A = torque_line_contact_external_A,
+            torque_line_contact_external_B = torque_line_contact_external_B)
 
         # compute wrench increment
         wrench_increment_contact, debug_dict = pbc.solve_for_delta_wrench()

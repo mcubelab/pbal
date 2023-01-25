@@ -89,6 +89,9 @@ class ModularBarrierController(object):
         for constraint in self.mode_constraint:
             aiqi, biqi, tri, labels = constraint()
 
+            if aiqi is None or biqi is None:
+                continue
+
             label_list = label_list + labels
 
             if aiqi.ndim == 1:
@@ -140,7 +143,8 @@ class ModularBarrierController(object):
         return np.squeeze(np.array(result['x']))
 
     def update_controller(self, mode, theta_hand, contact_wrench, friction_parameter_dict, 
-                                error_dict, rotation_vector = None, torque_bounds = None):
+                                error_dict, rotation_vector = None, torque_bounds = None,
+                                torque_line_contact_external_A = None, torque_line_contact_external_B = None):
 
     	self.error_dict=error_dict
 
@@ -155,6 +159,8 @@ class ModularBarrierController(object):
 
     	self.theta_hand = theta_hand
         self.rotation_vector = rotation_vector
+        self.torque_line_contact_external_A = torque_line_contact_external_A
+        self.torque_line_contact_external_B = torque_line_contact_external_B
 
     	# update_mode
         if (mode == 0 or mode == 4) and error_dict['error_s_hand'] > 0:
@@ -316,6 +322,26 @@ class ModularBarrierController(object):
                 self.torque_right_contact_constraint,
                 self.torque_left_contact_constraint,
                 self.normal_force_max_contact_constraint,
+            ]
+
+
+        if self.mode == 7:  # line/line stick and point/line stick
+
+            self.mode_cost = [
+                self.theta_cost,
+                self.wrench_regularization_cost,
+                self.normal_force_cost,
+            ]
+
+            self.mode_constraint = [
+                self.friction_right_contact_constraint,
+                self.friction_left_contact_constraint,
+                self.torque_right_contact_constraint,
+                self.torque_left_contact_constraint,
+                self.normal_force_max_contact_constraint,
+                self.friction_right_external_constraint,
+                self.friction_left_external_constraint,
+                self.torque_line_contact_external_constraints,
             ]
 
     def compute_error_theta(self):
@@ -483,6 +509,15 @@ class ModularBarrierController(object):
             aiq = np.array([-lc / 2., 0., -1.])
         biq = -self.pivot_params['torque_margin']
         return aiq, biq, self.pivot_params['tr_torque'], ['tlc']
+
+    def torque_line_contact_external_constraints(self):
+        if self.torque_line_contact_external_A is None:
+            return None,None,None,None
+
+        aiq = self.torque_line_contact_external_A
+        biq = self.torque_line_contact_external_B
+
+        return aiq, biq, self.pivot_params['tr_torque_external'], ['tlce']*len(biq)
 
     def normal_force_max_contact_constraint(self):
         ''' maximum applied normal force at contact constraint '''

@@ -135,6 +135,15 @@ absolute_rotate_right = {
     's_hand' : 0.0,
 }
 
+external_line_contact = {
+    'name': 'external_line_contact',
+    'command_flag' : 1,
+    'mode' : 7,
+    'theta' : 0.0,
+    's_pivot' : 0.0,
+    's_hand' : 0.0,
+}
+
 wall_contact_on = {
     'name': 'wall_contact_on',
     'command_flag' : 2,
@@ -152,6 +161,7 @@ wall_contact_off = {
     's_pivot' : 0.0,
     's_hand' : 0.0,
 }
+
 
 def on_press(key):
 
@@ -202,6 +212,9 @@ def on_press(key):
     elif k == 'e': # object right
         command_msg_dict = delta_slide_pivot_right
         print('delta_slide_pivot_right')
+    elif k == 'i': # object right
+        command_msg_dict = external_line_contact
+        print('external_line_contact')
     elif k == 'o': #wall_contact_on
         command_msg_dict = wall_contact_on
         print('wall_contact_on')
@@ -227,6 +240,7 @@ if __name__ == '__main__':
     print('3: super slide right')
     print('q: slide pivot left')
     print('e: slide pivote right')
+    print('i: external_line_contact')
     print('Space: pause')
     print('o: wall contact on')
     print('p: wall contact off')
