@@ -22,7 +22,7 @@ class gtsam_with_shape_priors_estimator(object):
         self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
         self.error_s_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
 
-        self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
+        self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, .01)
 
 
         self.error_oject_vertex_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .01)
@@ -77,6 +77,7 @@ class gtsam_with_shape_priors_estimator(object):
         self.mglcostheta_current = None
         self.mglsintheta_current = None
 
+        self.has_run_once = False
         self.current_estimate_dict = {}
 
         # New Values container
@@ -138,8 +139,16 @@ class gtsam_with_shape_priors_estimator(object):
                 # print('not running estimator: ',contact_vertex,' , ',num_vision_vals)
 
                 return None
+
+        if not self.has_run_once:
+            print('running ISAM for first time')
         
         result = self.runISAM()
+
+        if not self.has_run_once:
+            print('ISAM first iteration completed')
+
+        self.has_run_once = True
 
         self.vertex_positions_wm_current = [[],[]]
         self.vertex_positions_ee_current = [[],[]]
