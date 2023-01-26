@@ -152,7 +152,7 @@ if __name__ == '__main__':
 
             if mode == -1 or mode == 6:
                 coord_set = {'theta'}
-            if mode == 0 or mode == 1 or mode == 4 or mode == 5:
+            if mode == 0 or mode == 1 or mode == 4 or mode == 5 or mode == 7 or mode == 8 or mode == 9:
                 coord_set = {'theta','s_hand'}
             if mode == 2 or mode == 3:
                 coord_set = {'theta','s_pivot'}
@@ -270,29 +270,41 @@ if __name__ == '__main__':
                 rotation_vector0 = compute_rotation_vector(v0,current_xyz_theta_robot_frame,theta_hand)
                 rotation_vector1 = compute_rotation_vector(v1,current_xyz_theta_robot_frame,theta_hand)
 
+
                 if np.dot(rm.measured_contact_wrench,rotation_vector0)>np.dot(rm.measured_contact_wrench,rotation_vector1):          
                     temp = rotation_vector0
                     rotation_vector0 = rotation_vector1
                     rotation_vector1 = temp
 
+                rotation_vector0[0]+=.005
+                rotation_vector1[0]-=.005
+
+                rotation_vector0[1]-=.005
+                rotation_vector1[1]-=.005
 
                 torque_line_contact_external_A = np.array([rotation_vector0,-rotation_vector1])
-                torque_line_contact_external_B = np.array([-0.2,-0.2])
+                torque_line_contact_external_B = np.array([-0.0,-0.0])
 
-                if mode == 7:
+                # if (mode == 8 and error_dict['error_s_hand']<0) or (mode == 9 and error_dict['error_s_hand']>0):
+                #     torque_line_contact_external_B*= 0.0
+                    
+
+                if mode == 7 or mode == 8 or mode == 9:
                     torque_errors = np.dot(torque_line_contact_external_A,rm.measured_contact_wrench)-torque_line_contact_external_B
 
                     if torque_errors[0]>0.0 and torque_errors[1]<=0.0:
                         error_dict['error_theta'] = .05*(torque_errors[0]-torque_errors[1])
 
-                        torque_line_contact_external_A = None
-                        torque_line_contact_external_B = None
+                        if mode == 7 or (mode == 8 and error_dict['error_s_hand']>0) or (mode == 9 and error_dict['error_s_hand']<0):
+                            torque_line_contact_external_A = None
+                            torque_line_contact_external_B = None
 
                     elif torque_errors[1]>0.0 and torque_errors[0]<=0.0:
                         error_dict['error_theta'] = .05*(torque_errors[0]-torque_errors[1])
 
-                        torque_line_contact_external_A = None
-                        torque_line_contact_external_B = None
+                        if mode == 7 or (mode == 8 and error_dict['error_s_hand']>0) or (mode == 9 and error_dict['error_s_hand']<0):
+                            torque_line_contact_external_A = None
+                            torque_line_contact_external_B = None
 
                     elif torque_errors[0]<=0.0 and torque_errors[1]<=0.0:
 

@@ -171,6 +171,10 @@ class ModularBarrierController(object):
             mode = -1
         if mode == 3 and error_dict['error_s_pivot'] < 0:
             mode = -1
+        if mode == 8 and error_dict['error_s_hand'] > 0:
+            mode = 7
+        if mode == 9 and error_dict['error_s_hand'] < 0:
+            mode = 7
 
     	self.mode = mode
 
@@ -325,7 +329,7 @@ class ModularBarrierController(object):
             ]
 
 
-        if self.mode == 7:  # line/line stick and point/line stick
+        if self.mode == 7:  # rotate until flush contact with ground
 
             self.mode_cost = [
                 self.theta_cost,
@@ -336,6 +340,44 @@ class ModularBarrierController(object):
             self.mode_constraint = [
                 self.friction_right_contact_constraint,
                 self.friction_left_contact_constraint,
+                self.torque_right_contact_constraint,
+                self.torque_left_contact_constraint,
+                self.normal_force_max_contact_constraint,
+                self.friction_right_external_constraint,
+                self.friction_left_external_constraint,
+                self.torque_line_contact_external_constraints,
+            ]
+
+
+
+        if self.mode == 8:  # enforce line contact at both hand and ground, while sliding right at hand interface
+
+            self.mode_cost = [
+                self.wrench_regularization_cost,
+                self.normal_force_cost,
+                self.slide_right_robot_flush_external_cost,
+            ]
+
+            self.mode_constraint = [
+                self.friction_left_contact_constraint,
+                self.torque_right_contact_constraint,
+                self.torque_left_contact_constraint,
+                self.normal_force_max_contact_constraint,
+                self.friction_right_external_constraint,
+                self.friction_left_external_constraint,
+                self.torque_line_contact_external_constraints,
+            ]
+
+        if self.mode == 9:  # enforce line contact at both hand and ground, while sliding right at hand interface
+
+            self.mode_cost = [
+                self.wrench_regularization_cost,
+                self.normal_force_cost,
+                self.slide_left_robot_flush_external_cost,
+            ]
+
+            self.mode_constraint = [
+                self.friction_right_contact_constraint,
                 self.torque_right_contact_constraint,
                 self.torque_left_contact_constraint,
                 self.normal_force_max_contact_constraint,
@@ -389,6 +431,27 @@ class ModularBarrierController(object):
         return self.general_cost(
             base_error=-self.error_s_hand,
             base_vec=np.array([0., -1., 0.]), 
+            K=self.pivot_params['K_s_hand'],
+            concavity=self.pivot_params['concavity_s_hand'])
+
+
+    def slide_right_robot_flush_external_cost(self):
+        ''' cost term for sliding right at robot '''
+        self.compute_error_s_hand()
+
+        return self.general_cost(
+            base_error=self.error_s_hand,
+            base_vec=np.array([-.01, 1., -.01]), 
+            K=self.pivot_params['K_s_hand'],
+            concavity=self.pivot_params['concavity_s_hand'])
+
+    def slide_left_robot_flush_external_cost(self):
+        ''' cost term for sliding left at robot '''
+        self.compute_error_s_hand()
+
+        return self.general_cost(
+            base_error=-self.error_s_hand,
+            base_vec=np.array([-.01, -1., 0.01]), 
             K=self.pivot_params['K_s_hand'],
             concavity=self.pivot_params['concavity_s_hand'])
 

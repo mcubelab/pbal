@@ -144,6 +144,25 @@ external_line_contact = {
     's_hand' : 0.0,
 }
 
+
+delta_slide_robot_left_external_line_contact = {
+    'name': 'delta_slide_robot_left_external_line_contact',
+    'command_flag' : 1,
+    'mode' : 9,
+    'delta_theta' : 0.0,
+    'delta_s_pivot' : 0.00,
+    'delta_s_hand' : -0.015,
+}
+
+delta_slide_robot_right_external_line_contact = {
+    'name': 'delta_slide_robot_right_external_line_contact',
+    'command_flag' : 1,
+    'mode' : 8,
+    'delta_theta' : 0.0,
+    'delta_s_pivot' : 0.00,
+    'delta_s_hand' : 0.015,
+}
+
 wall_contact_on = {
     'name': 'wall_contact_on',
     'command_flag' : 2,
@@ -215,12 +234,20 @@ def on_press(key):
     elif k == 'i': # object right
         command_msg_dict = external_line_contact
         print('external_line_contact')
+    elif k == '[': # delta_slide_robot_left_external_line_contact
+        command_msg_dict = delta_slide_robot_left_external_line_contact
+        print('delta_slide_robot_left_external_line_contact')
+    elif k == ']': # delta_slide_robot_left_external_line_contact
+        command_msg_dict = delta_slide_robot_right_external_line_contact
+        print('delta_slide_robot_right_external_line_contact')
     elif k == 'o': #wall_contact_on
         command_msg_dict = wall_contact_on
         print('wall_contact_on')
     elif k == 'p': # wall_contact_off
         command_msg_dict = wall_contact_off
         print('wall_contact_off')
+    else:
+        print('unused character: ',k)
 
     if command_msg_dict is not None:
         rm.pub_barrier_func_control_command(command_msg_dict)
@@ -241,6 +268,8 @@ if __name__ == '__main__':
     print('q: slide pivot left')
     print('e: slide pivote right')
     print('i: external_line_contact')
+    print('[: slide robot left external_line_contact')
+    print(']: slide robot right external_line_contact')
     print('Space: pause')
     print('o: wall contact on')
     print('p: wall contact off')
