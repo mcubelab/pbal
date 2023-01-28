@@ -92,7 +92,7 @@ if __name__ == '__main__':
                 'display_pivot_arrow':False,
                 'display_ground_slide_arrow':False,
                 'display_pivot_apriltag':False,
-                'display_pivot_estimate':True,
+                'display_pivot_estimate':False,
                 'display_shape_overlay':False,
                 'display_polygon_contact_estimate':True,
                 'display_polygon_vision_estimate':False}
