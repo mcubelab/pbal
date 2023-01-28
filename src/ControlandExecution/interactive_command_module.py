@@ -22,7 +22,7 @@ delta_rotate_left = {
     'name': 'delta_rotate_left',
     'command_flag' : 1,
     'mode' : -1,
-    'delta_theta' : np.pi/12,
+    'delta_theta' : np.pi/50,#np.pi/12,
     'delta_s_pivot' : 0.0,
     'delta_s_hand' : 0.0,
 }
@@ -31,7 +31,7 @@ delta_rotate_right = {
     'name': 'delta_rotate_right',
     'command_flag' : 1,
     'mode' : -1,
-    'delta_theta' : -np.pi/12,
+    'delta_theta' : -np.pi/50, #-np.pi/12,
     'delta_s_pivot' : 0.0,
     'delta_s_hand' : 0.0,
 }
@@ -163,6 +163,24 @@ delta_slide_robot_right_external_line_contact = {
     'delta_s_hand' : 0.015,
 }
 
+delta_slide_object_left_external_line_contact = {
+    'name': 'delta_slide_object_left_external_line_contact',
+    'command_flag' : 1,
+    'mode' : 10,
+    'delta_theta' : 0.0,
+    'delta_s_pivot' : 0.03,
+    'delta_s_hand' : 0.0,
+}
+
+delta_slide_object_right_external_line_contact = {
+    'name': 'delta_slide_object_right_external_line_contact',
+    'command_flag' : 1,
+    'mode' : 11,
+    'delta_theta' : 0.0,
+    'delta_s_pivot' : -0.03,
+    'delta_s_hand' : 0.00,
+}
+
 wall_contact_on = {
     'name': 'wall_contact_on',
     'command_flag' : 2,
@@ -240,6 +258,12 @@ def on_press(key):
     elif k == ']': # delta_slide_robot_left_external_line_contact
         command_msg_dict = delta_slide_robot_right_external_line_contact
         print('delta_slide_robot_right_external_line_contact')
+    elif k == 'k': # delta_slide_object_left_external_line_contact
+        command_msg_dict = delta_slide_object_left_external_line_contact
+        print('delta_slide_object_left_external_line_contact')
+    elif k == 'l': # delta_slide_object_left_external_line_contact
+        command_msg_dict = delta_slide_object_right_external_line_contact
+        print('delta_slide_object_right_external_line_contact')
     elif k == 'o': #wall_contact_on
         command_msg_dict = wall_contact_on
         print('wall_contact_on')
@@ -270,6 +294,8 @@ if __name__ == '__main__':
     print('i: external_line_contact')
     print('[: slide robot left external_line_contact')
     print(']: slide robot right external_line_contact')
+    print('k: slide object left external_line_contact')
+    print('l: slide object right external_line_contact')
     print('Space: pause')
     print('o: wall contact on')
     print('p: wall contact off')

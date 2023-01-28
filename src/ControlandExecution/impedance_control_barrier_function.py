@@ -46,15 +46,21 @@ def compute_wall_rotation_vector(v0,v1,hand_pose,theta_hand):
         v0 = v1
         v1 = temp
 
-    if v1[0]-v0[0]>.015:
+    # if v1[0]-v0[0]>.015:
+    if v1[0]-v0[0]>0.0:
+        # print('hi!')
 
-        dx_robot_pivot = hand_pose[0]-(v1[0]+.015)
+        dx_robot_pivot = hand_pose[0]-(v1[0]+.03) #(v1[0]+.015)
         dy_robot_pivot = hand_pose[1]-v0[1]
 
         ds_robot_pivot = dx_robot_pivot * np.sin(theta_hand) + dy_robot_pivot* -np.cos(theta_hand)
         dd_robot_pivot = dx_robot_pivot *-np.cos(theta_hand) + dy_robot_pivot*-np.sin(theta_hand)
 
         rotation_vector = np.array([-ds_robot_pivot, dd_robot_pivot, 1.])
+
+    else:
+        # print('hello!')
+        rotation_vector = (v0+v1)/2
 
     return rotation_vector
 
@@ -154,7 +160,7 @@ if __name__ == '__main__':
                 coord_set = {'theta'}
             if mode == 0 or mode == 1 or mode == 4 or mode == 5 or mode == 7 or mode == 8 or mode == 9:
                 coord_set = {'theta','s_hand'}
-            if mode == 2 or mode == 3:
+            if mode == 2 or mode == 3 or mode == 10 or mode == 11:
                 coord_set = {'theta','s_pivot'}
 
             if command_flag == 0: # absolute move
@@ -276,33 +282,43 @@ if __name__ == '__main__':
                     rotation_vector0 = rotation_vector1
                     rotation_vector1 = temp
 
-                rotation_vector0[0]+=.005
-                rotation_vector1[0]-=.005
+                torque_line_contact_external_B = np.array([-0.0,-0.0])
 
-                rotation_vector0[1]-=.005
-                rotation_vector1[1]-=.005
+                if mode != 6:
+                    rotation_vector0[0]+=.005
+                    rotation_vector1[0]-=.005
+
+                    rotation_vector0[1]-=.005
+                    rotation_vector1[1]-=.005
+
+                    torque_line_contact_external_B = np.array([0.0,0.0])
+
 
                 torque_line_contact_external_A = np.array([rotation_vector0,-rotation_vector1])
-                torque_line_contact_external_B = np.array([-0.0,-0.0])
+                
 
                 # if (mode == 8 and error_dict['error_s_hand']<0) or (mode == 9 and error_dict['error_s_hand']>0):
                 #     torque_line_contact_external_B*= 0.0
                     
 
-                if mode == 7 or mode == 8 or mode == 9:
+                if mode == 7 or mode == 8 or mode == 9 or mode == 10 or mode == 11:
                     torque_errors = np.dot(torque_line_contact_external_A,rm.measured_contact_wrench)-torque_line_contact_external_B
 
                     if torque_errors[0]>0.0 and torque_errors[1]<=0.0:
                         error_dict['error_theta'] = .05*(torque_errors[0]-torque_errors[1])
 
-                        if mode == 7 or (mode == 8 and error_dict['error_s_hand']>0) or (mode == 9 and error_dict['error_s_hand']<0):
+                        if (mode == 7 or (mode == 8 and error_dict['error_s_hand']>0) or (mode == 9 and error_dict['error_s_hand']<0) 
+                            or (mode == 10 and error_dict['error_s_pivot'] > 0) or (mode == 11 and error_dict['error_s_pivot'] < 0)):
+
                             torque_line_contact_external_A = None
                             torque_line_contact_external_B = None
 
                     elif torque_errors[1]>0.0 and torque_errors[0]<=0.0:
                         error_dict['error_theta'] = .05*(torque_errors[0]-torque_errors[1])
 
-                        if mode == 7 or (mode == 8 and error_dict['error_s_hand']>0) or (mode == 9 and error_dict['error_s_hand']<0):
+                        if (mode == 7 or (mode == 8 and error_dict['error_s_hand']>0) or (mode == 9 and error_dict['error_s_hand']<0) 
+                            or (mode == 10 and error_dict['error_s_pivot'] > 0) or (mode == 11 and error_dict['error_s_pivot'] < 0)):
+
                             torque_line_contact_external_A = None
                             torque_line_contact_external_B = None
 
@@ -321,6 +337,8 @@ if __name__ == '__main__':
                     
                 if mode == 6:
                     temp = compute_wall_rotation_vector(v0,v1,current_xyz_theta_robot_frame,theta_hand)
+
+                    torque_line_contact_external_B = np.array([.3,.3])
                     if temp is not None:
                         rotation_vector = temp
 
@@ -363,6 +381,7 @@ if __name__ == '__main__':
         impedance_target[0]+= impedance_increment_robot[0]*INTEGRAL_MULTIPLIER/(TIPI*RATE)
         impedance_target[1]+= impedance_increment_robot[1]*INTEGRAL_MULTIPLIER/(TIPI*RATE)
         impedance_target[3]+= impedance_increment_robot[2]*INTEGRAL_MULTIPLIER/(RIPI*RATE)
+
         waypoint_pose_list_world_manipulation = robot2_pose_list(impedance_target[:3].tolist(),impedance_target[3])
 
         waypoint_pose_list = kh.pose_list_from_matrix(np.dot(wm_to_base, kh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
