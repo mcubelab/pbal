@@ -6,8 +6,12 @@ sys.path.insert(0,os.path.dirname(currentdir))
 from Helpers.ros_manager import ros_manager
 import numpy as np
 from pynput import keyboard
+import PySimpleGUI27 as sg
 
 import rospy
+
+
+keys_held_down = set()
 
 command_pause = {
     'name': 'pause',
@@ -200,78 +204,135 @@ wall_contact_off = {
 }
 
 
+def on_release(key):
+    try:
+        keys_held_down.remove(key)
+    except KeyError:
+        pass
+
 def on_press(key):
+
+    keys_held_down.add(key)
+
 
     global rm
 
     command_msg_dict = None
+
+    not_a_modifier_key = key!=keyboard.Key.shift and key!=keyboard.Key.ctrl and key!=keyboard.Key.alt
+    shift_on = keyboard.Key.shift in keys_held_down
+    ctrl_on = keyboard.Key.ctrl in keys_held_down
+    alt_on = keyboard.Key.alt in keys_held_down
+
+    modifier_state = shift_on + 2*ctrl_on + 4*alt_on
+
+    # if not_a_modifier_key:
+    #     print('modifier_state: ',modifier_state)
     
     if key == keyboard.Key.esc:
+        print('terminating!')
         return False  # stop listener
     if key == keyboard.Key.space:
         command_msg_dict = command_pause
         print('pausing motion!')
     try:
         k = key.char  # single-char keys
+        k = k.lower()
     except:
         k = key.name  # other keys
 
-    if k == 'c':  # center
-        command_msg_dict = absolute_rotate_center
-        print('absolute_rotate_center')
-    elif k == 'left': # pivot left
-        command_msg_dict = delta_rotate_left
-        print('delta_rotate_left')
-    elif k == 'right': # pivot right
-        command_msg_dict = delta_rotate_right
-        print('delta_rotate_right')
-    elif k == 'g': # pivot left
-        command_msg_dict = delta_rotate_corner_left
-        print('delta_rotate_corner_left')
-    elif k == 'h': # pivot right
-        command_msg_dict = delta_rotate_corner_right
-        print('delta_rotate_corner_right')
-    elif k == 'a': # robot left
-        command_msg_dict = delta_slide_robot_left
-        print('delta_slide_robot_left')
-    elif k == 'd': # robot right
-        command_msg_dict = delta_slide_robot_right
-        print('delta_slide_robot_right')
-    elif k == '1': # robot left
-        command_msg_dict = delta_super_slide_robot_left
-        print('delta_super_slide_robot_left')
-    elif k == '3': # robot right
-        command_msg_dict = delta_super_slide_robot_right
-        print('delta_super_slide_robot_right')
-    elif k == 'q': # object left
-        command_msg_dict = delta_slide_pivot_left
-        print('delta_slide_pivot_left')
-    elif k == 'e': # object right
-        command_msg_dict = delta_slide_pivot_right
-        print('delta_slide_pivot_right')
-    elif k == 'i': # object right
-        command_msg_dict = external_line_contact
-        print('external_line_contact')
-    elif k == '[': # delta_slide_robot_left_external_line_contact
-        command_msg_dict = delta_slide_robot_left_external_line_contact
-        print('delta_slide_robot_left_external_line_contact')
-    elif k == ']': # delta_slide_robot_left_external_line_contact
-        command_msg_dict = delta_slide_robot_right_external_line_contact
-        print('delta_slide_robot_right_external_line_contact')
-    elif k == 'k': # delta_slide_object_left_external_line_contact
-        command_msg_dict = delta_slide_object_left_external_line_contact
-        print('delta_slide_object_left_external_line_contact')
-    elif k == 'l': # delta_slide_object_left_external_line_contact
-        command_msg_dict = delta_slide_object_right_external_line_contact
-        print('delta_slide_object_right_external_line_contact')
-    elif k == 'o': #wall_contact_on
+
+
+    if k == 'o': #wall_contact_on
         command_msg_dict = wall_contact_on
         print('wall_contact_on')
     elif k == 'p': # wall_contact_off
         command_msg_dict = wall_contact_off
         print('wall_contact_off')
-    else:
-        print('unused character: ',k)
+
+    if modifier_state==0:
+        if k == 'c':  # center
+            command_msg_dict = absolute_rotate_center
+            print('absolute_rotate_center')
+
+        elif k == 'left': # pivot left
+            command_msg_dict = delta_rotate_left
+            print('delta_rotate_left')
+        elif k == 'right': # pivot right
+            command_msg_dict = delta_rotate_right
+            print('delta_rotate_right')
+        
+        elif k == 'a': # robot left
+            command_msg_dict = delta_slide_robot_left
+            print('delta_slide_robot_left')
+        elif k == 'd': # robot right
+            command_msg_dict = delta_slide_robot_right
+            print('delta_slide_robot_right')
+       
+        elif k == 'q': # object left
+            command_msg_dict = delta_slide_pivot_left
+            print('delta_slide_pivot_left')
+        elif k == 'e': # object right
+            command_msg_dict = delta_slide_pivot_right
+            print('delta_slide_pivot_right')
+
+        elif k == '1': # robot left
+            command_msg_dict = delta_super_slide_robot_left
+            print('delta_super_slide_robot_left')
+        elif k == '3': # robot right
+            command_msg_dict = delta_super_slide_robot_right
+            print('delta_super_slide_robot_right')
+
+    if modifier_state==1:
+        if k == 'c': # external_line_contact
+            command_msg_dict = external_line_contact
+            print('external_line_contact')
+
+        elif k == 'left': # pivot left
+            command_msg_dict = delta_rotate_corner_left
+            print('delta_rotate_corner_left')
+        elif k == 'right': # pivot right
+            command_msg_dict = delta_rotate_corner_right
+            print('delta_rotate_corner_right')
+
+        elif k == 'a': # delta_slide_robot_left_external_line_contact
+            command_msg_dict = delta_slide_robot_left_external_line_contact
+            print('delta_slide_robot_left_external_line_contact')
+        elif k == 'd': # delta_slide_robot_left_external_line_contact
+            command_msg_dict = delta_slide_robot_right_external_line_contact
+            print('delta_slide_robot_right_external_line_contact')
+
+        elif k == 'q': # delta_slide_object_left_external_line_contact
+            command_msg_dict = delta_slide_object_left_external_line_contact
+            print('delta_slide_object_left_external_line_contact')
+        elif k == 'e': # delta_slide_object_left_external_line_contact
+            command_msg_dict = delta_slide_object_right_external_line_contact
+            print('delta_slide_object_right_external_line_contact')
+
+    if modifier_state==2:
+        if k == 'left': 
+
+            print('jog: rotate left')
+
+        if k == 'right': 
+
+            print('jog: rotate right')
+
+        if k == 'w': 
+
+            print('jog: move up')
+
+        if k == 's': 
+
+            print('jog: move down')
+
+        if k == 'a': 
+
+            print('jog: move left')
+
+        if k == 'd': 
+
+            print('jog: move right')
 
     if command_msg_dict is not None:
         rm.pub_barrier_func_control_command(command_msg_dict)
@@ -280,36 +341,59 @@ def on_press(key):
 if __name__ == '__main__':
     print('-----------------------------')
     print('COMMAND SUMMARY')
+
+    print('')
+    print('Non-Modified Commands!')
+
     print('c: absolute rotate center')
     print('left arrow: rotate left')
     print('right arrow: rotate right')
-    print('g: rotate corner left')
-    print('h: rotate corner right')
     print('a: slide hand left') 
     print('d: slide hand right')
-    print('1: super slide left')
-    print('3: super slide right')
     print('q: slide pivot left')
     print('e: slide pivote right')
-    print('i: external_line_contact')
-    print('[: slide robot left external_line_contact')
-    print(']: slide robot right external_line_contact')
-    print('k: slide object left external_line_contact')
-    print('l: slide object right external_line_contact')
+    print('1: super slide left')
+    print('3: super slide right')
+
+    print('')
+    print('Shift (only) Commands!')
+
+    print('shift + c: external_line_contact')
+    print('shift + left arrow: rotate corner left')
+    print('shift + right arrow: rotate corner right')
+    print('shift + a: slide robot left external_line_contact')
+    print('shift + d: slide robot right external_line_contact')
+    print('shift + q: slide object left external_line_contact')
+    print('shift + e: slide object right external_line_contact')
+
+
+    print('')
+    print('Modifier Independent Commands!')
+
     print('Space: pause')
     print('o: wall contact on')
     print('p: wall contact off')
     print('-----------------------------')
 
+
     rm = ros_manager()
     rospy.init_node('barrier_func_commands')
     rm.spawn_publisher('/barrier_func_control_command')
 
-    listener = keyboard.Listener(on_press=on_press)
+    listener = keyboard.Listener(on_press=on_press, on_release=on_release)
 
     # start to listen on a separate thread
-    listener.start()                
+    listener.start()
+
+    my_dummy_window = sg.Window(title='Dummy Window', layout=[[]],margins=(50,50), location=(3500,300))
+
+    my_dummy_window.read()
+
     listener.join()
+
+
+    
+    
 
 
 

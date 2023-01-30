@@ -300,11 +300,17 @@ def command_stamped_to_command_dict(command_msg):
     command_dict['delta_s_pivot']   = command_msg.control_command.delta_s_pivot
     command_dict['delta_s_hand']    = command_msg.control_command.delta_s_hand
 
-    # aboluste commands
+    # absolute commands
     command_dict['theta']           = command_msg.control_command.theta
     command_dict['s_pivot']         = command_msg.control_command.s_pivot
     command_dict['s_hand']          = command_msg.control_command.s_hand
 
+    #additional commands for jogging
+    command_dict['delta_x']     = command_msg.control_command.delta_x
+    command_dict['delta_y']     = command_msg.control_command.delta_y
+    command_dict['delta_normal']     = command_msg.control_command.delta_normal
+    command_dict['delta_tangential']     = command_msg.control_command.delta_tangential
+    
 
     return command_dict
 
@@ -324,22 +330,29 @@ def command_dict_to_command_stamped(command_dict):
         command_msg.control_command.delta_theta = command_dict['delta_theta']
     elif 'theta' in command_dict:
         command_msg.control_command.theta = command_dict['theta']
-    else:
-        raise RuntimeError("theta unspecified")
 
     if   'delta_s_pivot' in command_dict:
         command_msg.control_command.delta_s_pivot = command_dict['delta_s_pivot']
     elif 's_pivot' in command_dict:
         command_msg.control_command.s_pivot = command_dict['s_pivot']
-    else:
-        raise RuntimeError("s pivot unspecified")
 
     if   'delta_s_hand' in command_dict:
         command_msg.control_command.delta_s_hand = command_dict['delta_s_hand']
     elif 's_hand' in command_dict:
         command_msg.control_command.s_hand = command_dict['s_hand']
-    else:
-        raise RuntimeError("s hand unspecified")
+
+    if   'delta_x' in command_dict:
+        command_msg.control_command.delta_x = command_dict['delta_x']
+
+    if   'delta_y' in command_dict:
+        command_msg.control_command.delta_y = command_dict['delta_y']
+
+
+    if   'delta_normal' in command_dict:
+        command_msg.control_command.delta_normal = command_dict['delta_normal']
+
+    if   'delta_tangential' in command_dict:
+        command_msg.control_command.delta_tangential = command_dict['delta_tangential']
 
     return command_msg
 

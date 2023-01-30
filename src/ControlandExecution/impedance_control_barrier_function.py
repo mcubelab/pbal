@@ -64,153 +64,170 @@ def compute_wall_rotation_vector(v0,v1,hand_pose,theta_hand):
 
     return rotation_vector
 
-if __name__ == '__main__':
+class ImpedanceControlBarrierFunction(object):
+    def __init__(self):
+        pass
 
-    #initialize rosnode and load params
-    node_name = 'impedance_control_test'
-    sys_params = SystemParams()
-    controller_params = sys_params.controller_params
-    RATE = controller_params['RATE']
+    def run_preamble(self):
+        #initialize rosnode and load params
+        self.node_name = 'impedance_control_test'
+        self.sys_params = SystemParams()
+        self.controller_params = self.sys_params.controller_params
+        self.RATE = self.controller_params['RATE']
 
-    rm = ros_manager()
-    rospy.init_node(node_name)
-    rate = rospy.Rate(RATE)
-    rm.subscribe_to_list(['/end_effector_sensor_in_end_effector_frame',
-                          '/end_effector_sensor_in_world_manipulation_frame',
-                          '/ee_pose_in_world_manipulation_from_franka_publisher',
-                          '/barrier_func_control_command'])
+        self.rm = ros_manager()
+        rospy.init_node(self.node_name)
+        self.rate = rospy.Rate(self.RATE)
+        self.rm.subscribe_to_list(['/end_effector_sensor_in_end_effector_frame',
+                              '/end_effector_sensor_in_world_manipulation_frame',
+                              '/ee_pose_in_world_manipulation_from_franka_publisher',
+                              '/barrier_func_control_command'])
 
-    rm.subscribe_to_list(['/pivot_frame_realsense',
-                          '/pivot_frame_estimated',
-                          '/generalized_positions',
-                          '/friction_parameters',
-                          '/torque_bound_message',
-                          '/polygon_contact_estimate',],False)
+        self.rm.subscribe_to_list(['/pivot_frame_realsense',
+                              '/pivot_frame_estimated',
+                              '/generalized_positions',
+                              '/friction_parameters',
+                              '/torque_bound_message',
+                              '/polygon_contact_estimate',],False)
 
-    rm.spawn_publisher_list(['/pivot_sliding_commanded_flag',
-                             '/qp_debug_message',
-                             '/target_frame'])
+        self.rm.spawn_publisher_list(['/pivot_sliding_commanded_flag',
+                                 '/qp_debug_message',
+                                 '/target_frame'])
 
-    rm.spawn_transform_listener()
+        self.rm.spawn_transform_listener()
 
-    (wm_to_base_trans, wm_to_base_rot) = rm.lookupTransform('/world_manipulation_frame','base')
-    wm_to_base = kh.matrix_from_trans_and_quat(wm_to_base_trans,wm_to_base_rot)
+        (wm_to_base_trans, wm_to_base_rot) = self.rm.lookupTransform('/world_manipulation_frame','base')
+        self.wm_to_base = kh.matrix_from_trans_and_quat(wm_to_base_trans,wm_to_base_rot)
 
-    rm.impedance_mode_helper()
-    
-    # wait until messages have been received from all essential ROS topics before proceeding
-    rm.wait_for_necessary_data()
-    rm.ee_pose_in_world_manipulation_unpack()
+        self.rm.impedance_mode_helper()
+        
+        # wait until messages have been received from all essential ROS topics before proceeding
+        self.rm.wait_for_necessary_data()
+        self.rm.ee_pose_in_world_manipulation_unpack()
 
-    # impedance parameters
-    TIPI        = controller_params['TRANSLATIONAL_IN_PLANE_IMPEDANCE']
-    TOOPI       = controller_params['TRANSLATIONAL_OUT_OF_PLANE_IMPEDANCE']
-    RIPI        = controller_params['ROTATIONAL_IN_PLANE_IMPEDANCE']
-    ROOPI       = controller_params['ROTATIONAL_OUT_OF_PLANE_IMPEDANCE']
+        # impedance parameters
+        self.TIPI        = self.controller_params['TRANSLATIONAL_IN_PLANE_IMPEDANCE']
+        self.TOOPI       = self.controller_params['TRANSLATIONAL_OUT_OF_PLANE_IMPEDANCE']
+        self.RIPI        = self.controller_params['ROTATIONAL_IN_PLANE_IMPEDANCE']
+        self.ROOPI       = self.controller_params['ROTATIONAL_OUT_OF_PLANE_IMPEDANCE']
 
-    INTEGRAL_MULTIPLIER = controller_params['INTEGRAL_MULTIPLIER']
+        self.INTEGRAL_MULTIPLIER = self.controller_params['INTEGRAL_MULTIPLIER']
 
-    rm.set_matrices_pbal_mode(TIPI,TOOPI,RIPI,ROOPI,wm_to_base[0:3,0:3])
+        self.rm.set_matrices_pbal_mode(self.TIPI,self.TOOPI,self.RIPI,self.ROOPI,self.wm_to_base[0:3,0:3])
 
-    # initialize solver
-    pbc = ModularBarrierController(sys_params.pivot_params,sys_params.object_params)
+        # initialize solver
+        self.pbc = ModularBarrierController(self.sys_params.pivot_params,self.sys_params.object_params)
 
-    # initial impedance target in the world manipulation frame
-    impedance_target = get_robot_world_manipulation_xyz_theta2(rm.ee_pose_in_world_manipulation_list)
-
-    command_flag, mode, coord_set, t_recent_command = None, None, None, None
-    mode, theta_start, pivot, coord_set = None, None, None, {}
-    l_hand, s_hand, theta_hand = None, None, None
-
-
-    waypoint_pose_list_world_manipulation = robot2_pose_list(impedance_target[:3].tolist(),impedance_target[3])
-    waypoint_pose_list = kh.pose_list_from_matrix(np.dot(wm_to_base, kh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
-    rm.set_cart_impedance_pose(waypoint_pose_list)
-
-    time.sleep(1.0)
-
-    # object for computing loop frequnecy
-    rm.init_time_logger(node_name)
-    rm.init_qp_time()
-
-    print('starting control loop')
-    while not rospy.is_shutdown():
-        rm.tl_reset()
-        rm.unpack_all()
+    def unpack_basic_pivot_command(self):
 
         # snapshot of current generalized position estimate
-        if rm.state_not_exists_bool:
-            l_hand, s_hand, theta_hand = None, None, kh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
+        if self.rm.state_not_exists_bool:
+            l_hand, s_hand, theta_hand = None, None, kh.quatlist_to_theta(self.rm.ee_pose_in_world_manipulation_list[3:])
         else:
-            l_hand, s_hand, theta_hand = rm.l_hand, rm.s_hand, rm.theta_hand
+            l_hand, s_hand, theta_hand = self.rm.l_hand, self.rm.s_hand, self.rm.theta_hand
 
         # update estimated values in controller
-        if rm.pivot_xyz is None:
+        if self.rm.pivot_xyz is None:
             pivot = None
         else:
-            pivot = np.array([rm.pivot_xyz[0], rm.pivot_xyz[1]])
+            pivot = np.array([self.rm.pivot_xyz[0], self.rm.pivot_xyz[1]])
+
+        theta_target = None
+        s_target = None
+        s_pivot_target = None
+        target_xyz_theta_robot_frame = None
+        theta_start = None
 
         # unpack current message
-        if rm.barrier_func_control_command_has_new and (rm.command_msg['command_flag']==0 or rm.command_msg['command_flag']==1):
-            t_recent_command = time.time()
-            command_flag = rm.command_msg['command_flag']
-            mode = rm.command_msg['mode']
+        command_flag = self.rm.command_msg['command_flag']
 
-            if mode == -1 or mode == 6:
-                coord_set = {'theta'}
-            if mode == 0 or mode == 1 or mode == 4 or mode == 5 or mode == 7 or mode == 8 or mode == 9:
-                coord_set = {'theta','s_hand'}
-            if mode == 2 or mode == 3 or mode == 10 or mode == 11:
-                coord_set = {'theta','s_pivot'}
+        mode = self.rm.command_msg['mode']
 
-            if command_flag == 0: # absolute move
-                if 'theta' in coord_set:                    
-                    theta_target = rm.command_msg['theta']
-                if 's_hand' in coord_set:
-                    s_target = rm.command_msg['s_hand']
-                if 's_pivot' in coord_set:
-                    s_pivot_target = rm.command_msg['s_pivot']                                  
+        if mode == -1 or mode == 6:
+            coord_set = {'theta'}
+        if mode == 0 or mode == 1 or mode == 4 or mode == 5 or mode == 7 or mode == 8 or mode == 9:
+            coord_set = {'theta','s_hand'}
+        if mode == 2 or mode == 3 or mode == 10 or mode == 11:
+            coord_set = {'theta','s_pivot'}
 
-            if command_flag == 1: # relative move
-                # current pose
-                starting_xyz_theta_robot_frame = get_robot_world_manipulation_xyz_theta2(rm.ee_pose_in_world_manipulation_list)
+        if command_flag == 0: # absolute move
+            if 'theta' in coord_set:                    
+                theta_target = self.rm.command_msg['theta']
+            if 's_hand' in coord_set:
+                s_target = self.rm.command_msg['s_hand']
+            if 's_pivot' in coord_set:
+                s_pivot_target = self.rm.command_msg['s_pivot']                                  
 
-                # target pose
-                target_xyz_theta_robot_frame = np.array(starting_xyz_theta_robot_frame)
+        if command_flag == 1: # relative move
+            # current pose
+            starting_xyz_theta_robot_frame = get_robot_world_manipulation_xyz_theta2(self.rm.ee_pose_in_world_manipulation_list)
 
-                theta_start = target_xyz_theta_robot_frame[3]
+            # target pose
+            target_xyz_theta_robot_frame = np.array(starting_xyz_theta_robot_frame)
 
-                if 'theta' in coord_set:
-                    delta_theta = rm.command_msg['delta_theta']
+            theta_start = target_xyz_theta_robot_frame[3]
 
-                    theta_target = target_xyz_theta_robot_frame[3] + delta_theta
+            if 'theta' in coord_set:
+                delta_theta = self.rm.command_msg['delta_theta']
 
-                if 's_hand' in coord_set:
-                    delta_s_hand = rm.command_msg['delta_s_hand']
-                    if rm.state_not_exists_bool:
-                        target_xyz_theta_robot_frame[0] += delta_s_hand *  np.sin(target_xyz_theta_robot_frame[3])
-                        target_xyz_theta_robot_frame[1] += delta_s_hand * -np.cos(target_xyz_theta_robot_frame[3])
+                theta_target = target_xyz_theta_robot_frame[3] + delta_theta
 
-                    else:
-                        s_target = s_hand + delta_s_hand
-                if 's_pivot' in coord_set:
-                    delta_s_pivot = rm.command_msg['delta_s_pivot']
-                    if rm.state_not_exists_bool:
-                        target_xyz_theta_robot_frame[1] += delta_s_pivot
-                    else:
-                        s_pivot_target = pivot[1] + delta_s_pivot
+            if 's_hand' in coord_set:
+                delta_s_hand = self.rm.command_msg['delta_s_hand']
+                if self.rm.state_not_exists_bool:
+                    target_xyz_theta_robot_frame[0] += delta_s_hand *  np.sin(target_xyz_theta_robot_frame[3])
+                    target_xyz_theta_robot_frame[1] += delta_s_hand * -np.cos(target_xyz_theta_robot_frame[3])
 
-            # publish if we intend to slide at pivot
-            if mode == 2 or mode == 3:
-                pivot_sliding_commanded_flag = True
-            else:
-                pivot_sliding_commanded_flag = False
+                else:
+                    s_target = s_hand + delta_s_hand
+            if 's_pivot' in coord_set:
+                delta_s_pivot = self.rm.command_msg['delta_s_pivot']
+                if self.rm.state_not_exists_bool:
+                    target_xyz_theta_robot_frame[1] += delta_s_pivot
+                else:
+                    s_pivot_target = pivot[1] + delta_s_pivot
 
 
-        # compute error
+        output_dict = {
+            'command_flag': command_flag,
+            'mode': mode,
+            'coord_set': coord_set,
+            'theta_target': theta_target,
+            's_target': s_target,
+            's_pivot_target': s_pivot_target,
+            'target_xyz_theta_robot_frame': target_xyz_theta_robot_frame,
+            'theta_start': theta_start,
+        }
+
+        return output_dict
+
+    def run_modular_barrier_controller(self,command_dict):
+        command_flag = command_dict['command_flag']
+        mode = command_dict['mode']
+
+        coord_set = command_dict['coord_set']
+        theta_target = command_dict['theta_target']
+        s_target = command_dict['s_target']
+        s_pivot_target = command_dict['s_pivot_target']
+        target_xyz_theta_robot_frame = command_dict['target_xyz_theta_robot_frame']
+        theta_start = command_dict['theta_start']
+
+
+
+        # snapshot of current generalized position estimate
+        if self.rm.state_not_exists_bool:
+            l_hand, s_hand, theta_hand = None, None, kh.quatlist_to_theta(self.rm.ee_pose_in_world_manipulation_list[3:])
+        else:
+            l_hand, s_hand, theta_hand = self.rm.l_hand, self.rm.s_hand, self.rm.theta_hand
+
+        # update estimated values in controller
+        if self.rm.pivot_xyz is None:
+            pivot = None
+        else:
+            pivot = np.array([self.rm.pivot_xyz[0], self.rm.pivot_xyz[1]])
 
         # current pose
-        current_xyz_theta_robot_frame = get_robot_world_manipulation_xyz_theta2(rm.ee_pose_in_world_manipulation_list)
+        current_xyz_theta_robot_frame = get_robot_world_manipulation_xyz_theta2(self.rm.ee_pose_in_world_manipulation_list)
 
         error_dict = dict()
 
@@ -223,7 +240,7 @@ if __name__ == '__main__':
                 error_dict['error_theta']+= 2*np.pi
 
         if 's_hand' in coord_set:
-            if rm.state_not_exists_bool and command_flag == 1:
+            if self.rm.state_not_exists_bool and command_flag == 1:
                 #Note! X-axis of world_manipulation frame is usually vertical (normal direction to ground surface)
                 #while Y-axis of world_manipulation frame points to the left  (tangential direction to ground surface)
                 #hence the weird indexing.  delta_x_robot_frame and delta_y_robot_frame are the error of the x-y coords
@@ -233,13 +250,13 @@ if __name__ == '__main__':
                 
                 error_dict['error_s_hand'] = delta_x_robot_frame * np.sin(theta_start) + delta_y_robot_frame* -np.cos(theta_start)
 
-            if not rm.state_not_exists_bool:
+            if not self.rm.state_not_exists_bool:
                 error_dict['error_s_hand'] = s_hand - s_target
         if 's_pivot' in coord_set:
-            if rm.state_not_exists_bool and command_flag == 1:
+            if self.rm.state_not_exists_bool and command_flag == 1:
                 error_dict['error_s_pivot'] = current_xyz_theta_robot_frame[1] - target_xyz_theta_robot_frame[1]
 
-            if not rm.state_not_exists_bool:
+            if not self.rm.state_not_exists_bool:
                 error_dict['error_s_pivot'] = pivot[1] - s_pivot_target
 
         rotation_vector = None
@@ -248,25 +265,25 @@ if __name__ == '__main__':
 
         time_since_prev_pivot_estimate = None
 
-        if rm.pivot_xyz_estimated is not None:
-            time_since_prev_pivot_estimate = rm.eval_current_time()-rm.pivot_message_estimated_time
+        if self.rm.pivot_xyz_estimated is not None:
+            time_since_prev_pivot_estimate = self.rm.eval_current_time()-self.rm.pivot_message_estimated_time
 
             
         if time_since_prev_pivot_estimate is not None and time_since_prev_pivot_estimate<2.0:
-            rotation_vector = compute_rotation_vector(rm.pivot_xyz_estimated,current_xyz_theta_robot_frame,theta_hand)
+            rotation_vector = compute_rotation_vector(self.rm.pivot_xyz_estimated,current_xyz_theta_robot_frame,theta_hand)
 
         time_since_prev_polygon_contact_estimate = None
 
-        if rm.polygon_contact_estimate_dict is not None:
-            time_since_prev_polygon_contact_estimate = rm.eval_current_time()-rm.polygon_contact_estimate_time
+        if self.rm.polygon_contact_estimate_dict is not None:
+            time_since_prev_polygon_contact_estimate = self.rm.eval_current_time()-self.rm.polygon_contact_estimate_time
 
         torque_line_contact_external_A = None
         torque_line_contact_external_B = None
 
         if (time_since_prev_polygon_contact_estimate is not None and time_since_prev_polygon_contact_estimate<2.0):
-            vertex_array_wm  = rm.polygon_contact_estimate_dict['vertex_array']
+            vertex_array_wm  = self.rm.polygon_contact_estimate_dict['vertex_array']
 
-            contact_vertices = shape_prior_helper.determine_wall_contact_vertices_for_controller(vertex_array_wm,rm.measured_world_manipulation_wrench)
+            contact_vertices = shape_prior_helper.determine_wall_contact_vertices_for_controller(vertex_array_wm,self.rm.measured_world_manipulation_wrench)
 
             if len(contact_vertices)==2:
                 v0 = vertex_array_wm[:,contact_vertices[0]]
@@ -277,7 +294,7 @@ if __name__ == '__main__':
                 rotation_vector1 = compute_rotation_vector(v1,current_xyz_theta_robot_frame,theta_hand)
 
 
-                if np.dot(rm.measured_contact_wrench,rotation_vector0)>np.dot(rm.measured_contact_wrench,rotation_vector1):          
+                if np.dot(self.rm.measured_contact_wrench,rotation_vector0)>np.dot(self.rm.measured_contact_wrench,rotation_vector1):          
                     temp = rotation_vector0
                     rotation_vector0 = rotation_vector1
                     rotation_vector1 = temp
@@ -302,7 +319,7 @@ if __name__ == '__main__':
                     
 
                 if mode == 7 or mode == 8 or mode == 9 or mode == 10 or mode == 11:
-                    torque_errors = np.dot(torque_line_contact_external_A,rm.measured_contact_wrench)-torque_line_contact_external_B
+                    torque_errors = np.dot(torque_line_contact_external_A,self.rm.measured_contact_wrench)-torque_line_contact_external_B
 
                     if torque_errors[0]>0.0 and torque_errors[1]<=0.0:
                         error_dict['error_theta'] = .05*(torque_errors[0]-torque_errors[1])
@@ -343,56 +360,103 @@ if __name__ == '__main__':
                         rotation_vector = temp
 
 
-
-
         # rotation_vector = None
             # print(rotation_vector)
 
             # rotation_vector = None
 
         # update controller
-        pbc.update_controller(
+        self.pbc.update_controller(
             mode = mode, 
             theta_hand = theta_hand, 
-            contact_wrench = rm.measured_contact_wrench,
-            friction_parameter_dict = rm.friction_parameter_dict,
+            contact_wrench = self.rm.measured_contact_wrench,
+            friction_parameter_dict = self.rm.friction_parameter_dict,
             error_dict = error_dict,
             rotation_vector = rotation_vector,
-            torque_bounds = rm.torque_bounds,
+            torque_bounds = self.rm.torque_bounds,
             torque_line_contact_external_A = torque_line_contact_external_A,
             torque_line_contact_external_B = torque_line_contact_external_B)
 
         # compute wrench increment
-        wrench_increment_contact, debug_dict = pbc.solve_for_delta_wrench()
-  
-        debug_dict['snewrb'] = rm.state_not_exists_bool
-        if 'name' in rm.command_msg:
-            debug_dict['name'] = rm.command_msg['name']
-        else:
-            debug_dict['name'] = ''
+        wrench_increment_contact, debug_dict = self.pbc.solve_for_delta_wrench()
 
-        # convert wrench to robot frame
-        
-        wrench_increment_robot = np.dot(wrench_transform_contact2world_manipulation(theta_hand), wrench_increment_contact)
+        return wrench_increment_contact, debug_dict
 
-        # compute impedance increment
-        impedance_increment_robot = np.array(wrench_increment_robot)
 
-        impedance_target[0]+= impedance_increment_robot[0]*INTEGRAL_MULTIPLIER/(TIPI*RATE)
-        impedance_target[1]+= impedance_increment_robot[1]*INTEGRAL_MULTIPLIER/(TIPI*RATE)
-        impedance_target[3]+= impedance_increment_robot[2]*INTEGRAL_MULTIPLIER/(RIPI*RATE)
+    def run_main_loop(self):
+
+        # initial impedance target in the world manipulation frame
+        impedance_target = get_robot_world_manipulation_xyz_theta2(self.rm.ee_pose_in_world_manipulation_list)
+
+        current_command_mode = None
+        l_hand, s_hand, theta_hand = None, None, None
+
 
         waypoint_pose_list_world_manipulation = robot2_pose_list(impedance_target[:3].tolist(),impedance_target[3])
+        waypoint_pose_list = kh.pose_list_from_matrix(np.dot(self.wm_to_base, kh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
+        self.rm.set_cart_impedance_pose(waypoint_pose_list)
 
-        waypoint_pose_list = kh.pose_list_from_matrix(np.dot(wm_to_base, kh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
-        rm.set_cart_impedance_pose(waypoint_pose_list)
+        time.sleep(1.0)
 
-        rm.pub_pivot_sliding_commanded_flag(pivot_sliding_commanded_flag)
-        rm.pub_target_frame(waypoint_pose_list)
-        rm.pub_qp_debug_message(debug_dict)
+        # object for computing loop frequnecy
+        self.rm.init_time_logger(self.node_name)
+        self.rm.init_qp_time()
 
-        # log timing info
-        rm.log_time()
-        rm.log_qp_time(debug_dict['solve_time'])
+        print('starting control loop')
+        while not rospy.is_shutdown():
+            self.rm.tl_reset()
+            self.rm.unpack_all()
 
-        rate.sleep()
+            # snapshot of current generalized position estimate
+            if self.rm.state_not_exists_bool:
+                l_hand, s_hand, theta_hand = None, None, kh.quatlist_to_theta(self.rm.ee_pose_in_world_manipulation_list[3:])
+            else:
+                l_hand, s_hand, theta_hand = self.rm.l_hand, self.rm.s_hand, self.rm.theta_hand
+
+
+
+            # unpack current message
+            if self.rm.barrier_func_control_command_has_new and (self.rm.command_msg['command_flag']==0 or self.rm.command_msg['command_flag']==1):
+                current_command_mode = self.rm.command_msg['command_flag']
+                command_dict = self.unpack_basic_pivot_command()
+
+            if current_command_mode == 0 or current_command_mode == 1:
+                wrench_increment_contact, debug_dict = self.run_modular_barrier_controller(command_dict)           
+
+          
+                debug_dict['snewrb'] = self.rm.state_not_exists_bool
+                if 'name' in self.rm.command_msg:
+                    debug_dict['name'] = self.rm.command_msg['name']
+                else:
+                    debug_dict['name'] = ''
+
+                # convert wrench to robot frame
+                wrench_increment_robot = np.dot(wrench_transform_contact2world_manipulation(theta_hand), wrench_increment_contact)
+
+                # compute impedance increment
+                impedance_increment_robot = np.array(wrench_increment_robot)
+
+                impedance_target[0]+= impedance_increment_robot[0]*self.INTEGRAL_MULTIPLIER/(self.TIPI*self.RATE)
+                impedance_target[1]+= impedance_increment_robot[1]*self.INTEGRAL_MULTIPLIER/(self.TIPI*self.RATE)
+                impedance_target[3]+= impedance_increment_robot[2]*self.INTEGRAL_MULTIPLIER/(self.RIPI*self.RATE)
+
+
+            waypoint_pose_list_world_manipulation = robot2_pose_list(impedance_target[:3].tolist(),impedance_target[3])
+            
+            waypoint_pose_list = kh.pose_list_from_matrix(np.dot(self.wm_to_base, kh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
+            self.rm.set_cart_impedance_pose(waypoint_pose_list)
+
+            # self.rm.pub_pivot_sliding_commanded_flag(pivot_sliding_commanded_flag)
+            self.rm.pub_target_frame(waypoint_pose_list)
+            self.rm.pub_qp_debug_message(debug_dict)
+
+            # log timing info
+            self.rm.log_time()
+            self.rm.log_qp_time(debug_dict['solve_time'])
+
+            self.rate.sleep()
+
+if __name__ == '__main__':
+    my_controller = ImpedanceControlBarrierFunction()
+    my_controller.run_preamble()
+    my_controller.run_main_loop()
