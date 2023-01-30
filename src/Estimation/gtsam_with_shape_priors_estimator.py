@@ -1,18 +1,10 @@
 from functools import partial
-from typing import List, Optional
 
 import gtsam
 import numpy as np
 
-import matplotlib.pyplot as plt
-from matplotlib import cm
-import matplotlib.lines as lines
-
 from Estimation import shape_prior_helper
-
 import Helpers.kinematics_helper as kh
-import PlottingandVisualization.image_overlay_helper as ioh
-
 
 class gtsam_with_shape_priors_estimator(object):
     def __init__(self,object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog):
