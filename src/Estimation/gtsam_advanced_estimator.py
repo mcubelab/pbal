@@ -13,19 +13,24 @@ class gtsam_advanced_estimator(object):
     def __init__(self, object_vertex_array, obj_pose_homog, ee_pose_in_world_manipulation_homog):
         
         self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
-        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .8)
+        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .005)
         self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
         self.error_s_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
 
         self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, .01)
 
 
-        self.error_oject_vertex_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .01)
+        self.error_oject_vertex_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
         self.error_vision_reference_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
 
         self.error_limited_movement_model = gtsam.noiseModel.Isotropic.Sigma(1, 10.)
 
         self.error_strong_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
+
+        self.const_current_denominator = 100
+        self.const_max_denominator =10000
+
+        self.error_reset_const_model = gtsam.noiseModel.Isotropic.Sigma(1, 1/min(self.const_current_denominator,self.const_max_denominator))
 
         self.reset_system(object_vertex_array, obj_pose_homog, ee_pose_in_world_manipulation_homog)
 
@@ -40,6 +45,8 @@ class gtsam_advanced_estimator(object):
         self.theta_obj_in_ee_line_contact_current = shape_prior_dict['theta_offset_list']
         self.test_object_vertex_array = shape_prior_dict['test_object_vertex_array']
         self.num_vertices = shape_prior_dict['num_vertices']
+
+        print('num vertices = ', self.num_vertices)
 
         self.vision_matching_array = np.array(self.test_object_vertex_array)+0.0
 
@@ -56,13 +63,10 @@ class gtsam_advanced_estimator(object):
 
         self.wall_contact_on = False
 
-        # New Values container
-        self.optimizer_values = gtsam.Values()
-
-        # Initialize optimizer
+        # Initialize optimizer and values container
         self.isam = gtsam.NonlinearISAM(reorderInterval=0)
         self.my_graph = gtsam.NonlinearFactorGraph()
-
+        self.optimizer_values = gtsam.Values()
 
         self.initialize_basic_system()
 
@@ -126,15 +130,25 @@ class gtsam_advanced_estimator(object):
 
 
     def compute_basic_estimate(self):
-        for contact_vertex in self.contact_vertices_dict:
-            if (self.contact_vertices_dict[contact_vertex][2]-self.contact_vertices_dict[contact_vertex][1]<np.pi/40 or self.contact_vertices_dict[contact_vertex][0]<20):
-                return None
+
+        self.const_current_denominator+=5
+        self.error_reset_const_model = gtsam.noiseModel.Isotropic.Sigma(1, 1/min(self.const_current_denominator,self.const_max_denominator))
+
+        # for contact_vertex in self.contact_vertices_dict:
+        #     if (self.contact_vertices_dict[contact_vertex][2]-self.contact_vertices_dict[contact_vertex][1]<np.pi/20 or self.contact_vertices_dict[contact_vertex][0]<40):
+        #         return None
 
         if not self.has_run_once:
             print('running ISAM for first time')
         
         self.isam.update(self.my_graph,self.optimizer_values)
         result = self.isam.estimate()
+
+        self.isam = gtsam.NonlinearISAM(reorderInterval=0)
+        self.my_graph = gtsam.NonlinearFactorGraph()
+        self.optimizer_values = gtsam.Values()
+
+        # self.add_regularization_constraint(symbol, ref_val, self.error_reset_const_model, True)
 
 
         if not self.has_run_once:
@@ -146,18 +160,27 @@ class gtsam_advanced_estimator(object):
         self.vertex_positions_ee_current = [[], []]
 
         self.s_current = result.atVector(self.symbol_dict['s_hand'][self.current_contact_face][self.current_time_step])[0]
+        self.add_regularization_constraint(self.symbol_dict['s_hand'][self.current_contact_face][self.current_time_step], self.s_current, self.error_strong_prior_model, True)
+
+        self.h_ground_current = result.atVector(self.symbol_dict['h_ground'])[0]
+        self.add_regularization_constraint(self.symbol_dict['h_ground'], self.h_ground_current, self.error_reset_const_model, True)
 
         self.mglcostheta_current = [0.0]*self.num_vertices
         self.mglsintheta_current = [0.0]*self.num_vertices
 
         for i in range(self.num_vertices):
             self.d_hand_current[i] = result.atVector(self.symbol_dict['d_hand'][i])[0]
-            self.theta_obj_in_ee_line_contact_current[i] = result.atVector(self.symbol_dict['theta_obj_in_ee_line_contact'][i])[0]
+            self.add_regularization_constraint(self.symbol_dict['d_hand'][i], self.d_hand_current[i], self.error_reset_const_model, True)
 
+            self.theta_obj_in_ee_line_contact_current[i] = result.atVector(self.symbol_dict['theta_obj_in_ee_line_contact'][i])[0]
+            self.add_regularization_constraint(self.symbol_dict['theta_obj_in_ee_line_contact'][i], self.theta_obj_in_ee_line_contact_current[i], self.error_reset_const_model, True)
 
         for i in range(self.num_vertices):
             self.vertex_positions_ee_current[0].append(result.atVector(self.symbol_dict['r0_point_in_obj_frame'][i])[0])
             self.vertex_positions_ee_current[1].append(result.atVector(self.symbol_dict['r1_point_in_obj_frame'][i])[0])
+
+            self.add_regularization_constraint(self.symbol_dict['r0_point_in_obj_frame'][i], self.vertex_positions_ee_current[0][i], self.error_reset_const_model, True)
+            self.add_regularization_constraint(self.symbol_dict['r1_point_in_obj_frame'][i], self.vertex_positions_ee_current[1][i], self.error_reset_const_model, True)
 
             self.test_object_vertex_array[0, i] = self.vertex_positions_ee_current[0][i]
             self.test_object_vertex_array[1, i] = self.vertex_positions_ee_current[1][i]
@@ -176,13 +199,14 @@ class gtsam_advanced_estimator(object):
             self.mglcostheta_current[i]=result.atVector(self.symbol_dict['mglcostheta'][i])[0]
             self.mglsintheta_current[i]=result.atVector(self.symbol_dict['mglsintheta'][i])[0]
 
+            self.add_regularization_constraint(self.symbol_dict['mglcostheta'][i], self.mglcostheta_current[i], self.error_reset_const_model, True)
+            self.add_regularization_constraint(self.symbol_dict['mglsintheta'][i], self.mglsintheta_current[i], self.error_reset_const_model, True)
+
             
 
 
-        
-
-        self.my_graph.resize(0)
-        self.optimizer_values.clear()
+        # self.my_graph.resize(0)
+        # self.optimizer_values.clear()
 
         current_estimate_dict = {}
         current_estimate_dict['vertex_positions_wm_current'] = self.vertex_positions_wm_current
@@ -663,7 +687,7 @@ def estimate_external_COP(test_object_vertex_array, r_obj_in_ee_frame, theta_obj
     Pb_obj = test_object_vertex_array[0:2,contact_indices[1]]
 
     P_a, dummy0, dummy1, dummy2 = transform_pts_obj_to_wm(Pa_obj, r_obj_in_ee_frame, theta_obj_in_ee, hand_pose[0:2], hand_pose[2])
-    P_b, dummy0, dummy1, dummy2 = transform_pts_obj_to_wm(Pa_obj, r_obj_in_ee_frame, theta_obj_in_ee, hand_pose[0:2], hand_pose[2])
+    P_b, dummy0, dummy1, dummy2 = transform_pts_obj_to_wm(Pb_obj, r_obj_in_ee_frame, theta_obj_in_ee, hand_pose[0:2], hand_pose[2])
     P_e = hand_pose[0:2]
 
 

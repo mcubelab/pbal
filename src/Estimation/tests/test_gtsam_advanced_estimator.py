@@ -36,7 +36,7 @@ def get_shape_prior():
 
     # vertex_list = img_seg.find_the_object(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
     visited_array = np.zeros([len(cv_image),len(cv_image[0])])
-    vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array, is_fine = True)
+    vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array, is_fine = False)
 
     rm.unregister_all()
 
@@ -112,6 +112,7 @@ if __name__ == '__main__':
     print('starting estimator')
 
     publish_count = 0
+    vision_count = 0
 
     while (rm.load_mode and rm.read_still_running()) or (not rm.load_mode and not rospy.is_shutdown()):
         rm.unpack_all()
@@ -138,11 +139,13 @@ if __name__ == '__main__':
             current_estimator.add_basic_constraints()
 
 
-            if rm.polygon_vision_estimate_dict is not None:
-                vision_vertex_array = rm.polygon_vision_estimate_dict['vertex_array']
-                current_estimator.add_vision_estimate(vision_vertex_array)
+            if rm.polygon_vision_estimate_has_new and rm.polygon_vision_estimate_dict is not None:
+                vision_count+=1
 
-                current_estimator.add_basic_vision_constraints()
+                if vision_count%1==0:
+                    vision_vertex_array = rm.polygon_vision_estimate_dict['vertex_array']
+                    current_estimator.add_vision_estimate(vision_vertex_array)
+                    current_estimator.add_basic_vision_constraints()
 
 
             hand_front_center_world = np.dot(rm.ee_pose_in_world_manipulation_homog,hand_front_center)
