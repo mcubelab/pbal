@@ -11,3 +11,9 @@ float32 delta_s_hand
 float32 theta
 float32 s_pivot
 float32 s_hand
+
+#jog commands
+float32 delta_x
+float32 delta_y
+float32 delta_normal
+float32 delta_tangential
