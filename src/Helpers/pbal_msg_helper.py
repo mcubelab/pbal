@@ -321,9 +321,14 @@ def command_dict_to_command_stamped(command_dict):
     if command_dict is None:
         return command_msg
 
-    command_msg.control_command.name            = command_dict['name']
-    command_msg.control_command.command_flag    = command_dict['command_flag']
-    command_msg.control_command.mode            = command_dict['mode']
+    if 'name' in command_dict:
+        command_msg.control_command.name = command_dict['name']
+
+    if 'command_flag' in command_dict:
+        command_msg.control_command.command_flag = command_dict['command_flag']
+
+    if 'mode' in command_dict:
+        command_msg.control_command.mode = command_dict['mode']
 
 
     if   'delta_theta' in command_dict:

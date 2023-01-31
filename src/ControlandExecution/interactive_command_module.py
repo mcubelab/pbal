@@ -204,6 +204,107 @@ wall_contact_off = {
 }
 
 
+jog_rotate_left = {
+    'name': 'jog_rotate_left',
+    'command_flag' : 3,
+    'delta_theta' : np.pi/50,
+    'delta_x': 0.0,
+    'delta_y': 0.0,
+    'delta_normal': 0.0,
+    'delta_tangential': 0.0,
+}
+
+jog_rotate_right = {
+    'name': 'jog_rotate_right',
+    'command_flag' : 3,
+    'delta_theta' : -np.pi/50,
+    'delta_x': 0.0,
+    'delta_y': 0.0,
+    'delta_normal': 0.0,
+    'delta_tangential': 0.0,
+}
+
+jog_move_left = {
+    'name': 'jog_move_left',
+    'command_flag' : 3,
+    'delta_theta' : 0.0,
+    'delta_x': -0.005,
+    'delta_y': 0.0,
+    'delta_normal': 0.0,
+    'delta_tangential': 0.0,
+}
+
+jog_move_right = {
+    'name': 'jog_move_right',
+    'command_flag' : 3,
+    'delta_theta' : 0.0,
+    'delta_x': 0.005,
+    'delta_y': 0.0,
+    'delta_normal': 0.0,
+    'delta_tangential': 0.0,
+}
+
+jog_move_up = {
+    'name': 'jog_move_up',
+    'command_flag' : 3,
+    'delta_theta' : 0.0,
+    'delta_x': 0.0,
+    'delta_y': 0.005,
+    'delta_normal': 0.0,
+    'delta_tangential': 0.0,
+}
+
+jog_move_down = {
+    'name': 'jog_move_down',
+    'command_flag' : 3,
+    'delta_theta' : 0.0,
+    'delta_x': 0.0,
+    'delta_y': -0.005,
+    'delta_normal': 0.0,
+    'delta_tangential': 0.0,
+}
+
+jog_move_tangential_left = {
+    'name': 'jog_move_tangential_left',
+    'command_flag' : 3,
+    'delta_theta' : 0.0,
+    'delta_x': 0.0,
+    'delta_y': 0.0,
+    'delta_normal': 0.0,
+    'delta_tangential': -0.005,
+}
+
+jog_move_tangential_right = {
+    'name': 'jog_move_tangential_right',
+    'command_flag' : 3,
+    'delta_theta' : 0.0,
+    'delta_x': 0.0,
+    'delta_y': 0.0,
+    'delta_normal': 0.0,
+    'delta_tangential': 0.005,
+}
+
+jog_move_normal_up = {
+    'name': 'jog_move_normal_left',
+    'command_flag' : 3,
+    'delta_theta' : 0.0,
+    'delta_x': 0.0,
+    'delta_y': 0.0,
+    'delta_normal': 0.005,
+    'delta_tangential': 0.0,
+}
+
+jog_move_normal_down = {
+    'name': 'jog_move_normal_right',
+    'command_flag' : 3,
+    'delta_theta' : 0.0,
+    'delta_x': 0.0,
+    'delta_y': 0.0,
+    'delta_normal': -0.005,
+    'delta_tangential': 0.0,
+}
+
+
 def on_release(key):
     try:
         keys_held_down.remove(key)
@@ -310,29 +411,45 @@ def on_press(key):
             print('delta_slide_object_right_external_line_contact')
 
     if modifier_state==2:
-        if k == 'left': 
+        if k == 'left': # jog_rotate_left
+            command_msg_dict = jog_rotate_left
+            print('jog_rotate_left')
 
-            print('jog: rotate left')
+        if k == 'right': # jog_rotate_right
+            command_msg_dict = jog_rotate_right
+            print('jog_rotate_right')
 
-        if k == 'right': 
+        if k == 'up': # jog_move_normal_up
+            command_msg_dict = jog_move_normal_up
+            print('jog_move_normal_up')
 
-            print('jog: rotate right')
+        if k == 'down': # jog_move_normal_down
+            command_msg_dict = jog_move_normal_down
+            print('jog_move_normal_down')
 
-        if k == 'w': 
+        if k == 'q': # jog_move_tangential_left
+            command_msg_dict = jog_move_tangential_left
+            print('jog_move_tangential_left')
 
-            print('jog: move up')
+        if k == 'e': # jog_move_tangential_right
+            command_msg_dict = jog_move_tangential_right
+            print('jog_move_tangential_right')
 
-        if k == 's': 
+        if k == 'w': # jog_move_up
+            command_msg_dict = jog_move_up
+            print('jog_move_up')
 
-            print('jog: move down')
+        if k == 's': # jog_move_down
+            command_msg_dict = jog_move_down
+            print('jog_move_down')
 
-        if k == 'a': 
+        if k == 'a': # jog_move_left
+            command_msg_dict = jog_move_left
+            print('jog_move_left')
 
-            print('jog: move left')
-
-        if k == 'd': 
-
-            print('jog: move right')
+        if k == 'd': # jog_move_right
+            command_msg_dict = jog_move_right
+            print('jog_move_right')
 
     if command_msg_dict is not None:
         rm.pub_barrier_func_control_command(command_msg_dict)

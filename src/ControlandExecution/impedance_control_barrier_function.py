@@ -201,6 +201,26 @@ class ImpedanceControlBarrierFunction(object):
 
         return output_dict
 
+    def compute_jog_increment(self,command_dict):
+        theta_hand = kh.quatlist_to_theta(self.rm.ee_pose_in_world_manipulation_list[3:])
+
+        rotation_vec = np.array([0.0,0.0,1.0])
+
+        normal_vec = np.array([np.cos(theta_hand),np.sin(theta_hand),0.0])
+        tangential_vec = np.array([np.sin(theta_hand),-np.cos(theta_hand),0.0])
+
+        x_vec = np.array([0.0,-1.0,0.0])
+        y_vec = np.array([1.0,0.0,0.0])
+
+        vec_out =  (command_dict['delta_theta']*rotation_vec+
+                    command_dict['delta_normal']*normal_vec+
+                    command_dict['delta_tangential']*tangential_vec+
+                    command_dict['delta_x']*x_vec+
+                    command_dict['delta_y']*y_vec)
+
+        return vec_out
+
+
     def run_modular_barrier_controller(self,command_dict):
         command_flag = command_dict['command_flag']
         mode = command_dict['mode']
@@ -415,10 +435,15 @@ class ImpedanceControlBarrierFunction(object):
 
 
 
-            # unpack current message
+            # unpack current message if pivot command
             if self.rm.barrier_func_control_command_has_new and (self.rm.command_msg['command_flag']==0 or self.rm.command_msg['command_flag']==1):
                 current_command_mode = self.rm.command_msg['command_flag']
                 command_dict = self.unpack_basic_pivot_command()
+
+            # unpack current message if basic jog command
+            if self.rm.barrier_func_control_command_has_new and self.rm.command_msg['command_flag']==3:
+                current_command_mode = self.rm.command_msg['command_flag']
+                command_dict = self.rm.command_msg
 
             if current_command_mode == 0 or current_command_mode == 1:
                 wrench_increment_contact, debug_dict = self.run_modular_barrier_controller(command_dict)           
@@ -440,19 +465,28 @@ class ImpedanceControlBarrierFunction(object):
                 impedance_target[1]+= impedance_increment_robot[1]*self.INTEGRAL_MULTIPLIER/(self.TIPI*self.RATE)
                 impedance_target[3]+= impedance_increment_robot[2]*self.INTEGRAL_MULTIPLIER/(self.RIPI*self.RATE)
 
+                self.rm.pub_qp_debug_message(debug_dict)
+                self.rm.log_qp_time(debug_dict['solve_time'])
+
+            if self.rm.barrier_func_control_command_has_new and current_command_mode == 3:
+                # compute impedance increment
+                impedance_increment_robot = self.compute_jog_increment(command_dict)
+
+                impedance_target[0]+= impedance_increment_robot[0]
+                impedance_target[1]+= impedance_increment_robot[1]
+                impedance_target[3]+= impedance_increment_robot[2]
+
 
             waypoint_pose_list_world_manipulation = robot2_pose_list(impedance_target[:3].tolist(),impedance_target[3])
-            
+
             waypoint_pose_list = kh.pose_list_from_matrix(np.dot(self.wm_to_base, kh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
             self.rm.set_cart_impedance_pose(waypoint_pose_list)
 
             # self.rm.pub_pivot_sliding_commanded_flag(pivot_sliding_commanded_flag)
             self.rm.pub_target_frame(waypoint_pose_list)
-            self.rm.pub_qp_debug_message(debug_dict)
-
+            
             # log timing info
             self.rm.log_time()
-            self.rm.log_qp_time(debug_dict['solve_time'])
 
             self.rate.sleep()
 
