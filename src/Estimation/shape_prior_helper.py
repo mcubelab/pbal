@@ -154,6 +154,17 @@ def generate_shape_prior_for_advanced_estimator(object_vertex_array,obj_pose_hom
     dict_out['test_object_normal_array'] = test_object_normal_array
     dict_out['num_vertices'] = num_vertices
 
+    # answer check just to make sure the math is consistent
+    # for i in range(num_vertices):
+    #     theta_obj_in_ee = theta_offset_list[i]
+    #     rot_mat_obj = np.array([[ np.cos(theta_obj_in_ee), -np.sin(theta_obj_in_ee)], 
+    #                             [ np.sin(theta_obj_in_ee),  np.cos(theta_obj_in_ee)]])
+    #     answer_check_normal = np.dot(rot_mat_obj,test_object_normal_array[0:2,i])
+    #     print(answer_check_normal)
+
+    #     d_test = np.dot(rot_mat_obj,test_object_vertex_array[0:2,i])[0]
+    #     print(d_test+d_offset_list[i])
+
     return dict_out
 
 

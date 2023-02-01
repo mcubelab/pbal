@@ -16,6 +16,8 @@ import PlottingandVisualization.image_overlay_helper as ioh
 import Estimation.image_segmentation as img_seg
 import random
 
+from Estimation.contact_mode_reasoning import contact_mode_reasoning
+
 def get_shape_prior():
     rm = ros_manager()
     rm.spawn_transform_listener()
@@ -52,6 +54,8 @@ if __name__ == '__main__':
     controller_params = sys_params.controller_params
     initial_object_params = sys_params.object_params
 
+    l_contact = initial_object_params['L_CONTACT_MAX']
+
     RATE = controller_params['RATE']
 
     use_load = False
@@ -82,13 +86,17 @@ if __name__ == '__main__':
     rm.spawn_transform_listener()
 
     rm.subscribe_to_list(['/torque_cone_boundary_test',
+                          '/torque_cone_boundary_flag',
                           '/sliding_state',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
-                          '/end_effector_sensor_in_world_manipulation_frame'],True)
+                          '/end_effector_sensor_in_world_manipulation_frame',
+                          '/end_effector_sensor_in_end_effector_frame'],True)
 
     rm.subscribe_to_list(['/barrier_func_control_command','/polygon_vision_estimate',],False)
 
     wall_contact_on = False
+
+    my_cm_reasoner = contact_mode_reasoning(l_contact)
 
 
     rm.spawn_publisher_list(['/pivot_frame_estimated','/polygon_contact_estimate'])
@@ -117,6 +125,8 @@ if __name__ == '__main__':
     while (rm.load_mode and rm.read_still_running()) or (not rm.load_mode and not rospy.is_shutdown()):
         rm.unpack_all()
 
+        
+
         if rm.barrier_func_control_command_has_new and rm.command_msg['command_flag']==2:
             if rm.command_msg['mode']==0:
                 wall_contact_on = True
@@ -127,6 +137,14 @@ if __name__ == '__main__':
 
         hand_pose_pivot_estimator = np.array([rm.ee_pose_in_world_manipulation_list[0],rm.ee_pose_in_world_manipulation_list[1], theta_hand])
         measured_wrench_pivot_estimator = np.array(rm.measured_world_manipulation_wrench)
+        measured_wrench_ee = np.array(rm.measured_contact_wrench)
+
+        my_cm_reasoner.update_pose_and_wrench(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,measured_wrench_ee)
+        my_cm_reasoner.update_torque_cone_boundary_flag(rm.torque_cone_boundary_test,rm.torque_cone_boundary_flag)
+        my_cm_reasoner.COP_reasoning_hand_contact()
+
+        if rm.polygon_vision_estimate_has_new and rm.polygon_vision_estimate_dict is not None:
+            my_cm_reasoner.update_vision(rm.polygon_vision_estimate_dict['vertex_array'])
 
         if rm.torque_cone_boundary_test is not None and rm.torque_cone_boundary_test:
 

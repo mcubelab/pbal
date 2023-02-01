@@ -12,23 +12,26 @@ import time
 class gtsam_advanced_estimator(object):
     def __init__(self, object_vertex_array, obj_pose_homog, ee_pose_in_world_manipulation_homog):
         
-        self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
-        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .005)
-        self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
-        self.error_s_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .003)
+        self.error_contact_model_factor = .1
+        self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, self.error_contact_model_factor)
+        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
+        self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
+        self.error_s_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
 
-        self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, .01)
+        self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.)
 
+        self.error_object_consistency_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
 
-        self.error_oject_vertex_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
-        self.error_vision_reference_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
+        self.error_oject_vertex_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .05)
+        self.error_vision_reference_model = gtsam.noiseModel.Isotropic.Sigma(1, .05)
 
-        self.error_limited_movement_model = gtsam.noiseModel.Isotropic.Sigma(1, 10.)
+        self.error_limited_movement_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.)
 
-        self.error_strong_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .001)
+        self.error_strong_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
 
-        self.const_current_denominator = 100
-        self.const_max_denominator =10000
+        self.const_current_denominator = 1
+        self.denominator_increment = .1
+        self.const_max_denominator =50
 
         self.error_reset_const_model = gtsam.noiseModel.Isotropic.Sigma(1, 1/min(self.const_current_denominator,self.const_max_denominator))
 
@@ -111,6 +114,11 @@ class gtsam_advanced_estimator(object):
 
             self.add_regularization_constraint(self.symbol_dict['d_hand'][i], self.d_hand_current[i], self.error_var_regularization_model)
 
+            # test_val0 = self.d_hand_current[i]
+            # test_val1 = -(np.cos(self.theta_obj_in_ee_line_contact_current[i])*self.test_object_vertex_array[0][i] -np.sin(self.theta_obj_in_ee_line_contact_current[i])*self.test_object_vertex_array[1][i])
+
+            # print(test_val0,test_val1)
+
 
         self.vertex_positions_wm_current = None
         self.vertex_positions_ee_current = None
@@ -130,8 +138,9 @@ class gtsam_advanced_estimator(object):
 
 
     def compute_basic_estimate(self):
+        self.add_object_consistency_constraints_all_faces()
 
-        self.const_current_denominator+=5
+        self.const_current_denominator+=self.denominator_increment
         self.error_reset_const_model = gtsam.noiseModel.Isotropic.Sigma(1, 1/min(self.const_current_denominator,self.const_max_denominator))
 
         # for contact_vertex in self.contact_vertices_dict:
@@ -255,6 +264,8 @@ class gtsam_advanced_estimator(object):
 
         contact_vertices = shape_prior_helper.determine_contact_vertices(self.theta_obj_in_ee_line_contact_current[self.current_contact_face]+theta_hand,self.test_object_vertex_array,measured_world_manipulation_wrench)
 
+        use_torque_balance = True
+
         if len(contact_vertices)==2:
             r_obj_in_ee_frame = np.array([self.d_hand_current[self.current_contact_face],self.s_current])
             theta_obj_in_ee = self.theta_obj_in_ee_line_contact_current[self.current_contact_face]
@@ -262,11 +273,21 @@ class gtsam_advanced_estimator(object):
             alpha0,alpha1 = estimate_external_COP(self.test_object_vertex_array, r_obj_in_ee_frame, theta_obj_in_ee, self.measured_pose_list[self.current_time_step], 
                                                 measured_world_manipulation_wrench, contact_vertices)
             
-            if alpha0>.9:
+            use_torque_balance = False
+
+            if alpha0>.7:
                 contact_vertices = [contact_vertices[0]]
+
+                if alpha0>.9:
+                    use_torque_balance = True
                 
-            elif alpha1>.9:
+            elif alpha1>.7:
                 contact_vertices = [contact_vertices[1]]
+
+                if alpha1>.9:
+                    use_torque_balance = True
+
+
             
         self.contact_vertices = contact_vertices
 
@@ -291,7 +312,7 @@ class gtsam_advanced_estimator(object):
         sliding_state_dict = self.sliding_state_list[-1]
 
         # if object is in point contact with the ground, the torque balance constraint applies
-        if len(contact_vertices)==1 and not self.wall_contact_on:
+        if len(contact_vertices)==1 and not self.wall_contact_on and use_torque_balance:
             self.add_basic_torque_balance_constraint(contact_vertices[0], hand_contact_face_index)
 
         # height of ground contact points are at the ground
@@ -375,8 +396,49 @@ class gtsam_advanced_estimator(object):
             return is_absent
 
 
+    def add_object_consistency_constraints_all_faces(self):
+        for i in range(self.num_vertices):
+            self.add_basic_object_consistency_constraint(i,i)
+            self.add_basic_object_consistency_constraint(i,(i+1)%self.num_vertices)
+
+    def add_basic_object_consistency_constraint(self, object_face_index, object_vertex_index):
+
+        set_val_dict = {
+            'r1_obj_in_ee_frame': 0.0,
+            'coord_reference': 0.0, 
+        }
+
+        index_dict = {
+            'r0_point_in_obj_frame': 0, 
+            'r1_point_in_obj_frame': 1,
+            'r0_obj_in_ee_frame': 2,
+            'theta_obj_in_ee': 3,
+        }
+
+        symbol_list = [
+            self.symbol_dict['r0_point_in_obj_frame'][object_vertex_index], 
+            self.symbol_dict['r1_point_in_obj_frame'][object_vertex_index],
+            self.symbol_dict['d_hand'][object_face_index],
+            self.symbol_dict['theta_obj_in_ee_line_contact'][object_face_index],
+        ]
+
+        measurement = None
+
+        error_model = self.error_object_consistency_model
+        error_func = partial(eval_error_object_touching_line, measurement, set_val_dict, index_dict, 0)
+
+        my_factor = gtsam.CustomFactor(error_model, symbol_list, error_func)
+
+        self.my_graph.add(my_factor)
 
     def add_basic_vertex_ground_height_constraint(self, ground_contact_vertex_index, hand_contact_face_index):
+        theta_hand = self.measured_pose_list[self.current_time_step][2]
+
+        error_model_multiplier = 1/(np.abs(np.sin(theta_hand))+.00000000001)
+        error_model_factor = error_model_multiplier*self.error_contact_model_factor
+
+        error_model_factor = min(error_model_factor,100)
+
 
         set_val_dict = {
         }
@@ -401,7 +463,8 @@ class gtsam_advanced_estimator(object):
 
         measurement = self.measured_pose_list[-1]
 
-        error_model = self.error_contact_model
+        # error_model = self.error_contact_model
+        error_model = gtsam.noiseModel.Isotropic.Sigma(1, error_model_factor)
         error_func = partial(eval_error_kinematic_wm, measurement, set_val_dict, index_dict, 0)
 
         my_factor = gtsam.CustomFactor(error_model, symbol_list, error_func)
@@ -714,6 +777,90 @@ def estimate_external_COP(test_object_vertex_array, r_obj_in_ee_frame, theta_obj
 # 'r1_obj_in_ee_frame'
 # 'theta_obj_in_ee'
 # 'coord_reference'
+
+def eval_error_object_touching_line(measurement, set_val_dict, index_dict, output_coord_index, this, values, jacobians = None):
+    
+    estimate_vec = []
+    for i in range(len(this.keys())):
+        estimate_vec.append(values.atVector(this.keys()[i])[0])
+
+
+    if 'r0_point_in_obj_frame' in set_val_dict:
+        val_r0_point_in_obj_frame = set_val_dict['r0_point_in_obj_frame']
+    else:
+        index_r0_point_in_obj_frame = index_dict['r0_point_in_obj_frame']
+        val_r0_point_in_obj_frame = estimate_vec[index_r0_point_in_obj_frame]
+
+    index_r1_point_in_obj_frame = None
+    val_r1_point_in_obj_frame = None
+
+    if 'r1_point_in_obj_frame' in set_val_dict:
+        val_r1_point_in_obj_frame = set_val_dict['r1_point_in_obj_frame']
+    else:
+        index_r1_point_in_obj_frame = index_dict['r1_point_in_obj_frame']
+        val_r1_point_in_obj_frame = estimate_vec[index_r1_point_in_obj_frame]
+
+    val_r_point_in_obj_frame = np.array([val_r0_point_in_obj_frame, val_r1_point_in_obj_frame])
+
+
+    index_theta_obj_in_ee = None
+    val_theta_obj_in_ee = None
+
+    if 'theta_obj_in_ee' in set_val_dict:
+        val_theta_obj_in_ee = set_val_dict['theta_obj_in_ee']
+    else:
+        index_theta_obj_in_ee = index_dict['theta_obj_in_ee']
+        val_theta_obj_in_ee = estimate_vec[index_theta_obj_in_ee]
+
+
+    index_r0_obj_in_ee_frame = None
+    val_r0_obj_in_ee_frame = None
+
+    if 'r0_obj_in_ee_frame' in set_val_dict:
+        val_r0_obj_in_ee_frame = set_val_dict['r0_obj_in_ee_frame']
+    else:
+        index_r0_obj_in_ee_frame = index_dict['r0_obj_in_ee_frame']
+        val_r0_obj_in_ee_frame = estimate_vec[index_r0_obj_in_ee_frame]
+
+    index_r1_obj_in_ee_frame = None
+    val_r1_obj_in_ee_frame = None
+
+    if 'r1_obj_in_ee_frame' in set_val_dict:
+        val_r1_obj_in_ee_frame = set_val_dict['r1_obj_in_ee_frame']
+    else:
+        index_r1_obj_in_ee_frame = index_dict['r1_obj_in_ee_frame']
+        val_r1_obj_in_ee_frame = estimate_vec[index_r1_obj_in_ee_frame]
+
+    val_r_obj_in_ee_frame = np.array([val_r0_obj_in_ee_frame, val_r1_obj_in_ee_frame])
+
+
+    index_coord_reference = None
+    val_coord_reference = None
+
+    if 'coord_reference' in set_val_dict:
+        val_coord_reference = set_val_dict['coord_reference']
+    else:
+        index_coord_reference = index_dict['coord_reference']
+        val_coord_reference = estimate_vec[index_coord_reference]
+
+
+    r_out, pr_out_pr_point_in_obj_frame, pr_out_pr_obj_in_ee_frame, pr_out_ptheta_obj_in_ee = \
+    transform_pts_obj_to_ee(val_r_point_in_obj_frame, val_r_obj_in_ee_frame, val_theta_obj_in_ee)
+
+
+
+    error_val = r_out[output_coord_index]-val_coord_reference
+
+    if jacobians is not None:
+        if index_r0_point_in_obj_frame is not None: jacobians[index_r0_point_in_obj_frame] = np.array([pr_out_pr_point_in_obj_frame[output_coord_index, 0]])
+        if index_r1_point_in_obj_frame is not None: jacobians[index_r1_point_in_obj_frame] = np.array([pr_out_pr_point_in_obj_frame[output_coord_index, 1]])
+        if index_r0_obj_in_ee_frame is not None: jacobians[index_r0_obj_in_ee_frame] = np.array([pr_out_pr_obj_in_ee_frame[output_coord_index, 0]])
+        if index_r1_obj_in_ee_frame is not None: jacobians[index_r1_obj_in_ee_frame] = np.array([pr_out_pr_obj_in_ee_frame[output_coord_index, 1]])
+        if index_theta_obj_in_ee is not None: jacobians[index_theta_obj_in_ee] = np.array([pr_out_ptheta_obj_in_ee[output_coord_index]])
+        if index_coord_reference is not None: jacobians[index_coord_reference] = np.array([-1.0])
+
+    return [error_val]
+
 
 def eval_error_kinematic_wm(measurement, set_val_dict, index_dict, output_coord_index, this, values, jacobians = None):
 
