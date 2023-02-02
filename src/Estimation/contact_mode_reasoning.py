@@ -5,7 +5,7 @@ import Helpers.kinematics_helper as kh
 
 class contact_mode_reasoning(object):
     def __init__(self,l_contact):
-        self.vision_reasoning_error_threshold = .015
+        self.vision_reasoning_error_threshold = .03
         self.l_contact = l_contact
 
         self.hand_right_point = np.array([0.0,self.l_contact / 2])
@@ -55,6 +55,21 @@ class contact_mode_reasoning(object):
         self.not_in_contact = None
         self.in_contact = None
         
+    def update_previous_estimate(self,estimate_dict):
+        self.vertices_wm_estimated = estimate_dict['vertex_positions_wm_current']
+        self.vertices_obj_frame = estimate_dict['vertex_positions_obj_current']
+        self.mgl_cos_theta_list = estimate_dict['mglcostheta_current']
+        self.mgl_sin_theta_list = estimate_dict['mglsintheta_current']
+        self.object_position_wm_estimated = estimate_dict['r_obj_in_wm_current']
+        self.object_angle_wm_estimated = estimate_dict['theta_obj_in_wm_current']
+        self.d_offset_list = estimate_dict['d_offset_list_current']
+        self.theta_offset_list = estimate_dict['theta_offset_list']
+        self.num_vertices = estimate_dict['num_vertices']
+        self.hand_contact_face_prev = estimate_dict['hand_contact_face']
+
+        self.normals_array_wm_estimated = shape_prior_helper.get_outward_normals(self.vertices_wm_estimated)
+        self.normals_array_obj_frame = shape_prior_helper.get_outward_normals(self.vertices_obj_frame)
+
 
     def update_pose_and_wrench(self,measured_hand_pose,measured_wrench_wm,measured_wrench_ee):
         self.measured_hand_pose = measured_hand_pose
@@ -95,7 +110,7 @@ class contact_mode_reasoning(object):
         self.is_contact_left = self.torque_cone_boundary_flag == 2
         self.is_contact_right = self.torque_cone_boundary_flag == 1
         self.contact_interior = self.torque_cone_boundary_flag == -1
-        self.not_in_contact = self.torque_cone_boundary_flag is None or self.torque_cone_boundary_flag == 0
+        self.not_in_contact = self.measured_wrench_ee[0]<2.0
         self.in_contact = not self.not_in_contact
 
 
@@ -122,6 +137,15 @@ class contact_mode_reasoning(object):
 
     def update_assuming_prev_state_was_object_touching_hand_corner_contact(self):
         pass
+
+    def compute_hand_contact_face(self):
+        hand_normal = self.rot_mat_hand[:,0]
+        hand_tangent = self.rot_mat_hand[:,1]
+
+        hand_contact_face =  np.argsort(np.dot(hand_normal,self.normals_array_wm_estimated))[0]
+        s_current = np.dot(hand_tangent,self.object_position_wm_estimated-self.measured_hand_pose[0:2])
+
+        return hand_contact_face, s_current
 
     def compute_hypothesis_object_poses_assuming_no_contact(self):
         
@@ -168,8 +192,6 @@ class contact_mode_reasoning(object):
                                         [ np.sin(theta_obj_in_wm),  np.cos(theta_obj_in_wm)]])
 
 
-                
-
                 object_position = self.vertices_wm_estimated[0:2,i]-np.dot(rot_mat_obj,self.vertices_obj_frame[0:2,i])
 
                 hypothesis_object_position_list.append(object_position)
@@ -192,7 +214,46 @@ class contact_mode_reasoning(object):
         pass
 
     def compute_hypothesis_object_poses_assuming_hand_line_object_line_contact(self):
-        pass
+        num_hypothesis = 1
+
+        if self.hand_contact_face_prev is not None:
+            hypothesis_theta_list = [self.theta_offset_list[self.hand_contact_face_prev]+np.pi+self.theta_hand]
+        else:
+            hypothesis_theta_list = [self.object_angle_wm_estimated]
+        hypothesis_object_position_list = [self.object_position_wm_estimated]  
+
+
+        output_dict = {
+            'num_hypothesis': num_hypothesis,
+            'hypothesis_theta_list': hypothesis_theta_list,
+            'hypothesis_object_position_list': hypothesis_object_position_list,
+        }
+
+        return output_dict
+
+    def choose_vision_hypothesis(self,vision_hypothesis_dict,kinematic_hypothesis_dict,theta_error_weight = .7):
+        minimum_error = None
+        hypothesis_index = None
+
+        for i in range(kinematic_hypothesis_dict['num_hypothesis']):
+            for j in range(vision_hypothesis_dict['num_hypothesis']):
+                distance_error = np.linalg.norm(kinematic_hypothesis_dict['hypothesis_object_position_list'][i]-vision_hypothesis_dict['hypothesis_object_position_list'][j])
+                theta_error = kinematic_hypothesis_dict['hypothesis_theta_list'][i]-vision_hypothesis_dict['hypothesis_theta_list'][j]
+
+                while theta_error>np.pi:
+                    theta_error-=2*np.pi
+                while theta_error<-np.pi:
+                    theta_error+=2*np.pi
+
+                theta_error = abs(theta_error)
+
+                total_error = distance_error + theta_error_weight*theta_error
+
+                if minimum_error is None or total_error<minimum_error:
+                    minimum_error = total_error
+                    hypothesis_index = j
+
+        return hypothesis_index
 
     def compute_hypothesis_object_poses_from_vision(self):
         
@@ -219,8 +280,7 @@ class contact_mode_reasoning(object):
 
         if len(self.normals_array_wm_vision[0])==self.num_vertices:
 
-            self.normals_array_wm_vision = shape_prior_helper.get_outward_normals(self.vertices_wm_vision)
-            normals_array_obj_frame = shape_prior_helper.get_outward_normals(self.vertices_obj_frame)
+            
 
 
             theta_list_wm_vision = [0.0]*self.num_vertices
@@ -231,7 +291,7 @@ class contact_mode_reasoning(object):
 
             for i in range(self.num_vertices):
                 theta_list_wm_vision[i] = np.arctan2(self.normals_array_wm_vision[1,i],self.normals_array_wm_vision[0,i])
-                theta_list_obj_frame[i] = np.arctan2(normals_array_obj_frame[1,i],normals_array_obj_frame[0,i])
+                theta_list_obj_frame[i] = np.arctan2(self.normals_array_obj_frame[1,i],self.normals_array_obj_frame[0,i])
 
             for i in range(self.num_vertices):
                 dtheta_list_wm_vision[i] = theta_list_wm_vision[(i+1)%self.num_vertices]-theta_list_wm_vision[i]
@@ -297,6 +357,7 @@ class contact_mode_reasoning(object):
                     hypothesis_object_position_list.append(self.vertices_vision_centroid-np.dot(rot_mat,self.vertices_obj_frame_centroid))
                     hypothesis_obj_to_vision_map_list.append(obj_to_vision_map)
                     hypothesis_vision_to_obj_map_list.append(vision_to_obj_map)
+
 
         output_dict = {
             'num_hypothesis': num_hypothesis,

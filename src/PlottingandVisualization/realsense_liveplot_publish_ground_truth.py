@@ -20,9 +20,9 @@ if __name__ == '__main__':
     frame_rate = None
     cam_choice = 'near'
 
-    read_from_file = False
-    write_to_file = False and read_from_file
-    display_overlay = True or (not write_to_file) or (not read_from_file)
+    read_from_file = True
+    write_to_file = True and read_from_file
+    display_overlay = False or (not write_to_file) or (not read_from_file)
 
     write_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
     fname_out = '/pivot_estimator_video_13.avi'
@@ -34,7 +34,7 @@ if __name__ == '__main__':
         #use if playing from pickle file
         read_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
         # read_path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
-        fname_in = '/test_data-experiment0040.pickle'
+        fname_in = '/test_data-experiment0057.pickle'
         rm = ros_manager(load_mode = True, path=read_path, fname=fname_in)
 
     else:

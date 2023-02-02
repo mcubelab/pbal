@@ -169,7 +169,7 @@ def generate_shape_prior_for_advanced_estimator(object_vertex_array,obj_pose_hom
 
 
 
-def determine_contact_vertices(theta_hand,test_object_vertex_array,measured_world_manipulation_wrench):
+def determine_contact_vertices(theta_hand,test_object_vertex_array,measured_world_manipulation_wrench,threshold_val = .015):
 
     
     rot_mat = np.array([[-np.cos(theta_hand), np.sin(theta_hand),0.0,0.0],
@@ -180,7 +180,7 @@ def determine_contact_vertices(theta_hand,test_object_vertex_array,measured_worl
     threshold_mat = np.dot(rot_mat,test_object_vertex_array)
     height_indices = np.argsort(threshold_mat[0])
 
-    if np.abs(threshold_mat[0,height_indices[0]]-threshold_mat[0,height_indices[1]])>.015:
+    if np.abs(threshold_mat[0,height_indices[0]]-threshold_mat[0,height_indices[1]])>threshold_val:
         return height_indices[:1]
     else:
         return height_indices[:2]  

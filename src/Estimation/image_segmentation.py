@@ -13,7 +13,7 @@ import time
 
 
 
-def fast_polygon_estimate(cv_image,ee_pose_homog,camera_transformation_matrix,visited_array,is_fine = False):
+def fast_polygon_estimate(cv_image,ee_pose_homog,camera_transformation_matrix,visited_array,is_fine = False,seed_point = None):
 
     num_divisions =16
     theta_range = 2*np.pi*(1.0*np.array(range(num_divisions)))/num_divisions
@@ -36,7 +36,12 @@ def fast_polygon_estimate(cv_image,ee_pose_homog,camera_transformation_matrix,vi
     hand_front_center_world = np.dot(ee_pose_homog,hand_front_center)
     hand_normal_world = np.dot(ee_pose_homog,hand_normal)
 
-    object_center_world = hand_front_center_world+.03*hand_normal_world
+    object_center_world = None
+    
+    if seed_point is None:
+        object_center_world = hand_front_center_world+.03*hand_normal_world
+    else: 
+        object_center_world = seed_point
 
     l0 = len(cv_image)
     l1 = len(cv_image[0])

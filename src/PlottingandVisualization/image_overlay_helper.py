@@ -298,6 +298,16 @@ def plot_hand_friction_cone(cv_image, COP_point_hand_frame, friction_parameter_d
             [x_coord, y_coord]).T], True, (0, 255, 0), thickness=2)
 
 
+
+def plot_wm_lines(cv_image, wm_coords, camera_transformation_matrix,color = None):
+        if color is None:
+            color = (0, 0, 255)
+
+        x_coord, y_coord = get_pix_easier(wm_coords, camera_transformation_matrix)
+        cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T], False, color, thickness=2)
+
+
+
 def plot_ground_friction_cone(cv_image, COP_ground, friction_parameter_dict, camera_transformation_matrix, force_scale):
     if friction_parameter_dict is not None and COP_ground is not None:
         theta_list = []
