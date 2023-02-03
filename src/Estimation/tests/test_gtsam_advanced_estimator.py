@@ -161,7 +161,7 @@ if __name__ == '__main__':
         else:
             time_since_last_vision_message = time.time()-t_vision_recent
 
-        if rm.torque_cone_boundary_test is not None and rm.torque_cone_boundary_test and measured_wrench_ee[0]>2:
+        if rm.torque_cone_boundary_test is not None and rm.torque_cone_boundary_test and measured_wrench_ee[0]>3.0:
             can_run_estimate = True
             prev_step_was_contact = True
 

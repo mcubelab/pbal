@@ -11,12 +11,11 @@ import time
 class gtsam_advanced_estimator(object):
     def __init__(self, object_vertex_array, obj_pose_homog, ee_pose_in_world_manipulation_homog, hand_pose_list):
         
-        self.error_contact_model_factor = .1
+        self.error_contact_model_factor = .06
         self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, self.error_contact_model_factor)
-        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.0)
+        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, 100.0)
         self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
-        self.error_s_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
-
+        
         self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.)
 
         self.error_object_consistency_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
@@ -26,11 +25,12 @@ class gtsam_advanced_estimator(object):
 
         self.error_weak_vision_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
 
+        self.error_s_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
         self.error_limited_movement_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.)
 
         self.error_weak_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .6)
         self.error_strong_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
-        self.error_ground_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
+        # self.error_ground_prior_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
 
         self.const_current_denominator = 10
         self.denominator_increment = .3
@@ -293,7 +293,7 @@ class gtsam_advanced_estimator(object):
             self.add_regularization_constraint(self.symbol_dict['d_hand'][i], self.d_offset_list_current[i], self.error_reset_const_model, True)
             self.add_regularization_constraint(self.symbol_dict['theta_obj_in_ee_line_contact'][i], self.theta_offset_list_current[i], self.error_reset_const_model, True)
 
-        self.add_regularization_constraint(self.symbol_dict['h_ground'], self.h_ground_current, self.error_ground_prior_model , True)
+        self.add_regularization_constraint(self.symbol_dict['h_ground'], self.h_ground_current, self.error_reset_const_model , True)
 
     def generate_estimate_dict(self):
 
@@ -429,6 +429,9 @@ class gtsam_advanced_estimator(object):
 
         else:
             self.ground_contact_face = None
+
+        if np.linalg.norm(measured_world_manipulation_wrench[0:2])<6.0:
+            use_torque_balance = False
 
             
         self.contact_vertices = contact_vertices

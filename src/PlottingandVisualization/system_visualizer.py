@@ -179,7 +179,7 @@ class system_visualizer(object):
             if self.display_hand_apriltag_overlay:
                 ioh.shape_overlay(self.cv_image,robot_apriltag_pose_matrix,self.hand_tag_boundary_pts,self.camera_transformation_matrix)
 
-            if np.abs(self.rm.measured_contact_wrench_6D[0]) > 1.0:
+            if np.abs(self.rm.measured_contact_wrench_6D[0]) > 3.0:
                 hand_COP_hand_frame, hand_COP_world_frame = ioh.estimate_hand_COP(self.rm.measured_contact_wrench_6D,self.hand_points,self.rm.ee_pose_in_world_manipulation_homog,self.l_contact)
 
                 if self.rm.friction_parameter_dict['cu'] and self.display_friction_cones:

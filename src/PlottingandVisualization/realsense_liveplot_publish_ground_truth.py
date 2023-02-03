@@ -14,29 +14,69 @@ import Helpers.kinematics_helper as kh
 import Estimation.friction_reasoning as friction_reasoning
 import image_overlay_helper as ioh
 
+
+
+def generate_video_name(path,video_name=None):
+        if video_name is None:
+            video_name = 'pivot_estimator_video'
+
+        experiment_nums = []
+        for file in os.listdir(path):
+            if file.endswith('.avi'):
+                fname = os.path.splitext(file)
+                fname_tokens = fname[0].split('-')
+                if video_name==fname_tokens[0]:
+                    experiment_nums.append(int(fname_tokens[1]))
+                else:
+                    continue
+
+           
+
+
+               
+
+        # new experiment number
+        if not experiment_nums:
+            new_experiment_num = 1
+        else:
+            new_experiment_num = np.max(experiment_nums)  + 1
+
+        #return experiment name
+        return '/'+video_name+'-'+('{:03d}'.format(new_experiment_num))+'.avi'
+
+
 if __name__ == '__main__':
     global rospy
 
     frame_rate = None
     cam_choice = 'near'
 
+    # read_from_file = False
     read_from_file = True
+
+
+
+
+
+
+
     write_to_file = True and read_from_file
     display_overlay = False or (not write_to_file) or (not read_from_file)
 
-    write_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
-    fname_out = '/pivot_estimator_video_13.avi'
-    
+    write_path = None
+    fname_out = None
+
     rm = None
     fname = None
     path = None
     if read_from_file:
         #use if playing from pickle file
         read_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
+        write_path = read_path
         # read_path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
-        fname_in = '/test_data-experiment0057.pickle'
+        fname_in = '/test_data-experiment0065.pickle'
         rm = ros_manager(load_mode = True, path=read_path, fname=fname_in)
-
+        fname_out = generate_video_name(read_path,video_name='pivot_estimator_video')
     else:
         #use if running live
         rm = ros_manager()
@@ -109,4 +149,5 @@ if __name__ == '__main__':
 
 
     if write_to_file:
+        print('writing to: '+fname_out)
         my_visualizer.store_video(frame_rate)
