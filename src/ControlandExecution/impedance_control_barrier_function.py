@@ -477,6 +477,22 @@ class ImpedanceControlBarrierFunction(object):
                 impedance_target[3]+= impedance_increment_robot[2]
 
 
+
+            min_vertical_bound = .1
+            max_vertical_bound = .45
+
+            min_horizontal_bound = -.26
+            max_horizontal_bound = .25
+
+            min_theta_bound = -(1.1)*np.pi/2
+            max_theta_bound = (1.1)*np.pi/2
+
+            impedance_target[0] = max(min(impedance_target[0],max_vertical_bound),min_vertical_bound)
+            impedance_target[1] = max(min(impedance_target[1],max_horizontal_bound),min_horizontal_bound)
+            impedance_target[3] = max(min(impedance_target[3],max_theta_bound),min_theta_bound)
+
+
+
             waypoint_pose_list_world_manipulation = robot2_pose_list(impedance_target[:3].tolist(),impedance_target[3])
 
             waypoint_pose_list = kh.pose_list_from_matrix(np.dot(self.wm_to_base, kh.matrix_from_pose_list(waypoint_pose_list_world_manipulation)))
