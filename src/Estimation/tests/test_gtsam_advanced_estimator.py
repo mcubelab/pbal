@@ -17,6 +17,7 @@ import Estimation.image_segmentation as img_seg
 import random
 
 from Estimation.contact_mode_reasoning import contact_mode_reasoning
+from Helpers.kinematics_helper import mod2pi
 
 def get_shape_prior():
     rm = ros_manager()
@@ -150,6 +151,7 @@ if __name__ == '__main__':
         my_cm_reasoner.update_pose_and_wrench(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,measured_wrench_ee)
         my_cm_reasoner.update_torque_cone_boundary_flag(rm.torque_cone_boundary_test,rm.torque_cone_boundary_flag)
         my_cm_reasoner.COP_reasoning_hand_contact()
+        line_line_to_no_contact_check = my_cm_reasoner.update_check_on_transition_from_hand_line_object_line_contact_to_no_contact()
 
         if rm.polygon_vision_estimate_has_new and rm.polygon_vision_estimate_dict is not None:
             t_vision_recent = time.time()
@@ -193,10 +195,8 @@ if __name__ == '__main__':
                     current_estimator.add_vision_constraints_hand_flush_contact(vision_hypothesis_dict['hypothesis_obj_to_vision_map_list'][hypothesis_index])
                 
 
-                
-
         elif rm.polygon_vision_estimate_has_new and rm.polygon_vision_estimate_dict is not None:
-            kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_no_contact()
+            kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_no_object_motion()
             hypothesis_index = my_cm_reasoner.choose_vision_hypothesis(vision_hypothesis_dict,kinematic_hypothesis_dict)
 
             if hypothesis_index is not None:
@@ -216,18 +216,38 @@ if __name__ == '__main__':
 
                 test_val = vision_hypothesis_dict['hypothesis_theta_list'][hypothesis_index]-current_estimator.theta_obj_in_wm_current
 
-                while test_val>np.pi:
-                    test_val-=2*np.pi
-                while test_val<-np.pi:
-                    test_val+=2*np.pi
+                test_val = mod2pi(test_val)
+
 
                 # if abs(test_val)>np.pi/6:
                 #     print(test_val)
 
-                current_estimator.add_kinematic_constraints_no_hand_contact()
+                current_estimator.add_kinematic_constraints_no_hand_contact_for_vision_assist()
 
                 current_estimator.add_vision_estimate(vision_vertex_array)
                 current_estimator.add_vision_constraints_no_hand_contact(vision_hypothesis_dict['hypothesis_obj_to_vision_map_list'][hypothesis_index])
+
+        elif line_line_to_no_contact_check and time_since_last_vision_message>1.0:
+            kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_no_contact()
+
+            if kinematic_hypothesis_dict['num_hypothesis'] == 1:
+       
+                prev_step_was_contact = False
+
+                can_run_estimate = True
+                current_estimator.current_contact_face = None
+
+                current_estimator.increment_time()
+                current_estimator.add_hand_pose_measurement(hand_pose_pivot_estimator)
+                current_estimator.add_hand_wrench_measurement(measured_wrench_pivot_estimator)
+                current_estimator.add_sliding_state(rm.sliding_state)
+
+                current_estimator.initialize_current_object_pose_variables()
+
+                current_estimator.add_kinematic_constraints_no_hand_contact_for_no_vision_assist(
+                    hypothesis_position = kinematic_hypothesis_dict['hypothesis_object_position_list'][0],
+                    hypothesis_theta = kinematic_hypothesis_dict['hypothesis_theta_list'][0],
+                    ground_contact_face = kinematic_hypothesis_dict['hypothesis_ground_contact_face_list'][0])
 
 
                 

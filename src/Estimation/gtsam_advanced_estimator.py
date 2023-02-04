@@ -5,6 +5,7 @@ import numpy as np
 
 from Estimation import shape_prior_helper
 import Helpers.kinematics_helper as kh
+from Helpers.kinematics_helper import mod2pi
 import time
 
 
@@ -158,11 +159,8 @@ class gtsam_advanced_estimator(object):
 
         self.theta_obj_in_wm_current = theta_obj_in_ee + np.pi + self.hand_pose_list_start[2]
 
-        while self.theta_obj_in_wm_current > np.pi:
-            self.theta_obj_in_wm_current-= 2*np.pi
-        while self.theta_obj_in_wm_current < -np.pi:
-            self.theta_obj_in_wm_current+= 2*np.pi
-
+        self.theta_obj_in_wm_current = mod2pi(self.theta_obj_in_wm_current)
+    
 
         for i in range(self.num_vertices):
             vertex_obj_frame_temp = np.array([self.vertex_positions_obj_current[0][i], self.vertex_positions_obj_current[1][i]])
@@ -230,10 +228,8 @@ class gtsam_advanced_estimator(object):
             self.r_obj_in_wm_current = r_wm_object_origin
             self.theta_obj_in_wm_current = theta_obj_in_ee + np.pi + self.measured_pose_list[self.current_time_step][2]
 
-            while self.theta_obj_in_wm_current > np.pi:
-                self.theta_obj_in_wm_current-= 2*np.pi
-            while self.theta_obj_in_wm_current < -np.pi:
-                self.theta_obj_in_wm_current+= 2*np.pi
+            self.theta_obj_in_wm_current = mod2pi(self.theta_obj_in_wm_current)
+  
 
 
         else:
@@ -354,7 +350,17 @@ class gtsam_advanced_estimator(object):
         self.optimizer_values.insert(self.symbol_dict['r1_obj_in_wm'][self.current_time_step], np.array([self.r_obj_in_wm_current[1]]))
         self.optimizer_values.insert(self.symbol_dict['theta_obj_in_wm'][self.current_time_step], np.array([self.theta_obj_in_wm_current]))
 
-    def add_kinematic_constraints_no_hand_contact(self):
+    def add_kinematic_constraints_no_hand_contact_for_no_vision_assist(self,hypothesis_position,hypothesis_theta,ground_contact_face):
+        self.contact_vertices = [ground_contact_face,(ground_contact_face+1)%self.num_vertices]
+        self.ground_contact_face = ground_contact_face
+
+        error_model = self.error_strong_prior_model
+
+        self.add_regularization_constraint(self.symbol_dict['r0_obj_in_wm'][self.current_time_step], hypothesis_position[0], error_model)
+        self.add_regularization_constraint(self.symbol_dict['r1_obj_in_wm'][self.current_time_step], hypothesis_position[1], error_model)
+        self.add_regularization_constraint(self.symbol_dict['theta_obj_in_wm'][self.current_time_step], hypothesis_theta, error_model)
+
+    def add_kinematic_constraints_no_hand_contact_for_vision_assist(self):
 
         threshold_mat = self.vertex_positions_wm_current
         height_indices = np.argsort(threshold_mat[0])
@@ -377,6 +383,8 @@ class gtsam_advanced_estimator(object):
                 self.ground_contact_face = lower_index
             else:
                 self.ground_contact_face = higher_index
+        else:
+            self.ground_contact_face = None
 
         # height of ground contact points are at the ground
         for ground_contact_vertex_index in contact_vertices:

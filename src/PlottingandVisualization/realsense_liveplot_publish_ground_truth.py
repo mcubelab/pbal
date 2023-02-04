@@ -51,8 +51,8 @@ if __name__ == '__main__':
     frame_rate = None
     cam_choice = 'near'
 
-    # read_from_file = False
-    read_from_file = True
+    read_from_file = False
+    # read_from_file = True
 
 
 

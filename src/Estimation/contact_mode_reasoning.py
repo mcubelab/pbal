@@ -2,6 +2,7 @@ import numpy as np
 
 from Estimation import shape_prior_helper
 import Helpers.kinematics_helper as kh
+from Helpers.kinematics_helper import mod2pi, in_theta_range
 
 class contact_mode_reasoning(object):
     def __init__(self,l_contact):
@@ -10,6 +11,9 @@ class contact_mode_reasoning(object):
 
         self.hand_right_point = np.array([0.0,self.l_contact / 2])
         self.hand_left_point = np.array([0.0,-self.l_contact / 2])
+
+        self.hand_right_point_wm = None
+        self.hand_left_point_wm = None
 
         self.vertices_wm_estimated = None
         self.vertices_wm_vision = None
@@ -54,6 +58,12 @@ class contact_mode_reasoning(object):
         self.contact_interior = None
         self.not_in_contact = None
         self.in_contact = None
+
+
+
+        self.line_line_contact_to_no_contact_bool = False
+        self.line_line_contact_to_no_contact_threshold = None
+        self.line_line_contact_to_no_contact_normal = None
         
     def update_previous_estimate(self,estimate_dict):
         self.vertices_wm_estimated = estimate_dict['vertex_positions_wm_current']
@@ -67,6 +77,10 @@ class contact_mode_reasoning(object):
         self.num_vertices = estimate_dict['num_vertices']
         self.hand_contact_face_prev = estimate_dict['hand_contact_face']
 
+        self.ground_contact_face_prev = estimate_dict['ground_contact_face']
+        self.ground_contact_vertices_prev = estimate_dict['contact_vertices']
+
+
         self.normals_array_wm_estimated = shape_prior_helper.get_outward_normals(self.vertices_wm_estimated)
         self.normals_array_obj_frame = shape_prior_helper.get_outward_normals(self.vertices_obj_frame)
 
@@ -77,6 +91,16 @@ class contact_mode_reasoning(object):
 
         self.rot_mat_hand = np.array([[-np.cos(self.theta_hand), np.sin(self.theta_hand)], 
                                       [-np.sin(self.theta_hand), -np.cos(self.theta_hand)]])
+
+        self.hand_normal = self.rot_mat_hand[:,0]
+        self.hand_tangent = self.rot_mat_hand[:,1]
+
+
+        # self.hand_right_point = np.array([0.0,self.l_contact / 2])
+        # self.hand_left_point = np.array([0.0,-self.l_contact / 2])
+
+        self.hand_right_point_wm = np.dot(self.rot_mat_hand,self.hand_right_point)+self.measured_hand_pose[0:2]
+        self.hand_left_point_wm = np.dot(self.rot_mat_hand,self.hand_left_point)+self.measured_hand_pose[0:2]
 
         self.measured_wrench_wm = measured_wrench_wm
         self.measured_wrench_ee = measured_wrench_ee
@@ -139,62 +163,19 @@ class contact_mode_reasoning(object):
         pass
 
     def compute_hand_contact_face(self):
-        hand_normal = self.rot_mat_hand[:,0]
-        hand_tangent = self.rot_mat_hand[:,1]
+        
 
-        hand_contact_face =  np.argsort(np.dot(hand_normal,self.normals_array_wm_estimated))[0]
-        s_current = np.dot(hand_tangent,self.object_position_wm_estimated-self.measured_hand_pose[0:2])
+        hand_contact_face =  np.argsort(np.dot(self.hand_normal,self.normals_array_wm_estimated))[0]
+        s_current = np.dot(self.hand_tangent,self.object_position_wm_estimated-self.measured_hand_pose[0:2])
 
         return hand_contact_face, s_current
 
-    def compute_hypothesis_object_poses_assuming_no_contact(self):
-        
+    def compute_hypothesis_object_poses_assuming_no_object_motion(self):
+
         num_hypothesis = 1
 
         hypothesis_theta_list = [self.object_angle_wm_estimated]
         hypothesis_object_position_list = [self.object_position_wm_estimated]
-
-        #if lost contact with the object while it was in line contact with ground
-        #then we assume that it remains in line contact!
-        if self.ground_contact_face_prev is not None:
-            num_hypothesis = 1
-
-            theta_obj_in_wm = self.theta_offset_list[self.ground_contact_face_prev]
-
-            hypothesis_theta_list = [theta_obj_in_wm]
-
-            rot_mat_obj = np.array([[ np.cos(theta_obj_in_wm), -np.sin(theta_obj_in_wm)], 
-                                    [ np.sin(theta_obj_in_wm),  np.cos(theta_obj_in_wm)]])
-
-
-            
-
-            object_position = self.vertices_wm_estimated[0:2,self.ground_contact_face_prev]-np.dot(rot_mat_obj,self.vertices_obj_frame[0:2,self.ground_contact_face_prev])
-
-            hypothesis_object_position_list = [object_position]            
-
-
-        #if lost contact with the object while it was in point contact with the ground
-        #then we assume that either:
-        #1. the object is still near its current pose
-        #2. the object tumbled around the corner that is touching the ground until it hit the ground contact face
-        elif self.ground_contact_vertices_prev is not None and len(self.ground_contact_vertices_prev)==1:
-            ground_contact_vertex = self.ground_contact_vertices_prev[0]
-
-            for i in [ground_contact_vertex,(ground_contact_vertex-1)%self.num_vertices]:
-                num_hypothesis+=1
-
-                theta_obj_in_wm = self.theta_offset_list[i]
-
-                hypothesis_theta_list.append(theta_obj_in_wm)
-
-                rot_mat_obj = np.array([[ np.cos(theta_obj_in_wm), -np.sin(theta_obj_in_wm)], 
-                                        [ np.sin(theta_obj_in_wm),  np.cos(theta_obj_in_wm)]])
-
-
-                object_position = self.vertices_wm_estimated[0:2,i]-np.dot(rot_mat_obj,self.vertices_obj_frame[0:2,i])
-
-                hypothesis_object_position_list.append(object_position)
 
 
         output_dict = {
@@ -205,10 +186,165 @@ class contact_mode_reasoning(object):
 
         return output_dict
 
+    def compute_hypothesis_object_poses_assuming_no_contact(self):
+        
+        num_hypothesis = 0
+        hypothesis_theta_list = []
+        hypothesis_object_position_list = []
+        hypothesis_ground_contact_face = None
+
+
+        #if lost contact with the object while it was in line contact with ground
+        #then we assume that it remains in line contact!
+        if self.ground_contact_face_prev is not None:
+
+            hypothesis_ground_contact_face = self.ground_contact_face_prev
+
+            num_hypothesis = 1
+
+            theta_obj_in_wm = self.theta_offset_list[self.ground_contact_face_prev]
+
+            hypothesis_theta_list = [theta_obj_in_wm]
+
+            rot_mat_obj = np.array([[ np.cos(theta_obj_in_wm), -np.sin(theta_obj_in_wm)], 
+                                    [ np.sin(theta_obj_in_wm),  np.cos(theta_obj_in_wm)]])
+
+            
+
+            object_position = self.vertices_wm_estimated[0:2,self.ground_contact_face_prev]-np.dot(rot_mat_obj,self.vertices_obj_frame[0:2,self.ground_contact_face_prev])
+
+            hypothesis_object_position_list = [object_position]
+            hypothesis_ground_contact_face_list = [hypothesis_ground_contact_face]          
+
+
+        #if lost contact with the object while it was in point contact with the ground
+        #then we assume that either:
+        #1. the object is still near its current pose
+        #2. the object tumbled around the corner that is touching the ground until it hit the ground contact face
+        elif self.ground_contact_vertices_prev is not None and len(self.ground_contact_vertices_prev)==1:
+            ground_contact_vertex = self.ground_contact_vertices_prev[0]
+
+            face0 = ground_contact_vertex
+            face1 = (ground_contact_vertex-1)%self.num_vertices
+
+            theta_test0 =  self.theta_offset_list[face0]-self.object_angle_wm_estimated
+            theta_test1 =  self.theta_offset_list[face1]-self.object_angle_wm_estimated
+
+            theta_test0 = abs(mod2pi(theta_test0))
+
+
+            theta_test1 = abs(mod2pi(theta_test1))
+
+            if theta_test0<theta_test1:
+                hypothesis_ground_contact_face = face0
+            else:
+                hypothesis_ground_contact_face = face1
+
+
+            
+            num_hypothesis=1
+
+            theta_obj_in_wm = self.theta_offset_list[hypothesis_ground_contact_face]
+
+            hypothesis_theta_list = [theta_obj_in_wm]
+
+            rot_mat_obj = np.array([[ np.cos(theta_obj_in_wm), -np.sin(theta_obj_in_wm)], 
+                                    [ np.sin(theta_obj_in_wm),  np.cos(theta_obj_in_wm)]])
+
+
+            object_position = self.vertices_wm_estimated[0:2,self.ground_contact_vertices_prev[0]]-np.dot(rot_mat_obj,self.vertices_obj_frame[0:2,self.ground_contact_vertices_prev[0]])
+
+            hypothesis_object_position_list = [object_position]
+            hypothesis_ground_contact_face_list = [hypothesis_ground_contact_face] 
+
+
+
+        output_dict = {
+            'num_hypothesis': num_hypothesis,
+            'hypothesis_theta_list': hypothesis_theta_list,
+            'hypothesis_object_position_list': hypothesis_object_position_list,
+            'hypothesis_ground_contact_face_list': hypothesis_ground_contact_face_list
+        }
+
+        return output_dict
+
+    def update_check_on_transition_from_hand_line_object_line_contact_to_no_contact(self):
+        self.line_line_contact_to_no_contact_bool = False
+
+        if self.measured_wrench_ee[0]<3.0:
+            if self.line_line_contact_to_no_contact_threshold is None:
+                self.line_line_contact_to_no_contact_normal = np.array(self.hand_normal)
+
+                self.line_line_contact_to_no_contact_threshold = \
+                np.dot(self.line_line_contact_to_no_contact_normal,self.measured_hand_pose[0:2])
+
+            else:
+                test_val0 = np.dot(self.line_line_contact_to_no_contact_normal,self.hand_right_point_wm)-self.line_line_contact_to_no_contact_threshold
+                test_val1 = np.dot(self.line_line_contact_to_no_contact_normal,self.hand_right_point_wm)-self.line_line_contact_to_no_contact_threshold
+
+                test_val = -min(test_val0,test_val1)
+
+                self.line_line_contact_to_no_contact_bool = test_val>.005
+        else:
+            self.line_line_contact_to_no_contact_threshold = None
+            self.line_line_contact_to_no_contact_normal = None
+
+        return self.line_line_contact_to_no_contact_bool
+
+    def compute_feasibility_of_hand_line_object_corner_contact(self):
+        is_feasible = True
+
+        
+
+        if self.measured_wrench_ee[0]<3.0:
+            is_feasible = False
+
+        else:
+            self.COP_reasoning_hand_contact()
+
+            contact_vertex = None #need to fill this in
+
+            face0 = contact_vertex
+            face1 = (contact_vertex-1)%self.num_vertices
+
+
+            theta_offset0 = mod2pi(theta_offset_list[face0]+theta_hand+np.pi)
+            theta_offset1 = mod2pi(theta_offset_list[face1]+theta_hand+np.pi)
+
+
+            if theta_offset0<theta_offset1 and theta_offset1-theta_offset0>np.pi:
+                theta_offset0+=2*np.pi
+
+            elif theta_offset1<theta_offset0 and theta_offset0-theta_offset1>np.pi:
+                theta_offset1+=2*np.pi
+
+            theta_min = min(theta_offset0,theta_offset1)
+            theta_max = max(theta_offset0,theta_offset1)
+
+
+            # for candidate_ground_contact_vertex in range(self.num_vertices):
+            #     if candidate_ground_contact_vertex!=contact_vertex:
+            #         can_touch_ground
+
+            #         minimum_height_angle
+
+            #         minimum_height
+
+            #         ground_height_angle
+
+
+
+            # contact_face0 = contact_vertex
+            # contact_face1 = (contact_vertex-1)%self.num_vertices
+
+            # self.COP_wm
+
+            self.theta_hand
 
 
     def compute_hypothesis_object_poses_assuming_hand_line_object_corner_contact(self):
         pass
+
 
     def compute_hypothesis_object_poses_assuming_hand_corner_object_line_contact(self):
         pass
@@ -240,10 +376,7 @@ class contact_mode_reasoning(object):
                 distance_error = np.linalg.norm(kinematic_hypothesis_dict['hypothesis_object_position_list'][i]-vision_hypothesis_dict['hypothesis_object_position_list'][j])
                 theta_error = kinematic_hypothesis_dict['hypothesis_theta_list'][i]-vision_hypothesis_dict['hypothesis_theta_list'][j]
 
-                while theta_error>np.pi:
-                    theta_error-=2*np.pi
-                while theta_error<-np.pi:
-                    theta_error+=2*np.pi
+                theta_error = mod2pi(theta_error)
 
                 theta_error = abs(theta_error)
 
@@ -297,15 +430,9 @@ class contact_mode_reasoning(object):
                 dtheta_list_wm_vision[i] = theta_list_wm_vision[(i+1)%self.num_vertices]-theta_list_wm_vision[i]
                 dtheta_list_obj_frame[i] = theta_list_obj_frame[(i+1)%self.num_vertices]-theta_list_obj_frame[i]
 
-                while dtheta_list_wm_vision[i]>np.pi:
-                    dtheta_list_wm_vision[i]-=2*np.pi
-                while dtheta_list_wm_vision[i]<-np.pi:
-                    dtheta_list_wm_vision[i]+=2*np.pi
+                dtheta_list_wm_vision[i] = mod2pi(dtheta_list_wm_vision[i])
+                dtheta_list_obj_frame[i] = mod2pi(dtheta_list_obj_frame[i])
 
-                while dtheta_list_obj_frame[i]>np.pi:
-                    dtheta_list_obj_frame[i]-=2*np.pi
-                while dtheta_list_obj_frame[i]<-np.pi:
-                    dtheta_list_obj_frame[i]+=2*np.pi
 
             matching_candidate_list = []
 
@@ -326,10 +453,7 @@ class contact_mode_reasoning(object):
                 for j in range(self.num_vertices):
                     dtheta_list[j] = theta_list_wm_vision[(j+i)%self.num_vertices]-theta_list_obj_frame[j]
 
-                    while dtheta_list[j]-dtheta_list[0]>np.pi:
-                        dtheta_list[j]-=2*np.pi
-                    while dtheta_list[j]-dtheta_list[0]<-np.pi:
-                        dtheta_list[j]+=2*np.pi
+                    dtheta_list[j] = mod2pi(dtheta_list[j])
 
                 dtheta_mean = np.mean(dtheta_list)
 

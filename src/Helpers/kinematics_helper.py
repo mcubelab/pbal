@@ -1,5 +1,26 @@
 import numpy as np
 
+# this function finds theta_mod such that |theta_mod-theta_ref|<= pi and
+# theta_mod is congruent to theta mod 2*pi
+def mod2pi(theta,theta_ref=0.0):
+    while theta-theta_ref>np.pi:
+        theta-=2*np.pi
+    while theta-theta_ref<-np.pi:
+        theta+=2*np.pi
+
+    return theta
+
+#checks to see if there exists some theta such that
+#theta_min<=theta<=theta_max and theta_test-theta is congruent to 0 (mod 2*pi)
+def in_theta_range(theta_test,theta_min,theta_max):
+    while theta_test<theta_min:
+        theta_test+=2*np.pi
+    while theta_test>theta_max:
+        theta_test-=2*pi
+
+    return theta_min<=theta_test and theta_test<=theta_max
+
+
 def wrench_list_2FT(wrench):
     return wrench[0:3], wrench[3:6]
 
