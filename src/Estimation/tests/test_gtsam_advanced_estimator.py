@@ -39,7 +39,7 @@ def get_shape_prior():
 
     # vertex_list = img_seg.find_the_object(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
     visited_array = np.zeros([len(cv_image),len(cv_image[0])])
-    vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array, is_fine = True)
+    vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array, is_fine = False)
 
     rm.unregister_all()
 
@@ -129,7 +129,7 @@ if __name__ == '__main__':
     t_vision_recent = time.time()-1.0
     time_since_last_vision_message = 100
 
-    prev_step_was_contact = True
+    prev_step_was_line_contact = True
 
     while (rm.load_mode and rm.read_still_running()) or (not rm.load_mode and not rospy.is_shutdown()):
         rm.unpack_all()
@@ -153,6 +153,13 @@ if __name__ == '__main__':
         my_cm_reasoner.COP_reasoning_hand_contact()
         line_line_to_no_contact_check = my_cm_reasoner.update_check_on_transition_from_hand_line_object_line_contact_to_no_contact()
 
+        corner_contact_dict = None
+        corner_contact_is_feasible = False
+
+        if current_estimator.has_run_once:
+            corner_contact_dict = my_cm_reasoner.compute_feasibility_of_hand_line_object_corner_contact()
+            corner_contact_is_feasible = corner_contact_dict['is_feasible']
+
         if rm.polygon_vision_estimate_has_new and rm.polygon_vision_estimate_dict is not None:
             t_vision_recent = time.time()
             time_since_last_vision_message = 0.0
@@ -163,9 +170,39 @@ if __name__ == '__main__':
         else:
             time_since_last_vision_message = time.time()-t_vision_recent
 
-        if rm.torque_cone_boundary_test is not None and rm.torque_cone_boundary_test and measured_wrench_ee[0]>3.0:
+
+        if rm.torque_cone_boundary_test is not None and rm.torque_cone_boundary_test and corner_contact_is_feasible:
             can_run_estimate = True
-            prev_step_was_contact = True
+            prev_step_was_line_contact = False
+
+            current_estimator.increment_time()
+
+            current_estimator.add_hand_pose_measurement(hand_pose_pivot_estimator)
+            current_estimator.add_hand_wrench_measurement(measured_wrench_pivot_estimator)
+            current_estimator.add_sliding_state(rm.sliding_state)
+            current_estimator.update_wall_contact_state(wall_contact_on)
+
+
+            current_estimator.initialize_current_object_pose_variables()
+            current_estimator.add_kinematic_constraints_object_corner_hand_line_contact(corner_contact_dict)
+
+            current_estimator.current_contact_face = None
+
+            kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_no_object_motion()
+            
+            if time_since_last_vision_message<.2:
+
+                hypothesis_index = my_cm_reasoner.choose_vision_hypothesis(vision_hypothesis_dict,kinematic_hypothesis_dict)
+
+                if hypothesis_index is not None:
+                    current_estimator.add_vision_estimate(vision_vertex_array)
+                    current_estimator.add_vision_constraints_no_hand_contact(vision_hypothesis_dict['hypothesis_obj_to_vision_map_list'][hypothesis_index])
+
+
+
+        elif rm.torque_cone_boundary_test is not None and rm.torque_cone_boundary_test and measured_wrench_ee[0]>3.0:
+            can_run_estimate = True
+            prev_step_was_line_contact = True
 
             current_estimator.increment_time()
 
@@ -173,7 +210,7 @@ if __name__ == '__main__':
 
             current_estimator.current_contact_face = current_contact_face
 
-            if not prev_step_was_contact:
+            if not prev_step_was_line_contact:
                 current_estimator.s_current = s_current_cm_reasoner
 
             current_estimator.add_hand_pose_measurement(hand_pose_pivot_estimator)
@@ -187,7 +224,7 @@ if __name__ == '__main__':
             kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_hand_line_object_line_contact()
 
             # if rm.polygon_vision_estimate_has_new and rm.polygon_vision_estimate_dict is not None:
-            if time_since_last_vision_message<.6:
+            if time_since_last_vision_message<.2:
                 hypothesis_index = my_cm_reasoner.choose_vision_hypothesis(vision_hypothesis_dict,kinematic_hypothesis_dict)
                 current_estimator.add_vision_estimate(vision_vertex_array)
 
@@ -201,7 +238,7 @@ if __name__ == '__main__':
 
             if hypothesis_index is not None:
        
-                prev_step_was_contact = False
+                prev_step_was_line_contact = False
 
                 can_run_estimate = True
                 current_estimator.current_contact_face = None
@@ -219,20 +256,21 @@ if __name__ == '__main__':
                 test_val = mod2pi(test_val)
 
 
-                # if abs(test_val)>np.pi/6:
-                #     print(test_val)
 
-                current_estimator.add_kinematic_constraints_no_hand_contact_for_vision_assist()
+                if current_estimator.has_run_once:
+                    current_estimator.add_kinematic_constraints_no_hand_contact_for_vision_assist()
 
                 current_estimator.add_vision_estimate(vision_vertex_array)
+
                 current_estimator.add_vision_constraints_no_hand_contact(vision_hypothesis_dict['hypothesis_obj_to_vision_map_list'][hypothesis_index])
 
         elif line_line_to_no_contact_check and time_since_last_vision_message>1.0:
+
             kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_no_contact()
 
             if kinematic_hypothesis_dict['num_hypothesis'] == 1:
        
-                prev_step_was_contact = False
+                prev_step_was_line_contact = False
 
                 can_run_estimate = True
                 current_estimator.current_contact_face = None
@@ -264,10 +302,11 @@ if __name__ == '__main__':
 
                 height_indices = np.argsort(current_estimate_dict['vertex_positions_wm_current'][0])
 
-                contact_index = current_estimator.contact_vertices[0]
-                pn_wm = current_estimate_dict['vertex_positions_wm_current'][0][contact_index]
-                pt_wm = current_estimate_dict['vertex_positions_wm_current'][1][contact_index]
-                rm.pub_pivot_frame_estimated([pn_wm,pt_wm,hand_front_center_world[2]])
+                if current_estimator.contact_vertices is not None:
+                    contact_index = current_estimator.contact_vertices[0]
+                    pn_wm = current_estimate_dict['vertex_positions_wm_current'][0][contact_index]
+                    pt_wm = current_estimate_dict['vertex_positions_wm_current'][1][contact_index]
+                    rm.pub_pivot_frame_estimated([pn_wm,pt_wm,hand_front_center_world[2]])
 
                 contact_indices = []
                 vertex_array_n = []
@@ -288,7 +327,7 @@ if __name__ == '__main__':
                     mgl_cos_theta_list.append(current_estimate_dict['mglcostheta_current'][i])
                     mgl_sin_theta_list.append(current_estimate_dict['mglsintheta_current'][i])
 
-                    if i in current_estimator.contact_vertices:
+                    if current_estimator.contact_vertices is not None and i in current_estimator.contact_vertices:
                         contact_indices.append(i)
       
                 vertex_array_out = np.array([vertex_array_n,vertex_array_t,vertex_array_z])

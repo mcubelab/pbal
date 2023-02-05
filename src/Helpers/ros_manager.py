@@ -167,17 +167,19 @@ class ros_manager(object):
 					   self.read_dict[topic]['time_list'][self.read_index_dict[topic]]<=self.t_current_record and
 					   self.callback_dict[topic] is not None):
 
+					message_time = self.read_dict[topic]['time_list'][self.read_index_dict[topic]]
+
 					if topic == '/near_cam/color/image_raw':
 						success,image = self.vidcap_near.read()	
 						if success:
-							self.callback_dict[topic](image)
+							self.callback_dict[topic](image,message_time)
 
 					elif topic == '/far_cam/color/image_raw':
 						success,image = self.vidcap_far.read()	
 						if success:
-							self.callback_dict[topic](image)
+							self.callback_dict[topic](image,message_time)
 					else:
-						self.callback_dict[topic](self.read_dict[topic]['msg_list'][self.read_index_dict[topic]])
+						self.callback_dict[topic](self.read_dict[topic]['msg_list'][self.read_index_dict[topic]],message_time)
 
 					self.read_index_dict[topic]+=1
 
@@ -360,6 +362,7 @@ class ros_manager(object):
 			self.ft_wrench_in_ft_sensor_available_index = len(self.data_available)-1
 			self.force_has_new = False
 
+			self.ft_wrench_time = None
 			self.ft_wrench_in_ft_sensor = None
 			self.ft_wrench_in_ft_sensor_list = None
 
@@ -381,6 +384,7 @@ class ros_manager(object):
 			self.ee_pose_in_world_manipulation_has_new = False
 
 			self.ee_pose_in_world_manipulation = None
+			self.ee_pose_in_world_manipulation_time = None
 			self.ee_pose_in_world_manipulation_list = None
 			self.ee_pose_in_world_manipulation_homog = None
 
@@ -402,6 +406,7 @@ class ros_manager(object):
 			self.ee_pose_in_base_has_new = False
 
 			self.ee_pose_in_base = None
+			self.ee_pose_in_base_time = None
 			self.ee_pose_in_base_list = None
 			self.ee_pose_in_base_homog = None
 
@@ -426,6 +431,7 @@ class ros_manager(object):
 
 			self.measured_contact_wrench_6D = None
 			self.measured_contact_wrench = None
+			self.measured_contact_wrench_time = None
 
 			if not self.load_mode:
 				self.subscriber_dict[topic] = rospy.Subscriber(
@@ -446,6 +452,7 @@ class ros_manager(object):
 
 			self.measured_world_manipulation_wrench_6D = None
 			self.measured_world_manipulation_wrench = None
+			self.world_manipulation_wrench_time = None
 
 			if not self.load_mode:
 				self.subscriber_dict[topic] = rospy.Subscriber(
@@ -465,6 +472,7 @@ class ros_manager(object):
 			self.torque_cone_boundary_test_has_new = False
 
 			self.torque_cone_boundary_test = None
+			self.torque_cone_boundary_test_time = None
 
 			if not self.load_mode:
 				self.subscriber_dict[topic] = rospy.Subscriber(
@@ -484,6 +492,7 @@ class ros_manager(object):
 			self.torque_cone_boundary_flag_has_new = False
 
 			self.torque_cone_boundary_flag = None
+			self.torque_cone_boundary_flag_time = None
 
 			if not self.load_mode:
 				self.subscriber_dict[topic] = rospy.Subscriber(
@@ -504,6 +513,7 @@ class ros_manager(object):
 			self.friction_parameter_has_new = False
 
 			self.friction_parameter_dict, dummy1 ,dummy2 = friction_reasoning.initialize_friction_dictionaries()
+			self.friction_parameter_time = None
 
 			if not self.load_mode:
 				self.subscriber_dict[topic] = rospy.Subscriber(
@@ -567,6 +577,7 @@ class ros_manager(object):
 			self.generalized_positions_buffer = []
 			self.generalized_positions_available_index = len(self.data_available)-1
 			self.generalized_positions_has_new = False
+			self.generalized_positions_time = None
 
 			self.generalized_positions = None
 			self.l_hand     = None
@@ -591,6 +602,7 @@ class ros_manager(object):
 			self.barrier_func_control_command_buffer = []
 			self.barrier_func_control_command_available_index = len(self.data_available)-1
 			self.barrier_func_control_command_has_new = False
+			self.barrier_func_control_command_time = None
 
 			self.command_msg = None
 
@@ -610,6 +622,7 @@ class ros_manager(object):
 			self.torque_bound_buffer = []
 			self.torque_bound_available_index = len(self.data_available)-1
 			self.torque_bound_has_new = False
+			self.torque_bounds_time = None
 
 			self.torque_bounds = None
 
@@ -629,6 +642,7 @@ class ros_manager(object):
 			self.sliding_state_buffer = []
 			self.sliding_state_available_index = len(self.data_available)-1
 			self.sliding_state_has_new = False
+			self.sliding_state_time = None
 
 			self.sliding_state = None
 
@@ -648,6 +662,7 @@ class ros_manager(object):
 			self.pivot_sliding_commanded_flag_buffer = []
 			self.pivot_sliding_commanded_flag_available_index = len(self.data_available)-1
 			self.pivot_sliding_commanded_flag_has_new = False
+			self.pivot_sliding_commanded_time = None
 
 			self.pivot_sliding_commanded_flag = None
 
@@ -669,6 +684,7 @@ class ros_manager(object):
 			self.qp_debug_has_new = False
 
 			self.qp_debug_dict = None
+			self.qp_debug_time = None
 
 			if not self.load_mode:
 				self.subscriber_dict[topic] = rospy.Subscriber(
@@ -688,6 +704,7 @@ class ros_manager(object):
 			self.target_frame_has_new = False
 
 			self.target_frame = None
+			self.target_frame_time = None
 			self.target_frame_homog = None
 
 			if not self.load_mode:
@@ -709,6 +726,7 @@ class ros_manager(object):
 
 			self.apriltag_pose_list_dict = None
 			self.apriltag_pose_homog_dict = None
+			self.apriltag_time = None
 
 			if not self.load_mode:
 				self.subscriber_dict[topic] = rospy.Subscriber(
@@ -729,6 +747,7 @@ class ros_manager(object):
 
 			
 			self.far_cam_image_raw = None
+			self.far_cam_image_time = None
 			self.far_came_video_writer = None
 
 			callback = self.far_cam_image_raw_callback
@@ -755,6 +774,7 @@ class ros_manager(object):
 
 			
 			self.near_cam_image_raw = None
+			self.near_cam_image_time = None
 			self.near_came_video_writer = None
 
 			callback = self.near_cam_image_raw_callback
@@ -780,6 +800,7 @@ class ros_manager(object):
 			self.far_cam_camera_info_has_new = False
 
 			self.far_cam_camera_matrix = None
+			self.far_cam_camera_info_time = None
 
 			if not self.load_mode:
 				self.subscriber_dict[topic] = rospy.Subscriber(
@@ -799,6 +820,7 @@ class ros_manager(object):
 			self.near_cam_camera_info_has_new = False
 
 			self.near_cam_camera_matrix = None
+			self.near_cam_camera_info_time = None
 
 			if not self.load_mode:
 				self.subscriber_dict[topic] = rospy.Subscriber(
@@ -1240,11 +1262,14 @@ class ros_manager(object):
 			polygon_contact_state_stamped.header.stamp = rospy.Time.now()
 			self.polygon_vision_estimate_pub.publish(polygon_contact_state_stamped)
 
-	def force_callback(self,data):
+	def force_callback(self,data,message_time=None):
 		self.ft_wrench_in_ft_sensor_buffer.append(data)
 		if len(self.ft_wrench_in_ft_sensor_buffer)>self.max_queue_size:
 			self.ft_wrench_in_ft_sensor_buffer.pop(0)
 		self.data_available[self.ft_wrench_in_ft_sensor_available_index]=True
+
+		if message_time is not None:
+			self.ft_wrench_time = message_time
 
 	def force_unpack(self):
 		if len(self.ft_wrench_in_ft_sensor_buffer)>0:
@@ -1252,17 +1277,21 @@ class ros_manager(object):
 				self.ft_wrench_in_ft_sensor_list = self.ft_wrench_in_ft_sensor_buffer.pop(0)
 			else:
 				self.ft_wrench_in_ft_sensor = self.ft_wrench_in_ft_sensor_buffer.pop(0)
+				self.ft_wrench_time = self.ft_wrench_in_ft_sensor.header.stamp.to_sec()
 				self.ft_wrench_in_ft_sensor_list = pmh.wrench_stamped2list(self.ft_wrench_in_ft_sensor)
 
 			self.force_has_new = True
 		else:
 			self.force_has_new = False
 
-	def ee_pose_in_world_manipulation_callback(self,data):
+	def ee_pose_in_world_manipulation_callback(self,data,message_time=None):
 		self.ee_pose_in_world_manipulation_buffer.append(data)
 		if len(self.ee_pose_in_world_manipulation_buffer)>self.max_queue_size:
 			self.ee_pose_in_world_manipulation_buffer.pop(0)
 		self.data_available[self.ee_pose_in_world_manipulation_available_index]=True
+
+		if message_time is not None:
+			self.ee_pose_in_world_manipulation_time = message_time
 		
 	def ee_pose_in_world_manipulation_unpack(self):
 		if len(self.ee_pose_in_world_manipulation_buffer)>0:
@@ -1270,6 +1299,7 @@ class ros_manager(object):
 				self.ee_pose_in_world_manipulation_list = self.ee_pose_in_world_manipulation_buffer.pop(0)
 			else:
 				self.ee_pose_in_world_manipulation = self.ee_pose_in_world_manipulation_buffer.pop(0)
+				self.ee_pose_in_world_manipulation_time = self.ee_pose_in_world_manipulation.header.stamp.to_sec()
 				self.ee_pose_in_world_manipulation_list = pmh.pose_stamped2list(self.ee_pose_in_world_manipulation)
 			self.ee_pose_in_world_manipulation_homog = kh.matrix_from_pose_list(self.ee_pose_in_world_manipulation_list)
 
@@ -1277,11 +1307,14 @@ class ros_manager(object):
 		else:
 			self.ee_pose_in_world_manipulation_has_new = False
 
-	def ee_pose_in_base_callback(self,data):
+	def ee_pose_in_base_callback(self,data,message_time=None):
 		self.ee_pose_in_base_buffer.append(data)
 		if len(self.ee_pose_in_base_buffer)>self.max_queue_size:
 			self.ee_pose_in_base_buffer.pop(0)
 		self.data_available[self.ee_pose_in_base_available_index]=True
+
+		if message_time is not None:
+			self.ee_pose_in_base_time = message_time
 		
 	def ee_pose_in_base_unpack(self):
 		if len(self.ee_pose_in_base_buffer)>0:
@@ -1289,6 +1322,7 @@ class ros_manager(object):
 				self.ee_pose_in_base_list = self.ee_pose_in_base_buffer.pop(0)
 			else:
 				self.ee_pose_in_base = self.ee_pose_in_base_buffer.pop(0)
+				self.ee_pose_in_base_time = self.ee_pose_in_base.header.stamp.to_sec()
 				self.ee_pose_in_base_list = pmh.pose_stamped2list(self.ee_pose_in_base)
 			self.ee_pose_in_base_homog = kh.matrix_from_pose_list(self.ee_pose_in_base_list)
 
@@ -1298,11 +1332,14 @@ class ros_manager(object):
 		else:
 			self.ee_pose_in_base_has_new = False
 
-	def end_effector_wrench_callback(self,data):
+	def end_effector_wrench_callback(self,data,message_time=None):
 		self.measured_contact_wrench_buffer.append(data)
 		if len(self.measured_contact_wrench_buffer)>self.max_queue_size:
 			self.measured_contact_wrench_buffer.pop(0)
 		self.data_available[self.measured_contact_wrench_available_index]=True
+
+		if message_time is not None:
+			self.measured_contact_wrench_time = message_time
 
 	def end_effector_wrench_unpack(self):
 		if  len(self.measured_contact_wrench_buffer)>0:
@@ -1310,6 +1347,8 @@ class ros_manager(object):
 				self.measured_contact_wrench_6D = -np.array(self.measured_contact_wrench_buffer.pop(0))
 			else:
 				end_effector_wrench = self.measured_contact_wrench_buffer.pop(0)
+
+				self.measured_contact_wrench_time = end_effector_wrench.header.stamp.to_sec()
 
 				self.measured_contact_wrench_6D = -np.array(pmh.wrench_stamped2list(
 					end_effector_wrench))
@@ -1323,11 +1362,14 @@ class ros_manager(object):
 		else:
 			self.end_effector_wrench_has_new = False
 
-	def end_effector_wrench_world_manipulation_frame_callback(self,data):
+	def end_effector_wrench_world_manipulation_frame_callback(self,data,message_time=None):
 		self.measured_world_manipulation_wrench_buffer.append(data)
 		if len(self.measured_world_manipulation_wrench_buffer)>self.max_queue_size:
 			self.measured_world_manipulation_wrench_buffer.pop(0)
 		self.data_available[self.measured_world_manipulation_wrench_available_index]=True
+
+		if message_time is not None:
+			self.world_manipulation_wrench_time = message_time
 
 	def end_effector_wrench_world_manipulation_frame_unpack(self):
 		if len(self.measured_world_manipulation_wrench_buffer)>0:
@@ -1335,6 +1377,8 @@ class ros_manager(object):
 				self.measured_world_manipulation_wrench_6D = -np.array(self.measured_world_manipulation_wrench_buffer.pop(0))
 			else:
 				world_manipulation_wrench = self.measured_world_manipulation_wrench_buffer.pop(0)
+
+				self.world_manipulation_wrench_time = world_manipulation_wrench.header.stamp.to_sec()
 
 				self.measured_world_manipulation_wrench_6D = -np.array(pmh.wrench_stamped2list(
 					world_manipulation_wrench))
@@ -1348,11 +1392,14 @@ class ros_manager(object):
 		else:
 			self.end_effector_wrench_world_manipulation_frame_has_new = False
 
-	def torque_cone_boundary_test_callback(self,data):
+	def torque_cone_boundary_test_callback(self,data,message_time=None):
 		self.torque_cone_boundary_test_buffer.append(data)
 		if len(self.torque_cone_boundary_test_buffer)>self.max_queue_size:
 			self.torque_cone_boundary_test_buffer.pop(0)
 		self.data_available[self.torque_cone_boundary_test_available_index]=True
+
+		if message_time is not None:
+			self.torque_cone_boundary_test_time = message_time
 
 	def torque_cone_boundary_test_unpack(self):
 		if len(self.torque_cone_boundary_test_buffer)>0:
@@ -1360,17 +1407,21 @@ class ros_manager(object):
 				self.torque_cone_boundary_test = self.torque_cone_boundary_test_buffer.pop(0)
 			else:
 				data = self.torque_cone_boundary_test_buffer.pop(0)
+				self.torque_cone_boundary_test_time = data.header.stamp.to_sec()
 				self.torque_cone_boundary_test = pmh.parse_torque_cone_boundary_test_stamped(data)
 
 			self.torque_cone_boundary_test_has_new = True
 		else:
 			self.torque_cone_boundary_test_has_new = False
 
-	def torque_cone_boundary_flag_callback(self,data):
+	def torque_cone_boundary_flag_callback(self,data,message_time=None):
 		self.torque_cone_boundary_flag_buffer.append(data)
 		if len(self.torque_cone_boundary_flag_buffer)>self.max_queue_size:
 			self.torque_cone_boundary_flag_buffer.pop(0)
 		self.data_available[self.torque_cone_boundary_flag_available_index]=True
+
+		if message_time is not None:
+			self.torque_cone_boundary_flag_time = message_time
 
 	def torque_cone_boundary_flag_unpack(self):
 		if len(self.torque_cone_boundary_flag_buffer)>0:
@@ -1378,17 +1429,21 @@ class ros_manager(object):
 				self.torque_cone_boundary_flag = self.torque_cone_boundary_flag_buffer.pop(0)
 			else:
 				data = self.torque_cone_boundary_flag_buffer.pop(0)
+				self.torque_cone_boundary_flag_time = data.header.stamp.to_sec()
 				self.torque_cone_boundary_flag = pmh.parse_torque_cone_boundary_flag_stamped(data)
 
 			self.torque_cone_boundary_flag_has_new = True
 		else:
 			self.torque_cone_boundary_flag_has_new = False
 
-	def friction_parameter_callback(self,data):
+	def friction_parameter_callback(self,data,message_time=None):
 		self.friction_parameter_buffer.append(data)
 		if len(self.friction_parameter_buffer)>self.max_queue_size:
 			self.friction_parameter_buffer.pop(0)
 		self.data_available[self.friction_parameter_available_index]=True
+
+		if message_time is not None:
+			self.friction_parameter_time = message_time
 
 	def friction_parameter_unpack(self):
 		if len(self.friction_parameter_buffer)>0:
@@ -1396,6 +1451,7 @@ class ros_manager(object):
 				self.friction_parameter_dict = self.friction_parameter_buffer.pop(0)
 			else:
 				data = self.friction_parameter_buffer.pop(0)
+				self.friction_parameter_time = data.header.stamp.to_sec()
 				self.friction_parameter_dict = pmh.friction_stamped_to_friction_dict(data)
 			friction_reasoning.convert_friction_param_dict_to_array(self.friction_parameter_dict)
 
@@ -1403,11 +1459,14 @@ class ros_manager(object):
 		else:
 			self.friction_parameter_has_new = False
 
-	def pivot_xyz_realsense_callback(self,data):
+	def pivot_xyz_realsense_callback(self,data,message_time=None):
 		self.pivot_xyz_realsense_buffer.append(data)
 		if len(self.pivot_xyz_realsense_buffer)>self.max_queue_size:
 			self.pivot_xyz_realsense_buffer.pop(0)
 		self.data_available[self.pivot_xyz_realsense_available_index]=True
+
+		if message_time is not None:
+			self.pivot_message_realsense_time = message_time
 
 	def pivot_xyz_realsense_unpack(self):
 		if len(self.pivot_xyz_realsense_buffer)>0:
@@ -1427,11 +1486,14 @@ class ros_manager(object):
 		else:
 			self.pivot_xyz_realsense_has_new = False
 
-	def pivot_xyz_estimated_callback(self,data):
+	def pivot_xyz_estimated_callback(self,data,message_time=None):
 		self.pivot_xyz_estimated_buffer.append(data)
 		if len(self.pivot_xyz_estimated_buffer)>self.max_queue_size:
 			self.pivot_xyz_estimated_buffer.pop(0)
 		self.data_available[self.pivot_xyz_estimated_available_index]=True
+
+		if message_time is not None:
+			self.pivot_message_estimated_time = message_time
 
 	def pivot_xyz_estimated_unpack(self):
 		if len(self.pivot_xyz_estimated_buffer)>0:
@@ -1453,11 +1515,14 @@ class ros_manager(object):
 		else:
 			self.pivot_xyz_estimated_has_new = False
 
-	def generalized_positions_callback(self,data):
+	def generalized_positions_callback(self,data,message_time=None):
 		self.generalized_positions_buffer.append(data)
 		if len(self.generalized_positions_buffer)>self.max_queue_size:
 			self.generalized_positions_buffer.pop(0)
 		self.data_available[self.generalized_positions_available_index]=True
+
+		if message_time is not None:
+			self.generalized_positions_time = message_time
 
 	def generalized_positions_unpack(self):
 		if len(self.generalized_positions_buffer)>0:
@@ -1465,6 +1530,7 @@ class ros_manager(object):
 				self.generalized_positions = self.generalized_positions_buffer.pop(0)
 			else:
 				data = self.generalized_positions_buffer.pop(0)
+				self.generalized_positions_time = data.header.stamp.to_sec()
 				self.generalized_positions = pmh.parse_generalized_positions_stamped(data)
 
 			self.l_hand     = contact_pose[0]
@@ -1477,11 +1543,14 @@ class ros_manager(object):
 		else:
 			self.generalized_positions_has_new = False
 
-	def barrier_func_control_command_callback(self,data):
+	def barrier_func_control_command_callback(self,data,message_time=None):
 		self.barrier_func_control_command_buffer.append(data)
 		if len(self.barrier_func_control_command_buffer)>self.max_queue_size:
 			self.barrier_func_control_command_buffer.pop(0)
 		self.data_available[self.barrier_func_control_command_available_index]=True
+
+		if message_time is not None:
+			self.barrier_func_control_command_time = message_time
 
 	def barrier_func_control_command_unpack(self):
 		if len(self.barrier_func_control_command_buffer)>0:
@@ -1489,17 +1558,21 @@ class ros_manager(object):
 				self.command_msg = self.barrier_func_control_command_buffer.pop(0)
 			else:
 				data = self.barrier_func_control_command_buffer.pop(0)
+				self.barrier_func_control_command_time = data.header.stamp.to_sec()
 				self.command_msg = pmh.command_stamped_to_command_dict(data)
 
 			self.barrier_func_control_command_has_new = True
 		else:
 			self.barrier_func_control_command_has_new = False
 
-	def torque_bound_callback(self,data):
+	def torque_bound_callback(self,data,message_time=None):
 		self.torque_bound_buffer.append(data)
 		if len(self.torque_bound_buffer)>self.max_queue_size:
 			self.torque_bound_buffer.pop(0)
 		self.data_available[self.torque_bound_available_index]=True
+
+		if message_time is not None:
+			self.torque_bounds_time = message_time
 
 	def torque_bound_unpack(self):
 		if len(self.torque_bound_buffer)>0:
@@ -1507,17 +1580,21 @@ class ros_manager(object):
 				self.torque_bounds = self.torque_bound_buffer.pop(0)
 			else:
 				data = self.torque_bound_buffer.pop(0)
+				self.torque_bounds_time = data.header.stamp.to_sec()
 				self.torque_bounds = pmh.parse_torque_bounds_stamped(data)
 
 			self.torque_bound_has_new = True
 		else:
 			self.torque_bound_has_new = False
 
-	def sliding_state_callback(self,data):
+	def sliding_state_callback(self,data,message_time=None):
 		self.sliding_state_buffer.append(data)
 		if len(self.sliding_state_buffer)>self.max_queue_size:
 			self.sliding_state_buffer.pop(0)
 		self.data_available[self.sliding_state_available_index]=True
+
+		if message_time is not None:
+			self.sliding_state_time = message_time
 
 	def sliding_state_unpack(self):
 		if len(self.sliding_state_buffer)>0:
@@ -1525,17 +1602,21 @@ class ros_manager(object):
 				self.sliding_state = self.sliding_state_buffer.pop(0)
 			else:
 				data = self.sliding_state_buffer.pop(0)
+				self.sliding_state_time = data.header.stamp.to_sec()
 				self.sliding_state = pmh.sliding_stamped_to_sliding_dict(data)
 
 			self.sliding_state_has_new = True
 		else:
 			self.sliding_state_has_new = False
 
-	def pivot_sliding_commanded_flag_callback(self,data):
+	def pivot_sliding_commanded_flag_callback(self,data,message_time=None):
 		self.pivot_sliding_commanded_flag_buffer.append(data)
 		if len(self.pivot_sliding_commanded_flag_buffer)>self.max_queue_size:
 			self.pivot_sliding_commanded_flag_buffer.pop(0)
 		self.data_available[self.pivot_sliding_commanded_flag_available_index]=True
+
+		if message_time is not None:
+			self.pivot_sliding_commanded_time = message_time
 
 	def pivot_sliding_commanded_flag_unpack(self):
 		if len(self.pivot_sliding_commanded_flag_buffer)>0:
@@ -1543,17 +1624,21 @@ class ros_manager(object):
 				self.pivot_sliding_commanded_flag = self.pivot_sliding_commanded_flag_buffer.pop(0)
 			else:
 				data = self.pivot_sliding_commanded_flag_buffer.pop(0)
+				self.pivot_sliding_commanded_time = data.header.stamp.to_sec()
 				self.pivot_sliding_commanded_flag = pmh.parse_pivot_sliding_commanded_flag(data)
 
 			self.pivot_sliding_commanded_flag_has_new = True
 		else:
 			self.pivot_sliding_commanded_flag_has_new = False
 
-	def qp_debug_callback(self,data):
+	def qp_debug_callback(self,data,message_time=None):
 		self.qp_debug_buffer.append(data)
 		if len(self.qp_debug_buffer)>self.max_queue_size:
 			self.qp_debug_buffer.pop(0)
 		self.data_available[self.qp_debug_available_index]=True
+
+		if message_time is not None:
+			self.qp_debug_time = message_time
 
 	def qp_debug_unpack(self):
 		if len(self.qp_debug_buffer)>0:
@@ -1562,6 +1647,7 @@ class ros_manager(object):
 				self.qp_debug_has_new = True
 			else:
 				data = self.qp_debug_buffer.pop(0)
+				self.qp_debug_time = data.header.stamp.to_sec()
 
 				if data.qp_debug != '':
 					self.qp_debug_dict = pmh.qp_debug_stamped_to_qp_debug_dict(data)
@@ -1571,11 +1657,14 @@ class ros_manager(object):
 		else:
 			self.qp_debug_has_new = False
 
-	def target_frame_callback(self,data):
+	def target_frame_callback(self,data,message_time=None):
 		self.target_frame_buffer.append(data)
 		if len(self.target_frame_buffer)>self.max_queue_size:
 			self.target_frame_buffer.pop(0)
 		self.data_available[self.target_frame_available_index]=True
+
+		if message_time is not None:
+			self.target_frame_time = message_time
 
 	def target_frame_unpack(self):
 		if len(self.target_frame_buffer)>0:
@@ -1583,6 +1672,7 @@ class ros_manager(object):
 				self.target_frame = self.target_frame_buffer.pop(0)
 			else:
 				data = self.target_frame_buffer.pop(0)
+				self.target_frame_time = data.header.stamp.to_sec()
 				self.target_frame = pmh.transform_stamped2list(data)
 
 			self.target_frame_homog =  kh.matrix_from_pose_list(self.target_frame)
@@ -1591,11 +1681,14 @@ class ros_manager(object):
 		else:
 			self.target_frame_has_new = False
 
-	def apriltag_callback(self,data):
+	def apriltag_callback(self,data,message_time=None):
 		self.apriltag_buffer.append(data)
 		if len(self.apriltag_buffer)>self.max_queue_size:
 			self.apriltag_buffer.pop(0)
 		self.data_available[self.apriltag_available_index]=True
+
+		if message_time is not None:
+			self.apriltag_time = message_time
 
 	def apriltag_unpack(self):
 		if len(self.apriltag_buffer)>0:
@@ -1612,6 +1705,7 @@ class ros_manager(object):
 						self.apriltag_pose_homog_dict[detection] = kh.matrix_from_pose_list(pose_list)
 			else:
 				apriltag_array = self.apriltag_buffer.pop(0)
+				self.apriltag_time = apriltag_array.header.stamp.to_sec()
 
 				for detection in apriltag_array.detections:
 					pose_list = pmh.pose_stamped2list(detection.pose.pose)
@@ -1622,11 +1716,14 @@ class ros_manager(object):
 		else:
 			self.apriltag_has_new = False
 
-	def far_cam_image_raw_callback(self,data):
+	def far_cam_image_raw_callback(self,data,message_time=None):
 		self.far_cam_image_raw_buffer.append(data)
 		if len(self.far_cam_image_raw_buffer)>self.max_queue_size:
 			self.far_cam_image_raw_buffer.pop(0)
 		self.data_available[self.far_cam_image_raw_available_index]=True
+
+		if message_time is not None:
+			self.far_cam_image_time = message_time
 
 	def far_cam_image_raw_unpack(self):
 		if len(self.far_cam_image_raw_buffer)>0:
@@ -1634,17 +1731,21 @@ class ros_manager(object):
 				self.far_cam_image_raw = self.far_cam_image_raw_buffer.pop(0)
 			else:
 				data = self.far_cam_image_raw_buffer.pop(0)
+				self.far_cam_image_time = data.header.stamp.to_sec()
 				self.far_cam_image_raw = self.bridge.imgmsg_to_cv2(data, 'bgr8')
 
 			self.far_cam_image_raw_has_new = True
 		else:
 			self.far_cam_image_raw_has_new = False
 
-	def near_cam_image_raw_callback(self,data):
+	def near_cam_image_raw_callback(self,data,message_time=None):
 		self.near_cam_image_raw_buffer.append(data)
 		if len(self.near_cam_image_raw_buffer)>self.max_queue_size:
 			self.near_cam_image_raw_buffer.pop(0)
 		self.data_available[self.near_cam_image_raw_available_index]=True
+
+		if message_time is not None:
+			self.near_cam_image_time = message_time
 
 	def near_cam_image_raw_unpack(self):
 		if len(self.near_cam_image_raw_buffer)>0:
@@ -1652,13 +1753,14 @@ class ros_manager(object):
 				self.near_cam_image_raw = self.near_cam_image_raw_buffer.pop(0)
 			else:
 				data = self.near_cam_image_raw_buffer.pop(0)
+				self.near_cam_image_time = data.header.stamp.to_sec()
 				self.near_cam_image_raw = self.bridge.imgmsg_to_cv2(data, 'bgr8')
 
 			self.near_cam_image_raw_has_new = True
 		else:
 			self.near_cam_image_raw_has_new = False
 
-	def far_cam_image_raw_callback_record_version(self,data):
+	def far_cam_image_raw_callback_record_version(self,data,message_time=None):
 		cv_image = self.bridge.imgmsg_to_cv2(data, 'bgr8')
 
 		if self.far_came_video_writer is None:
@@ -1670,7 +1772,10 @@ class ros_manager(object):
 		self.far_came_video_writer.write(cv_image)
 		self.far_cam_image_raw_buffer.append(data.header.stamp.to_sec())
 
-	def near_cam_image_raw_callback_record_version(self,data):
+		if message_time is not None:
+			self.far_cam_image_time = message_time
+
+	def near_cam_image_raw_callback_record_version(self,data,message_time=None):
 		cv_image = self.bridge.imgmsg_to_cv2(data, 'bgr8')
 
 		if self.near_came_video_writer is None:
@@ -1682,11 +1787,17 @@ class ros_manager(object):
 		self.near_came_video_writer.write(cv_image)
 		self.near_cam_image_raw_buffer.append(data.header.stamp.to_sec())
 
-	def far_cam_camera_info_callback(self,data):
+		if message_time is not None:
+			self.near_cam_image_time = message_time
+
+	def far_cam_camera_info_callback(self,data,message_time=None):
 		self.far_cam_camera_info_buffer.append(data)
 		if len(self.far_cam_camera_info_buffer)>self.max_queue_size:
 			self.far_cam_camera_info_buffer.pop(0)
 		self.data_available[self.far_cam_camera_info_available_index]=True
+
+		if message_time is not None:
+			self.far_cam_camera_info_time = message_time
 
 	def far_cam_camera_info_unpack(self):
 		if len(self.far_cam_camera_info_buffer)>0:
@@ -1694,17 +1805,21 @@ class ros_manager(object):
 				self.far_cam_camera_matrix = np.array(self.far_cam_camera_info_buffer.pop(0))
 			else:
 				data = self.far_cam_camera_info_buffer.pop(0)
+				self.far_cam_camera_info_time = data.header.stamp.to_sec()
 				self.far_cam_camera_matrix = np.reshape(data.P, (3, 4))
 
 			self.far_cam_camera_info_has_new = True
 		else:
 			self.far_cam_camera_info_has_new = False
 
-	def near_cam_camera_info_callback(self,data):
+	def near_cam_camera_info_callback(self,data,message_time=None):
 		self.near_cam_camera_info_buffer.append(data)
 		if len(self.near_cam_camera_info_buffer)>self.max_queue_size:
 			self.near_cam_camera_info_buffer.pop(0)
 		self.data_available[self.near_cam_camera_info_available_index]=True
+
+		if message_time is not None:
+			self.near_cam_camera_info_time = message_time
 
 	def near_cam_camera_info_unpack(self):
 		if len(self.near_cam_camera_info_buffer)>0:
@@ -1712,17 +1827,21 @@ class ros_manager(object):
 				self.near_cam_camera_matrix = np.array(self.near_cam_camera_info_buffer.pop(0))
 			else:
 				data = self.near_cam_camera_info_buffer.pop(0)
+				self.near_cam_camera_info_time = data.header.stamp.to_sec()
 				self.near_cam_camera_matrix = np.reshape(data.P, (3, 4))
 
 			self.near_cam_camera_info_has_new = True
 		else:
 			self.near_cam_camera_info_has_new = False
 
-	def polygon_contact_estimate_callback(self,data):
+	def polygon_contact_estimate_callback(self,data,message_time=None):
 		self.polygon_contact_estimate_buffer.append(data)
 		if len(self.polygon_contact_estimate_buffer)>self.max_queue_size:
 			self.polygon_contact_estimate_buffer.pop(0)
 		self.data_available[self.polygon_contact_estimate_available_index]=True
+
+		if message_time is not None:
+			self.polygon_contact_estimate_time = message_time
 
 	def polygon_contact_estimate_unpack(self):
 		if len(self.polygon_contact_estimate_buffer)>0:
@@ -1737,11 +1856,14 @@ class ros_manager(object):
 		else:
 			self.polygon_contact_estimate_has_new = False
 
-	def polygon_vision_estimate_callback(self,data):
+	def polygon_vision_estimate_callback(self,data,message_time=None):
 		self.polygon_vision_estimate_buffer.append(data)
 		if len(self.polygon_vision_estimate_buffer)>self.max_queue_size:
 			self.polygon_vision_estimate_buffer.pop(0)
 		self.data_available[self.polygon_vision_estimate_available_index]=True
+
+		if message_time is not None:
+			self.polygon_vision_estimate_time = message_time
 
 	def polygon_vision_estimate_unpack(self):
 		if len(self.polygon_vision_estimate_buffer)>0:

@@ -16,7 +16,7 @@ def in_theta_range(theta_test,theta_min,theta_max):
     while theta_test<theta_min:
         theta_test+=2*np.pi
     while theta_test>theta_max:
-        theta_test-=2*pi
+        theta_test-=2*np.pi
 
     return theta_min<=theta_test and theta_test<=theta_max
 

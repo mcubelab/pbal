@@ -14,7 +14,7 @@ class gtsam_advanced_estimator(object):
         
         self.error_contact_model_factor = .06
         self.error_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, self.error_contact_model_factor)
-        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, 100.0)
+        self.error_torque_model = gtsam.noiseModel.Isotropic.Sigma(1, 40.0)
         self.error_var_change_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
         
         self.error_var_regularization_model = gtsam.noiseModel.Isotropic.Sigma(1, 1.)
@@ -35,7 +35,7 @@ class gtsam_advanced_estimator(object):
 
         self.const_current_denominator = 10
         self.denominator_increment = .3
-        self.const_max_denominator = 500
+        self.const_max_denominator = 100
 
         self.error_reset_const_model = gtsam.noiseModel.Isotropic.Sigma(1, 1/min(self.const_current_denominator,self.const_max_denominator))
 
@@ -46,6 +46,8 @@ class gtsam_advanced_estimator(object):
 
         shape_prior_dict = shape_prior_helper.generate_shape_prior_for_advanced_estimator(object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog)
 
+        #change this in the future! shape_prior_dict should determine if in point or line contact initially
+        self.single_vertex_touching_hand = None
 
         self.current_contact_face = shape_prior_dict['contact_face']
         self.d_offset_list_current = shape_prior_dict['d_offset_list']
@@ -161,6 +163,7 @@ class gtsam_advanced_estimator(object):
 
         self.theta_obj_in_wm_current = mod2pi(self.theta_obj_in_wm_current)
     
+
 
         for i in range(self.num_vertices):
             vertex_obj_frame_temp = np.array([self.vertex_positions_obj_current[0][i], self.vertex_positions_obj_current[1][i]])
@@ -306,7 +309,9 @@ class gtsam_advanced_estimator(object):
         current_estimate_dict['theta_offset_list'] = self.theta_offset_list_current
         current_estimate_dict['num_vertices'] = self.num_vertices
         current_estimate_dict['hand_contact_face'] = self.current_contact_face
+        current_estimate_dict['single_vertex_touching_hand'] = self.single_vertex_touching_hand
         current_estimate_dict['ground_contact_face'] = self.ground_contact_face
+        current_estimate_dict['h_ground'] = self.h_ground_current
 
 
         self.current_estimate_dict = current_estimate_dict
@@ -360,6 +365,19 @@ class gtsam_advanced_estimator(object):
         self.add_regularization_constraint(self.symbol_dict['r1_obj_in_wm'][self.current_time_step], hypothesis_position[1], error_model)
         self.add_regularization_constraint(self.symbol_dict['theta_obj_in_wm'][self.current_time_step], hypothesis_theta, error_model)
 
+    def add_kinematic_constraints_object_corner_hand_line_contact(self,corner_contact_dict):
+        self.contact_vertices = corner_contact_dict['hypothesis_ground_contact_vertices']
+        self.single_vertex_touching_hand = corner_contact_dict['contact_vertex']
+        
+        self.contact_vertices_list[self.current_time_step] = self.contact_vertices
+
+        self.wall_contact_on
+
+        self.add_wm_constraint_floating_object_single_vertex(self.single_vertex_touching_hand, corner_contact_dict['COP_wm'])
+
+        for ground_contact_vertex_index in self.contact_vertices:
+            self.add_floating_object_vertex_ground_height_constraint(ground_contact_vertex_index)
+
     def add_kinematic_constraints_no_hand_contact_for_vision_assist(self):
 
         threshold_mat = self.vertex_positions_wm_current
@@ -373,7 +391,7 @@ class gtsam_advanced_estimator(object):
             contact_vertices = height_indices[:2] 
 
         self.contact_vertices = contact_vertices
-        self.contact_vertices_list[self.current_time_step]= contact_vertices
+        self.contact_vertices_list[self.current_time_step] = contact_vertices
 
         if len(contact_vertices)==2:
             lower_index = min(contact_vertices[0],contact_vertices[1])
@@ -388,7 +406,7 @@ class gtsam_advanced_estimator(object):
 
         # height of ground contact points are at the ground
         for ground_contact_vertex_index in contact_vertices:
-            self.add_no_hand_contact_vertex_ground_height_constraint(ground_contact_vertex_index)
+            self.add_floating_object_vertex_ground_height_constraint(ground_contact_vertex_index)
 
         # print('no hand contact: ',self.contact_vertices)
 
@@ -575,7 +593,7 @@ class gtsam_advanced_estimator(object):
         self.my_graph.add(my_factor)
 
 
-    def add_no_hand_contact_vertex_ground_height_constraint(self, ground_contact_vertex_index):
+    def add_floating_object_vertex_ground_height_constraint(self, ground_contact_vertex_index):
         theta_hand = self.measured_pose_list[self.current_time_step][2]
 
         # error_model_multiplier = 1/(np.abs(np.sin(theta_hand))+.00000000001)
@@ -650,7 +668,7 @@ class gtsam_advanced_estimator(object):
             
         ]
 
-        if abs(theta_hand)>10*np.pi/180:
+        if abs(theta_hand)>5*np.pi/180:
             index_dict['coord_reference'] = 4 
             symbol_list.append(self.symbol_dict['h_ground'])
 
@@ -706,7 +724,7 @@ class gtsam_advanced_estimator(object):
 
         self.my_graph.add(my_factor)
 
-    def add_vision_constraints_no_hand_contact_single_vertex(self, estimate_polygon_vertex_index, vision_polygon_vertex_index):
+    def add_wm_constraint_floating_object_single_vertex(self, estimate_polygon_vertex_index, ref_position):
 
         index_dict = {
             'r0_point_in_obj_frame': 0, 
@@ -731,7 +749,7 @@ class gtsam_advanced_estimator(object):
         for coord_index in range(2):
 
             set_val_dict = {
-                'coord_reference': self.vision_estimate_list[self.current_time_step][coord_index, vision_polygon_vertex_index]
+                'coord_reference': ref_position[coord_index]
             }
 
             error_func = partial(eval_error_kinematic_wm, measurement, set_val_dict, index_dict, coord_index)
@@ -739,6 +757,42 @@ class gtsam_advanced_estimator(object):
             my_factor = gtsam.CustomFactor(error_model, symbol_list, error_func)
 
             self.my_graph.add(my_factor)
+
+
+    def add_vision_constraints_no_hand_contact_single_vertex(self, estimate_polygon_vertex_index, vision_polygon_vertex_index):
+        self.add_wm_constraint_floating_object_single_vertex(estimate_polygon_vertex_index, self.vision_estimate_list[self.current_time_step][:, vision_polygon_vertex_index])
+
+        # index_dict = {
+        #     'r0_point_in_obj_frame': 0, 
+        #     'r1_point_in_obj_frame': 1,
+        #     'r0_obj_in_ee_frame': 2,
+        #     'r1_obj_in_ee_frame': 3,
+        #     'theta_obj_in_ee': 4,
+        # }
+
+        # symbol_list = [
+        #     self.symbol_dict['r0_point_in_obj_frame'][estimate_polygon_vertex_index], 
+        #     self.symbol_dict['r1_point_in_obj_frame'][estimate_polygon_vertex_index],
+        #     self.symbol_dict['r0_obj_in_wm'][self.current_time_step], 
+        #     self.symbol_dict['r1_obj_in_wm'][self.current_time_step],
+        #     self.symbol_dict['theta_obj_in_wm'][self.current_time_step],
+        # ]
+
+        # measurement = np.array([0.0,0.0,-np.pi])
+
+        # error_model = self.error_weak_vision_model
+
+        # for coord_index in range(2):
+
+        #     set_val_dict = {
+        #         'coord_reference': self.vision_estimate_list[self.current_time_step][coord_index, vision_polygon_vertex_index]
+        #     }
+
+        #     error_func = partial(eval_error_kinematic_wm, measurement, set_val_dict, index_dict, coord_index)
+
+        #     my_factor = gtsam.CustomFactor(error_model, symbol_list, error_func)
+
+        #     self.my_graph.add(my_factor)
 
 
 

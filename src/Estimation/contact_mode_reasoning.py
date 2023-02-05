@@ -80,6 +80,8 @@ class contact_mode_reasoning(object):
         self.ground_contact_face_prev = estimate_dict['ground_contact_face']
         self.ground_contact_vertices_prev = estimate_dict['contact_vertices']
 
+        self.h_ground = estimate_dict['h_ground']
+
 
         self.normals_array_wm_estimated = shape_prior_helper.get_outward_normals(self.vertices_wm_estimated)
         self.normals_array_obj_frame = shape_prior_helper.get_outward_normals(self.vertices_obj_frame)
@@ -292,24 +294,36 @@ class contact_mode_reasoning(object):
         return self.line_line_contact_to_no_contact_bool
 
     def compute_feasibility_of_hand_line_object_corner_contact(self):
-        is_feasible = True
+        is_feasible = False
+
+        contact_vertex = None
+
+        hypothesis_theta = None
+        hypothesis_ground_contact_vertices = []
+        hypothesis_ground_contact_face = None
 
         
-
-        if self.measured_wrench_ee[0]<3.0:
-            is_feasible = False
-
-        else:
+        if self.measured_wrench_ee[0]>2.0:
             self.COP_reasoning_hand_contact()
 
-            contact_vertex = None #need to fill this in
+            contact_vertex = None
+            dist_from_hand_COP = None
+            
+            for candidate_hand_contact_vertex in range(self.num_vertices):
+                candidate_dist = np.linalg.norm(self.vertices_wm_estimated[:,candidate_hand_contact_vertex]-self.COP_wm)
+
+                if candidate_dist<.025 and (dist_from_hand_COP is None or candidate_dist<dist_from_hand_COP):
+                    contact_vertex = candidate_hand_contact_vertex
+                    dist_from_hand_COP = candidate_dist
+
+        if contact_vertex is not None:
 
             face0 = contact_vertex
             face1 = (contact_vertex-1)%self.num_vertices
 
 
-            theta_offset0 = mod2pi(theta_offset_list[face0]+theta_hand+np.pi)
-            theta_offset1 = mod2pi(theta_offset_list[face1]+theta_hand+np.pi)
+            theta_offset0 = mod2pi(self.theta_offset_list[face0]+self.theta_hand+np.pi)
+            theta_offset1 = mod2pi(self.theta_offset_list[face1]+self.theta_hand+np.pi)
 
 
             if theta_offset0<theta_offset1 and theta_offset1-theta_offset0>np.pi:
@@ -322,24 +336,178 @@ class contact_mode_reasoning(object):
             theta_max = max(theta_offset0,theta_offset1)
 
 
-            # for candidate_ground_contact_vertex in range(self.num_vertices):
-            #     if candidate_ground_contact_vertex!=contact_vertex:
-            #         can_touch_ground
+            height = self.COP_wm[0]-self.h_ground
+            ground_collision_threshold_val = -height-.01
+            min_collision_threshold_hand_flush = -height-.005
+            max_collision_threshold_hand_flush = -height+.005
 
-            #         minimum_height_angle
+            vertex_collision_test_matrix = np.array(self.vertices_obj_frame)
+            vertex_collision_test_matrix[0] = vertex_collision_test_matrix[0]-self.vertices_obj_frame[0,contact_vertex]
+            vertex_collision_test_matrix[1] = vertex_collision_test_matrix[1]-self.vertices_obj_frame[1,contact_vertex]
 
-            #         minimum_height
+            rot_mat_theta_min = np.array([[np.cos(theta_min),-np.sin(theta_min)],
+                                          [np.sin(theta_min), np.cos(theta_min)]])
 
-            #         ground_height_angle
+            rot_mat_theta_max = np.array([[np.cos(theta_max),-np.sin(theta_max)],
+                                          [np.sin(theta_max), np.cos(theta_max)]])
+
+            test_val_theta_min = np.min(np.dot(rot_mat_theta_min[0],vertex_collision_test_matrix))
+            test_val_theta_max = np.min(np.dot(rot_mat_theta_max[0],vertex_collision_test_matrix))
+
+            theta_min_possible = min_collision_threshold_hand_flush<=test_val_theta_min and test_val_theta_min<=max_collision_threshold_hand_flush
+            theta_max_possible = min_collision_threshold_hand_flush<=test_val_theta_max and test_val_theta_max<=max_collision_threshold_hand_flush
 
 
 
-            # contact_face0 = contact_vertex
-            # contact_face1 = (contact_vertex-1)%self.num_vertices
+            theta_min_possible =  theta_min_possible and abs(mod2pi(theta_min-self.object_angle_wm_estimated))<=5*np.pi/180
+            theta_max_possible =  theta_max_possible and abs(mod2pi(theta_max-self.object_angle_wm_estimated))<=5*np.pi/180
 
-            # self.COP_wm
+            hand_flush_contact_possible = theta_min_possible or theta_max_possible
 
-            self.theta_hand
+            theta_touch_ground_LUB = None
+            vertex_LUB = None
+
+            theta_touch_ground_GLB = None
+            vertex_GLB = None
+
+            for candidate_ground_contact_vertex in range(self.num_vertices):
+                if candidate_ground_contact_vertex!=contact_vertex:
+                    r_obj_frame = self.vertices_obj_frame[:,candidate_ground_contact_vertex]-self.vertices_obj_frame[:,contact_vertex]
+
+                    update_LUB_and_GLB = False
+
+                    theta_touch_ground0 = None
+                    theta_touch_ground1 = None
+
+                    if np.linalg.norm(r_obj_frame)>=height:
+                        update_LUB_and_GLB = True
+
+                        delta_phi = np.arctan2(r_obj_frame[1],r_obj_frame[0])
+                        theta_touch_ground0 = -delta_phi+np.arccos(-height/np.linalg.norm(r_obj_frame))
+                        theta_touch_ground1 = -delta_phi-np.arccos(-height/np.linalg.norm(r_obj_frame))
+
+                        
+
+                    elif np.linalg.norm(r_obj_frame)>=height-.01:
+                        update_LUB_and_GLB = True
+
+                        delta_phi = np.arctan2(r_obj_frame[1],r_obj_frame[0])
+                        theta_touch_ground0 = -delta_phi+np.pi
+                        theta_touch_ground1 = -delta_phi-np.pi
+
+                    if update_LUB_and_GLB:
+                        theta_touch_ground0 = mod2pi(theta_touch_ground0,self.object_angle_wm_estimated)
+                        theta_touch_ground1 = mod2pi(theta_touch_ground1,self.object_angle_wm_estimated)
+
+                        for theta_touch_ground in [theta_touch_ground0,theta_touch_ground1]:
+                            if theta_touch_ground<=self.object_angle_wm_estimated:
+                                if theta_touch_ground_GLB is None or theta_touch_ground>theta_touch_ground_GLB:
+                                    theta_touch_ground_GLB = theta_touch_ground
+                                    vertex_GLB = candidate_ground_contact_vertex
+                            if theta_touch_ground>=self.object_angle_wm_estimated:
+                                if theta_touch_ground_LUB is None or theta_touch_ground<theta_touch_ground_LUB:
+                                    theta_touch_ground_LUB = theta_touch_ground
+                                    vertex_LUB = candidate_ground_contact_vertex
+
+
+            test_GLB = False
+
+            if theta_touch_ground_GLB is not None:
+                rot_mat_GLB = np.array([[np.cos(theta_touch_ground_GLB),-np.sin(theta_touch_ground_GLB)],
+                                     [np.sin(theta_touch_ground_GLB), np.cos(theta_touch_ground_GLB)]])
+
+                test_GLB = np.min(np.dot(rot_mat_GLB[0],vertex_collision_test_matrix))>=ground_collision_threshold_val and in_theta_range(theta_touch_ground_GLB,theta_min,theta_max)
+
+            test_LUB = False
+
+            if theta_touch_ground_LUB is not None:
+                rot_mat_LUB = np.array([[np.cos(theta_touch_ground_LUB),-np.sin(theta_touch_ground_LUB)],
+                                     [np.sin(theta_touch_ground_LUB), np.cos(theta_touch_ground_LUB)]])
+
+                test_LUB = np.min(np.dot(rot_mat_LUB[0],vertex_collision_test_matrix))>=ground_collision_threshold_val and in_theta_range(theta_touch_ground_LUB,theta_min,theta_max)
+                 
+
+            phi_test0 = np.inf
+            phi_test1 = np.inf
+
+            if test_LUB:
+                phi_test0 = abs(theta_touch_ground_LUB-self.object_angle_wm_estimated)
+
+            if test_GLB:
+                phi_test1 = abs(theta_touch_ground_GLB-self.object_angle_wm_estimated)
+            
+            # is_feasible = (test_GLB or test_LUB) and min(phi_test0,phi_test1)<10.0*np.pi/180.0
+            is_feasible = (not hand_flush_contact_possible) and (test_GLB or test_LUB) and min(phi_test0,phi_test1)<10.0*np.pi/180.0
+
+            hypothesis_contact_vertex = None
+
+            if is_feasible:
+                if test_GLB and not test_LUB:
+                    hypothesis_theta = theta_touch_ground_GLB
+                    hypothesis_contact_vertex = vertex_GLB
+                elif test_LUB and not test_GLB:
+                    hypothesis_theta = theta_touch_ground_LUB
+                    hypothesis_contact_vertex = vertex_LUB
+                elif abs(theta_touch_ground_LUB-self.object_angle_wm_estimated)<abs(theta_touch_ground_GLB-self.object_angle_wm_estimated):
+                    hypothesis_theta = theta_touch_ground_LUB
+                    hypothesis_contact_vertex = vertex_LUB
+                else:
+                    hypothesis_theta = theta_touch_ground_GLB
+                    hypothesis_contact_vertex = vertex_GLB
+
+
+                hypothesis_ground_contact_vertices = [hypothesis_contact_vertex]
+                
+
+                rot_mat_hypothesis_theta = np.array([[np.cos(hypothesis_theta),-np.sin(hypothesis_theta)],
+                                                     [np.sin(hypothesis_theta), np.cos(hypothesis_theta)]])
+
+
+                test_array = np.dot(rot_mat_hypothesis_theta,vertex_collision_test_matrix)
+
+
+                hypothesis_other_contact_vertex0 = (hypothesis_contact_vertex+1)%self.num_vertices
+                hypothesis_other_contact_vertex1 = (hypothesis_contact_vertex-1)%self.num_vertices
+
+                for hypothesis_other_contact_vertex in [hypothesis_other_contact_vertex0,hypothesis_other_contact_vertex1]:
+                    moment_arm0 = -test_array[:,hypothesis_contact_vertex]
+                    moment_arm1 = -test_array[:,hypothesis_other_contact_vertex]
+
+                    #since moment arm is with respect to COP on hand, we don't add self.measured_wrench_wm[2] to the torque calculation
+
+                    tau0 = moment_arm0[0]*self.measured_wrench_wm[1]-moment_arm0[1]*self.measured_wrench_wm[0]
+                    tau1 = moment_arm1[0]*self.measured_wrench_wm[1]-moment_arm1[1]*self.measured_wrench_wm[0]
+
+                    alpha0 = tau1/(tau1-tau0)
+                    alpha1 = tau0/(tau0-tau1)
+
+                    condition1 = abs(test_array[0,hypothesis_other_contact_vertex]-test_array[0,hypothesis_contact_vertex])<.01
+                    condition2 = alpha0<.8 and alpha1<.8
+
+                    if condition1 and condition2:
+                        hypothesis_ground_contact_vertices = [hypothesis_contact_vertex,hypothesis_other_contact_vertex]
+
+                if len(hypothesis_ground_contact_vertices)==2:
+                    v0 = hypothesis_ground_contact_vertices[0]
+                    v1 = hypothesis_ground_contact_vertices[1]
+                    min_v = min(v0,v1)
+                    max_v = max(v0,v1)
+
+                    if max_v-min_v==1:
+                        hypothesis_ground_contact_face = min_v
+                    else:
+                        hypothesis_ground_contact_face = max_v
+
+        output_dict =  {'is_feasible': is_feasible,
+                        'contact_vertex': contact_vertex,
+                        'hypothesis_theta': hypothesis_theta,
+                        'hypothesis_ground_contact_vertices': hypothesis_ground_contact_vertices,
+                        'hypothesis_ground_contact_face': hypothesis_ground_contact_face,
+                        'COP_wm': self.COP_wm,}
+            
+
+        return output_dict
+
 
 
     def compute_hypothesis_object_poses_assuming_hand_line_object_corner_contact(self):
@@ -453,7 +621,7 @@ class contact_mode_reasoning(object):
                 for j in range(self.num_vertices):
                     dtheta_list[j] = theta_list_wm_vision[(j+i)%self.num_vertices]-theta_list_obj_frame[j]
 
-                    dtheta_list[j] = mod2pi(dtheta_list[j])
+                    dtheta_list[j] = mod2pi(dtheta_list[j],dtheta_list[0])
 
                 dtheta_mean = np.mean(dtheta_list)
 

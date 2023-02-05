@@ -25,6 +25,7 @@ if __name__ == '__main__':
                           '/pivot_frame_realsense',
                           '/pivot_frame_estimated',
                           '/polygon_contact_estimate',
+                          '/polygon_vision_estimate',
                           '/generalized_positions',
                           '/barrier_func_control_command',
                           '/torque_bound_message',
