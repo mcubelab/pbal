@@ -42,8 +42,8 @@ if __name__ == '__main__':
     show_image = True
     # show_image = False
 
-    is_fine = True
-    # is_fine = False
+    # is_fine = True
+    is_fine = False
 
     while not rospy.is_shutdown():
         rm.unpack_all()
@@ -54,7 +54,7 @@ if __name__ == '__main__':
             visited_array = np.zeros([len(cv_image),len(cv_image[0])])
 
         t0 = time.time() 
-        vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array,is_fine)
+        vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array,is_fine,color_dist=28)
         t1 = time.time()
         print('flood_fill time: ',t1-t0)
 

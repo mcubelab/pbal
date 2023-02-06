@@ -19,7 +19,7 @@ import random
 from Estimation.contact_mode_reasoning import contact_mode_reasoning
 from Helpers.kinematics_helper import mod2pi
 
-def get_shape_prior():
+def get_shape_prior(add_noise = False, noise_diameter = 0.0):
     rm = ros_manager()
     rm.spawn_transform_listener()
     rm.subscribe_to_list(['/near_cam/color/image_raw',
@@ -39,7 +39,12 @@ def get_shape_prior():
 
     # vertex_list = img_seg.find_the_object(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix)
     visited_array = np.zeros([len(cv_image),len(cv_image[0])])
-    vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array, is_fine = False)
+    vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array, is_fine = False, color_dist=28)
+
+    # if add_noise:
+    #     for i in range(len(vertex_list)):
+    #         for j in range(2):
+    #             vertex_list[i][j]+=random.uniform(-noise_diameter,noise_diameter)
 
     rm.unregister_all()
 
@@ -107,7 +112,8 @@ if __name__ == '__main__':
 
     hand_front_center = np.array([0.0, 0.0, .041, 1.0])
 
-    object_vertex_array = get_shape_prior()
+    # object_vertex_array = get_shape_prior(add_noise = True, noise_diameter = .01)
+    object_vertex_array = get_shape_prior(add_noise = False)
 
     print('shape prior acquired')
 
@@ -129,7 +135,13 @@ if __name__ == '__main__':
     t_vision_recent = time.time()-1.0
     time_since_last_vision_message = 100
 
+    corner_contact_is_feasible = False
     prev_step_was_line_contact = True
+
+    num_line_contact_detected_count = np.inf
+    corner_contact_dict = None
+
+
 
     while (rm.load_mode and rm.read_still_running()) or (not rm.load_mode and not rospy.is_shutdown()):
         rm.unpack_all()
@@ -153,12 +165,25 @@ if __name__ == '__main__':
         my_cm_reasoner.COP_reasoning_hand_contact()
         line_line_to_no_contact_check = my_cm_reasoner.update_check_on_transition_from_hand_line_object_line_contact_to_no_contact()
 
-        corner_contact_dict = None
-        corner_contact_is_feasible = False
+        
+        
 
         if current_estimator.has_run_once:
-            corner_contact_dict = my_cm_reasoner.compute_feasibility_of_hand_line_object_corner_contact()
-            corner_contact_is_feasible = corner_contact_dict['is_feasible']
+
+            
+
+            temp_corner_contact_dict = my_cm_reasoner.compute_feasibility_of_hand_line_object_corner_contact()
+
+            if temp_corner_contact_dict['is_feasible']:
+                corner_contact_is_feasible = True
+                corner_contact_dict = temp_corner_contact_dict
+                num_line_contact_detected_count = 0
+            else:
+                num_line_contact_detected_count+=1
+                # print(num_line_contact_detected_count)
+                if num_line_contact_detected_count>10:
+                    corner_contact_is_feasible = False
+
 
         if rm.polygon_vision_estimate_has_new and rm.polygon_vision_estimate_dict is not None:
             t_vision_recent = time.time()
@@ -182,14 +207,12 @@ if __name__ == '__main__':
             current_estimator.add_sliding_state(rm.sliding_state)
             current_estimator.update_wall_contact_state(wall_contact_on)
 
-
-            current_estimator.initialize_current_object_pose_variables()
             current_estimator.add_kinematic_constraints_object_corner_hand_line_contact(corner_contact_dict)
 
             current_estimator.current_contact_face = None
 
             kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_no_object_motion()
-            
+
             if time_since_last_vision_message<.2:
 
                 hypothesis_index = my_cm_reasoner.choose_vision_hypothesis(vision_hypothesis_dict,kinematic_hypothesis_dict)
@@ -197,12 +220,13 @@ if __name__ == '__main__':
                 if hypothesis_index is not None:
                     current_estimator.add_vision_estimate(vision_vertex_array)
                     current_estimator.add_vision_constraints_no_hand_contact(vision_hypothesis_dict['hypothesis_obj_to_vision_map_list'][hypothesis_index])
-
+        # if False:
+        #     pass
 
 
         elif rm.torque_cone_boundary_test is not None and rm.torque_cone_boundary_test and measured_wrench_ee[0]>3.0:
             can_run_estimate = True
-            prev_step_was_line_contact = True
+            
 
             current_estimator.increment_time()
 
@@ -231,6 +255,8 @@ if __name__ == '__main__':
                 if hypothesis_index is not None:
                     current_estimator.add_vision_constraints_hand_flush_contact(vision_hypothesis_dict['hypothesis_obj_to_vision_map_list'][hypothesis_index])
                 
+            prev_step_was_line_contact = True
+
 
         elif rm.polygon_vision_estimate_has_new and rm.polygon_vision_estimate_dict is not None:
             kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_no_object_motion()
@@ -249,7 +275,7 @@ if __name__ == '__main__':
                 current_estimator.add_sliding_state(rm.sliding_state)
                 current_estimator.update_wall_contact_state(wall_contact_on)
 
-                current_estimator.initialize_current_object_pose_variables()
+                # current_estimator.initialize_current_object_pose_variables()
 
                 test_val = vision_hypothesis_dict['hypothesis_theta_list'][hypothesis_index]-current_estimator.theta_obj_in_wm_current
 
@@ -280,7 +306,7 @@ if __name__ == '__main__':
                 current_estimator.add_hand_wrench_measurement(measured_wrench_pivot_estimator)
                 current_estimator.add_sliding_state(rm.sliding_state)
 
-                current_estimator.initialize_current_object_pose_variables()
+                # current_estimator.initialize_current_object_pose_variables()
 
                 current_estimator.add_kinematic_constraints_no_hand_contact_for_no_vision_assist(
                     hypothesis_position = kinematic_hypothesis_dict['hypothesis_object_position_list'][0],

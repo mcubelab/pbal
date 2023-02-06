@@ -194,6 +194,7 @@ class contact_mode_reasoning(object):
         hypothesis_theta_list = []
         hypothesis_object_position_list = []
         hypothesis_ground_contact_face = None
+        hypothesis_ground_contact_face_list = []
 
 
         #if lost contact with the object while it was in line contact with ground
@@ -312,9 +313,12 @@ class contact_mode_reasoning(object):
             for candidate_hand_contact_vertex in range(self.num_vertices):
                 candidate_dist = np.linalg.norm(self.vertices_wm_estimated[:,candidate_hand_contact_vertex]-self.COP_wm)
 
-                if candidate_dist<.025 and (dist_from_hand_COP is None or candidate_dist<dist_from_hand_COP):
+                if candidate_dist<.01 and (dist_from_hand_COP is None or candidate_dist<dist_from_hand_COP):
                     contact_vertex = candidate_hand_contact_vertex
                     dist_from_hand_COP = candidate_dist
+
+        
+
 
         if contact_vertex is not None:
 
@@ -359,8 +363,8 @@ class contact_mode_reasoning(object):
 
 
 
-            theta_min_possible =  theta_min_possible and abs(mod2pi(theta_min-self.object_angle_wm_estimated))<=5*np.pi/180
-            theta_max_possible =  theta_max_possible and abs(mod2pi(theta_max-self.object_angle_wm_estimated))<=5*np.pi/180
+            theta_min_possible =  theta_min_possible and abs(mod2pi(theta_min-self.object_angle_wm_estimated))<=2*np.pi/180
+            theta_max_possible =  theta_max_possible and abs(mod2pi(theta_max-self.object_angle_wm_estimated))<=2*np.pi/180
 
             hand_flush_contact_possible = theta_min_possible or theta_max_possible
 
@@ -436,8 +440,9 @@ class contact_mode_reasoning(object):
             if test_GLB:
                 phi_test1 = abs(theta_touch_ground_GLB-self.object_angle_wm_estimated)
             
+            # is_feasible = (test_GLB or test_LUB) and min(phi_test0,phi_test1)<30.0*np.pi/180.0
             # is_feasible = (test_GLB or test_LUB) and min(phi_test0,phi_test1)<10.0*np.pi/180.0
-            is_feasible = (not hand_flush_contact_possible) and (test_GLB or test_LUB) and min(phi_test0,phi_test1)<10.0*np.pi/180.0
+            is_feasible = (not hand_flush_contact_possible) and (test_GLB or test_LUB) and min(phi_test0,phi_test1)<15.0*np.pi/180.0
 
             hypothesis_contact_vertex = None
 
@@ -481,11 +486,17 @@ class contact_mode_reasoning(object):
                     alpha0 = tau1/(tau1-tau0)
                     alpha1 = tau0/(tau0-tau1)
 
-                    condition1 = abs(test_array[0,hypothesis_other_contact_vertex]-test_array[0,hypothesis_contact_vertex])<.01
+                    condition1 = abs(test_array[0,hypothesis_other_contact_vertex]-test_array[0,hypothesis_contact_vertex])<.015
                     condition2 = alpha0<.8 and alpha1<.8
 
-                    if condition1 and condition2:
-                        hypothesis_ground_contact_vertices = [hypothesis_contact_vertex,hypothesis_other_contact_vertex]
+                    # if condition1 and condition2:
+                    if condition1:
+                        if alpha0>alpha1:
+                            hypothesis_ground_contact_vertices = [hypothesis_contact_vertex]
+                        else:
+                            hypothesis_ground_contact_vertices = [hypothesis_other_contact_vertex]
+                        
+                        # hypothesis_ground_contact_vertices = [hypothesis_contact_vertex,hypothesis_other_contact_vertex]
 
                 if len(hypothesis_ground_contact_vertices)==2:
                     v0 = hypothesis_ground_contact_vertices[0]
@@ -497,6 +508,9 @@ class contact_mode_reasoning(object):
                         hypothesis_ground_contact_face = min_v
                     else:
                         hypothesis_ground_contact_face = max_v
+
+                    hypothesis_ground_contact_vertices.sort()
+                    # print(contact_vertex,hypothesis_ground_contact_vertices)
 
         output_dict =  {'is_feasible': is_feasible,
                         'contact_vertex': contact_vertex,

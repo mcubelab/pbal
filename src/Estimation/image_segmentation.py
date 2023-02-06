@@ -13,7 +13,7 @@ import time
 
 
 
-def fast_polygon_estimate(cv_image,ee_pose_homog,camera_transformation_matrix,visited_array,is_fine = False,seed_point = None):
+def fast_polygon_estimate(cv_image,ee_pose_homog,camera_transformation_matrix,visited_array,is_fine = False,seed_point = None,color_dist = 25):
 
     num_divisions =16
     theta_range = 2*np.pi*(1.0*np.array(range(num_divisions)))/num_divisions
@@ -78,7 +78,7 @@ def fast_polygon_estimate(cv_image,ee_pose_homog,camera_transformation_matrix,vi
 
             if my_dist<r**2 and not visited_array[i][j]:
                 n_prev = len(i_list)
-                average_color_temp, centroid_temp = find_blob_v2(i,j,l0,l1,delta_coord,cv_image,visited_array,i_list,j_list,i_boundary,j_boundary)
+                average_color_temp, centroid_temp = find_blob_v2(i,j,l0,l1,delta_coord,cv_image,visited_array,i_list,j_list,i_boundary,j_boundary,color_dist)
                 n_current = len(i_list)
                 dn = n_current-n_prev
 
@@ -100,7 +100,7 @@ def fast_polygon_estimate(cv_image,ee_pose_homog,camera_transformation_matrix,vi
         j = max(min(j,l1-1),0)
 
   
-        if not visited_array[i][j] and np.linalg.norm(average_color-cv_image[i][j])<25:
+        if not visited_array[i][j] and np.linalg.norm(average_color-cv_image[i][j])<color_dist:
             visited_array[i][j]=1
 
             shape_hull_estimator.add_data_point(np.array([1.0*i,1.0*j]))
@@ -129,7 +129,7 @@ def fast_polygon_estimate(cv_image,ee_pose_homog,camera_transformation_matrix,vi
             j = max(min(j,l1-1),0)
 
       
-            if not visited_array[i][j] and np.linalg.norm(average_color-cv_image[i][j])<23:
+            if not visited_array[i][j] and np.linalg.norm(average_color-cv_image[i][j])<color_dist:
                 visited_array[i][j]=1
 
                 shape_hull_estimator.add_data_point(np.array([1.0*i,1.0*j]))
@@ -162,7 +162,7 @@ def fast_polygon_estimate(cv_image,ee_pose_homog,camera_transformation_matrix,vi
 
 
 
-def find_blob_v2(i,j,l0,l1,delta_coord,cv_image,visited_array,i_list,j_list,i_boundary,j_boundary):
+def find_blob_v2(i,j,l0,l1,delta_coord,cv_image,visited_array,i_list,j_list,i_boundary,j_boundary,color_dist = 23):
 
     t0 = time.time()
     visited_array[i][j] = 1
@@ -198,7 +198,7 @@ def find_blob_v2(i,j,l0,l1,delta_coord,cv_image,visited_array,i_list,j_list,i_bo
 
             if (0<=i_next and i_next<l0 and 0<=j_next and j_next<l1 and 
                 not visited_array[i_next][j_next] and 
-                np.linalg.norm(average_color-cv_image[i_next][j_next])<23):
+                np.linalg.norm(average_color-cv_image[i_next][j_next])<color_dist):
 
 
                 average_color = average_color*(num_pts/(num_pts+1))+cv_image[i_next][j_next]/(num_pts+1)

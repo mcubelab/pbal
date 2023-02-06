@@ -63,7 +63,7 @@ if __name__ == '__main__':
             seed_point_location = None
 
         vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array,
-                                                    is_fine = False, seed_point = seed_point_location)
+                                                    is_fine = False, seed_point = seed_point_location, color_dist=28)
 
 
         if len(vertex_list)>2:
