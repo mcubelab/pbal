@@ -434,7 +434,6 @@ class ImpedanceControlBarrierFunction(object):
                 l_hand, s_hand, theta_hand = self.rm.l_hand, self.rm.s_hand, self.rm.theta_hand
 
 
-
             # unpack current message if pivot command
             if self.rm.barrier_func_control_command_has_new and (self.rm.command_msg['command_flag']==0 or self.rm.command_msg['command_flag']==1):
                 current_command_mode = self.rm.command_msg['command_flag']
@@ -468,7 +467,7 @@ class ImpedanceControlBarrierFunction(object):
                 self.rm.pub_qp_debug_message(debug_dict)
                 self.rm.log_qp_time(debug_dict['solve_time'])
 
-            if self.rm.barrier_func_control_command_has_new and current_command_mode == 3:
+            if self.rm.barrier_func_control_command_has_new and self.rm.command_msg['command_flag'] == 3:
                 # compute impedance increment
                 impedance_increment_robot = self.compute_jog_increment(command_dict)
 

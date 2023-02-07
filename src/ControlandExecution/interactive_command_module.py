@@ -15,11 +15,12 @@ keys_held_down = set()
 
 command_pause = {
     'name': 'pause',
-    'command_flag' : 1,
-    'mode' : -1,
+    'command_flag' : 3,
     'delta_theta' : 0.0,
-    'delta_s_pivot' : 0.0,
-    'delta_s_hand' : 0.0,
+    'delta_x': 0.0,
+    'delta_y': 0.0,
+    'delta_normal': 0.0,
+    'delta_tangential': 0.0,
 }
 
 delta_rotate_left = {
@@ -306,24 +307,62 @@ jog_move_normal_down = {
 
 
 def on_release(key):
-    try:
-        keys_held_down.remove(key)
-    except KeyError:
-        pass
+    # try:
+    #     keys_held_down.remove(key)
+    # except KeyError:
+    #     pass
+    pass
 
 def on_press(key):
 
-    keys_held_down.add(key)
+    # keys_held_down.add(key)
 
 
     global rm
 
+    global shift_on
+    global ctrl_on
+    global alt_on
+
     command_msg_dict = None
 
     not_a_modifier_key = key!=keyboard.Key.shift and key!=keyboard.Key.ctrl and key!=keyboard.Key.alt
-    shift_on = keyboard.Key.shift in keys_held_down
-    ctrl_on = keyboard.Key.ctrl in keys_held_down
-    alt_on = keyboard.Key.alt in keys_held_down
+    # shift_on = keyboard.Key.shift in keys_held_down
+    # ctrl_on = keyboard.Key.ctrl in keys_held_down
+    # alt_on = keyboard.Key.alt in keys_held_down
+
+    if key==keyboard.Key.shift:
+        ctrl_on = False
+        alt_on = False
+
+        shift_on = not shift_on
+
+        if shift_on:
+            print('shift on')
+        else:
+            print('shift off')
+
+    if key==keyboard.Key.ctrl:
+        shift_on = False
+        alt_on = False
+
+        ctrl_on = not ctrl_on
+
+        if ctrl_on:
+            print('ctrl on')
+        else:
+            print('ctrl off')
+
+    if key==keyboard.Key.alt:
+        shift_on = False
+        ctrl_on = False
+
+        alt_on = not alt_on
+
+        if alt_on:
+            print('alt on')
+        else:
+            print('alt off')
 
     modifier_state = shift_on + 2*ctrl_on + 4*alt_on
 
@@ -492,6 +531,9 @@ if __name__ == '__main__':
     print('p: wall contact off')
     print('-----------------------------')
 
+    shift_on = False
+    ctrl_on = False
+    alt_on = False
 
     rm = ros_manager()
     rospy.init_node('barrier_func_commands')

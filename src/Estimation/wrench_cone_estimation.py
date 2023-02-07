@@ -81,7 +81,7 @@ if __name__ == '__main__':
                 wall_contact_on = False
 
         # updating quantiles for robot friction cone
-        if rm.end_effector_wrench_has_new:
+        if rm.end_effector_wrench_has_new and (not wall_contact_on):
             hand_data_point_count +=1
             update_robot_friction_cone = hand_data_point_count%hand_update_number == 0
 
