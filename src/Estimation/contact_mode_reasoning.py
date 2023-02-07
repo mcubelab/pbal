@@ -60,10 +60,11 @@ class contact_mode_reasoning(object):
         self.in_contact = None
 
 
-
         self.line_line_contact_to_no_contact_bool = False
         self.line_line_contact_to_no_contact_threshold = None
         self.line_line_contact_to_no_contact_normal = None
+
+        self.previous_state_no_contact = False
         
     def update_previous_estimate(self,estimate_dict):
         self.vertices_wm_estimated = estimate_dict['vertex_positions_wm_current']
@@ -304,7 +305,7 @@ class contact_mode_reasoning(object):
         hypothesis_ground_contact_face = None
 
         
-        if self.measured_wrench_ee[0]>2.0:
+        if self.measured_wrench_ee[0]>3.0:
             self.COP_reasoning_hand_contact()
 
             contact_vertex = None
@@ -313,11 +314,29 @@ class contact_mode_reasoning(object):
             for candidate_hand_contact_vertex in range(self.num_vertices):
                 candidate_dist = np.linalg.norm(self.vertices_wm_estimated[:,candidate_hand_contact_vertex]-self.COP_wm)
 
-                if candidate_dist<.01 and (dist_from_hand_COP is None or candidate_dist<dist_from_hand_COP):
+                if candidate_dist<.015 and (dist_from_hand_COP is None or candidate_dist<dist_from_hand_COP):
                     contact_vertex = candidate_hand_contact_vertex
                     dist_from_hand_COP = candidate_dist
 
-        
+            if self.previous_state_no_contact:
+
+                test_flush_vals = np.dot(-self.hand_normal,self.normals_array_wm_estimated)
+
+                threshold_val = np.cos(10*np.pi/180)
+
+                for i in range(self.num_vertices):
+                    index0 = i
+                    index1 = (i-1)%self.num_vertices
+
+                    if test_flush_vals[index0]>0.0 and test_flush_vals[index1]>0.0 and test_flush_vals[index0]<threshold_val and test_flush_vals[index1]<threshold_val:
+                         contact_vertex = i
+
+
+            self.previous_state_no_contact = False
+
+        else:
+            self.previous_state_no_contact = True
+
 
 
         if contact_vertex is not None:
@@ -341,7 +360,7 @@ class contact_mode_reasoning(object):
 
 
             height = self.COP_wm[0]-self.h_ground
-            ground_collision_threshold_val = -height-.01
+            ground_collision_threshold_val = -height-.02
             min_collision_threshold_hand_flush = -height-.005
             max_collision_threshold_hand_flush = -height+.005
 
@@ -392,7 +411,7 @@ class contact_mode_reasoning(object):
 
                         
 
-                    elif np.linalg.norm(r_obj_frame)>=height-.01:
+                    elif np.linalg.norm(r_obj_frame)>=height-.02:
                         update_LUB_and_GLB = True
 
                         delta_phi = np.arctan2(r_obj_frame[1],r_obj_frame[0])
@@ -491,11 +510,13 @@ class contact_mode_reasoning(object):
 
                     # if condition1 and condition2:
                     if condition1:
-                        if alpha0>alpha1:
+                        if alpha0>.8:
                             hypothesis_ground_contact_vertices = [hypothesis_contact_vertex]
-                        else:
+                        elif alpha1>.8:
                             hypothesis_ground_contact_vertices = [hypothesis_other_contact_vertex]
-                        
+                        else:
+                            hypothesis_ground_contact_vertices = [hypothesis_contact_vertex, hypothesis_other_contact_vertex]
+
                         # hypothesis_ground_contact_vertices = [hypothesis_contact_vertex,hypothesis_other_contact_vertex]
 
                 if len(hypothesis_ground_contact_vertices)==2:

@@ -58,10 +58,14 @@ class gtsam_advanced_estimator(object):
 
         self.error_theta_smoothing_model = gtsam.noiseModel.Isotropic.Sigma(1, 3.0)
         self.error_position_smoothing_model = gtsam.noiseModel.Isotropic.Sigma(1, 12.0)
-        self.error_floating_object_ground_sticking_model = gtsam.noiseModel.Isotropic.Sigma(1, 4.0)
+        # self.error_floating_object_ground_sticking_model = gtsam.noiseModel.Isotropic.Sigma(1, 4.0)
 
-        self.error_floating_object_ground_height_model = gtsam.noiseModel.Isotropic.Sigma(1, 2.0)
-        self.error_floating_object_hand_touching_model = gtsam.noiseModel.Isotropic.Sigma(1, 2.0)
+        # self.error_floating_object_ground_height_model = gtsam.noiseModel.Isotropic.Sigma(1, 2.0)
+        # self.error_floating_object_hand_touching_model = gtsam.noiseModel.Isotropic.Sigma(1, 2.0)
+
+        self.error_floating_object_ground_sticking_model = gtsam.noiseModel.Isotropic.Sigma(1, .5)
+        self.error_floating_object_ground_height_model = gtsam.noiseModel.Isotropic.Sigma(1, .5)
+        self.error_floating_object_hand_touching_model = gtsam.noiseModel.Isotropic.Sigma(1, .5)
         
         self.error_COP_corner_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, 4.0)
         self.error_hand_sticking_hand_corner_model = gtsam.noiseModel.Isotropic.Sigma(1, .4)
@@ -442,9 +446,6 @@ class gtsam_advanced_estimator(object):
 
         self.add_floating_object_hand_touching_constraint(self.single_vertex_touching_hand,self.error_floating_object_hand_touching_model)
 
-        # height of ground contact points are at the ground
-        # for ground_contact_vertex_index in self.contact_vertices:
-            # self.add_hand_flush_contact_vertex_ground_height_constraint(ground_contact_vertex_index)
 
         #if in sticking contact at hand, s_hand does not change
         if (not sliding_state_dict['csf']) or sliding_state_dict['psf']:
@@ -460,7 +461,6 @@ class gtsam_advanced_estimator(object):
         if (not sliding_state_dict['psf']):
             for ground_contact_vertex_index in self.contact_vertices:
                 if self.current_time_step>0 and ground_contact_vertex_index in self.contact_vertices_list[self.current_time_step-1]:
-                    # self.add_hand_flush_contact_ground_sticking_constraint(ground_contact_vertex_index, hand_contact_face_index)
                     self.add_floating_object_ground_sticking_constraint(ground_contact_vertex_index)
 
 
@@ -721,8 +721,17 @@ class gtsam_advanced_estimator(object):
 
 
     def add_floating_object_hand_sticking_constraint(self,hand_contact_vertex,error_model = None):
+        
+
         if self.current_time_step==0:
             return None
+
+        pose_change = self.measured_pose_list[-1]-self.measured_pose_list[-2]
+
+        if np.linalg.norm(pose_change[0:2])>.01 or abs(pose_change[2])>6*np.pi/180:
+            return None
+
+            
 
         error_model_factor = self.error_contact_model_factor
 
@@ -769,8 +778,17 @@ class gtsam_advanced_estimator(object):
 
 
     def add_floating_object_ground_sticking_constraint(self, ground_contact_vertex_index):
+        
+
         if self.current_time_step==0:
             return None
+
+        pose_change = self.measured_pose_list[-1]-self.measured_pose_list[-2]
+
+        if np.linalg.norm(pose_change[0:2])>.01 or abs(pose_change[2])>6*np.pi/180:
+            return None
+
+
 
         set_val_dict = {
         }
@@ -2093,11 +2111,11 @@ def eval_error_kinematic_floating_obj_hand_touching(measurement, set_val_dict, i
         for i in range(len(jacobians)):
             jacobians[i]=np.array([0.0])
 
-        if index_r0_point_in_obj_frame is not None: jacobians[index_r0_point_in_obj_frame] += np.dot(val_hand_tangent,pr_out_pr_point_in_obj_frame[:, 0])
-        if index_r1_point_in_obj_frame is not None: jacobians[index_r1_point_in_obj_frame] += np.dot(val_hand_tangent,pr_out_pr_point_in_obj_frame[:, 1])
-        if index_r0_obj_in_wm_frame is not None: jacobians[index_r0_obj_in_wm_frame] += np.dot(val_hand_tangent,pr_out_pr_obj_in_wm_frame[:, 0])
-        if index_r1_obj_in_wm_frame is not None: jacobians[index_r1_obj_in_wm_frame] += np.dot(val_hand_tangent,pr_out_pr_obj_in_wm_frame[:, 1])
-        if index_theta_obj_in_wm is not None: jacobians[index_theta_obj_in_wm] += np.dot(val_hand_tangent,pr_out_ptheta_obj_in_wm[:])
+        if index_r0_point_in_obj_frame is not None: jacobians[index_r0_point_in_obj_frame] += np.dot(val_hand_normal,pr_out_pr_point_in_obj_frame[:, 0])
+        if index_r1_point_in_obj_frame is not None: jacobians[index_r1_point_in_obj_frame] += np.dot(val_hand_normal,pr_out_pr_point_in_obj_frame[:, 1])
+        if index_r0_obj_in_wm_frame is not None: jacobians[index_r0_obj_in_wm_frame] += np.dot(val_hand_normal,pr_out_pr_obj_in_wm_frame[:, 0])
+        if index_r1_obj_in_wm_frame is not None: jacobians[index_r1_obj_in_wm_frame] += np.dot(val_hand_normal,pr_out_pr_obj_in_wm_frame[:, 1])
+        if index_theta_obj_in_wm is not None: jacobians[index_theta_obj_in_wm] += np.dot(val_hand_normal,pr_out_ptheta_obj_in_wm[:])
 
 
     return [error_val]

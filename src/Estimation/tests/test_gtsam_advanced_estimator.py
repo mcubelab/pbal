@@ -96,7 +96,8 @@ if __name__ == '__main__':
                           '/sliding_state',
                           '/ee_pose_in_world_manipulation_from_franka_publisher',
                           '/end_effector_sensor_in_world_manipulation_frame',
-                          '/end_effector_sensor_in_end_effector_frame'],True)
+                          '/end_effector_sensor_in_end_effector_frame',
+                          '/friction_parameters',],True)
 
     rm.subscribe_to_list(['/barrier_func_control_command','/polygon_vision_estimate',],False)
 
@@ -141,18 +142,34 @@ if __name__ == '__main__':
     num_line_contact_detected_count = np.inf
     corner_contact_dict = None
 
-
+    wall_contact_force_margin = 3.0
 
     while (rm.load_mode and rm.read_still_running()) or (not rm.load_mode and not rospy.is_shutdown()):
         rm.unpack_all()
 
         can_run_estimate = False
 
-        if rm.barrier_func_control_command_has_new and rm.command_msg['command_flag']==2:
-            if rm.command_msg['mode']==0:
-                wall_contact_on = True
-            elif rm.command_msg['mode']==1:
-                wall_contact_on = False
+
+        
+        if len(rm.friction_parameter_dict['aer'])>0:
+            wall_contact_right_bool = any(np.dot(rm.friction_parameter_dict['aer'],rm.measured_world_manipulation_wrench) > rm.friction_parameter_dict['ber'] + wall_contact_force_margin)
+        else:
+            wall_contact_right_bool = True
+
+        if len(rm.friction_parameter_dict['ael'])>0:
+            wall_contact_left_bool = any(np.dot(rm.friction_parameter_dict['ael'],rm.measured_world_manipulation_wrench) > rm.friction_parameter_dict['bel'] + wall_contact_force_margin)
+        else:
+            wall_contact_left_bool = True
+
+        wall_contact_on = wall_contact_right_bool or wall_contact_left_bool
+
+        # print('wall_contact_on: ',wall_contact_on)
+
+        # if rm.barrier_func_control_command_has_new and rm.command_msg['command_flag']==2:
+        #     if rm.command_msg['mode']==0:
+        #         wall_contact_on = True
+        #     elif rm.command_msg['mode']==1:
+        #         wall_contact_on = False
                 
         theta_hand = kh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
 
@@ -165,12 +182,9 @@ if __name__ == '__main__':
         my_cm_reasoner.COP_reasoning_hand_contact()
         line_line_to_no_contact_check = my_cm_reasoner.update_check_on_transition_from_hand_line_object_line_contact_to_no_contact()
 
-        
-        
+     
 
         if current_estimator.has_run_once:
-
-            
 
             temp_corner_contact_dict = my_cm_reasoner.compute_feasibility_of_hand_line_object_corner_contact()
 
@@ -181,8 +195,10 @@ if __name__ == '__main__':
             else:
                 num_line_contact_detected_count+=1
                 # print(num_line_contact_detected_count)
-                if num_line_contact_detected_count>10:
+                if num_line_contact_detected_count>15:
                     corner_contact_is_feasible = False
+
+
 
 
         if rm.polygon_vision_estimate_has_new and rm.polygon_vision_estimate_dict is not None:
@@ -196,7 +212,8 @@ if __name__ == '__main__':
             time_since_last_vision_message = time.time()-t_vision_recent
 
 
-        if rm.torque_cone_boundary_test is not None and rm.torque_cone_boundary_test and corner_contact_is_feasible:
+
+        if rm.torque_cone_boundary_test is not None and rm.torque_cone_boundary_test and corner_contact_is_feasible and measured_wrench_ee[0]>3.0:
             can_run_estimate = True
             prev_step_was_line_contact = False
 

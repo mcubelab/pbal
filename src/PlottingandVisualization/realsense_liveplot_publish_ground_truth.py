@@ -51,8 +51,8 @@ if __name__ == '__main__':
     frame_rate = None
     cam_choice = 'near'
 
-    read_from_file = False
-    # read_from_file = True
+    # read_from_file = False
+    read_from_file = True
 
 
 
@@ -74,7 +74,7 @@ if __name__ == '__main__':
         read_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
         write_path = read_path
         # read_path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
-        fname_in = '/test_data-experiment0065.pickle'
+        fname_in = '/test_data-experiment0069.pickle'
         rm = ros_manager(load_mode = True, path=read_path, fname=fname_in)
         fname_out = generate_video_name(read_path,video_name='pivot_estimator_video')
     else:
