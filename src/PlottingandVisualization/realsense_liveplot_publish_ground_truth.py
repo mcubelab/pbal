@@ -51,8 +51,8 @@ if __name__ == '__main__':
     frame_rate = None
     cam_choice = 'near'
 
-    # read_from_file = False
-    read_from_file = True
+    read_from_file = False
+    # read_from_file = True
 
 
 
@@ -131,6 +131,7 @@ if __name__ == '__main__':
                 'display_hand_slide_arrow':False,
                 'display_pivot_arrow':False,
                 'display_ground_slide_arrow':False,
+                'display_control_pivot': True,
                 'display_pivot_apriltag':False,
                 'display_pivot_estimate':False,
                 'display_shape_overlay':False,

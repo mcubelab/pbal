@@ -105,6 +105,11 @@ class system_visualizer(object):
         else:
             self.display_polygon_vision_estimate = options['display_polygon_vision_estimate']
 
+        if options is None or 'display_control_pivot' not in options:
+            self.display_control_pivot = False
+        else:
+            self.display_control_pivot = options['display_control_pivot']
+
 
             
         self.img_array = []
@@ -134,8 +139,8 @@ class system_visualizer(object):
 
         self.hand_points = np.array([[0.0, 0.0], [.05, -.05],
                                 [0.041, 0.041], [1.0, 1.0]])
-        self.hand_tangent = np.array([[0.0], [1.0], [0.0], [0.0]])
-        self.hand_normal = np.array([[1.0], [0.0], [0.0], [0.0]])
+        self.hand_tangent = np.array([0.0, 1.0, 0.0, 0.0])
+        self.hand_normal = np.array([1.0, 0.0, 0.0, 0.0])
         self.hand_front_center = np.array([0.0, 0.0, .041, 1.0])
 
         self.l_hand_tag = .042
@@ -160,6 +165,9 @@ class system_visualizer(object):
 
     def process_frame(self):
         self.rm.unpack_all()
+
+        unpack_time = self.rm.eval_current_time()
+
         self.new_image_flag = False  
 
 
@@ -174,6 +182,8 @@ class system_visualizer(object):
         if self.new_image_flag:
 
             hand_front_center_world = np.dot(self.rm.ee_pose_in_world_manipulation_homog,self.hand_front_center)
+            hand_normal_world = np.dot(self.rm.ee_pose_in_world_manipulation_homog,self.hand_normal)
+            hand_tangent_world = np.dot(self.rm.ee_pose_in_world_manipulation_homog,self.hand_tangent)
             robot_apriltag_pose_matrix = np.dot(self.rm.ee_pose_in_world_manipulation_homog,self.apriltag_in_hand_homog)
 
             if self.display_hand_apriltag_overlay:
@@ -258,8 +268,6 @@ class system_visualizer(object):
                     contact_line = np.vstack([contact_line,np.array([1.0,1.0])])
                     ioh.plot_wm_lines(self.cv_image, contact_line, self.camera_transformation_matrix,color = (255,0,255))
 
-
-
             if self.display_polygon_vision_estimate and self.rm.polygon_vision_estimate_dict is not None:
                 vertex_array_to_display = self.rm.polygon_vision_estimate_dict['vertex_array']
 
@@ -267,6 +275,26 @@ class system_visualizer(object):
                     vertex_to_display = vertex_array_to_display[:,i]
                     vertex_to_display = np.transpose(vertex_to_display)
                     self.dot_overlay(vertex_to_display,color = (255,0,0))
+
+            if self.display_control_pivot and self.rm.qp_debug_dict is not None and  (unpack_time - self.rm.qp_debug_time) < .2:
+                proj_vec_list = np.array(self.rm.qp_debug_dict['proj_vec_list'])
+
+                proj_vec_theta = None
+                prev_test_val = None
+
+                for proj_vec in proj_vec_list:
+                    if proj_vec[2]!=0.0:
+                        test_val = np.sqrt(proj_vec[0]**2+proj_vec[1]**2)/abs(proj_vec[2])
+
+                        if prev_test_val is None or test_val<prev_test_val:
+                            prev_test_val = test_val
+                            proj_vec_theta = proj_vec/proj_vec[2]
+
+                if proj_vec_theta is not None:
+                    control_pivot = hand_front_center_world-proj_vec_theta[1]*hand_normal_world+proj_vec_theta[0]*hand_tangent_world
+     
+                    self.dot_overlay(control_pivot,color = (0,255,0))
+
 
     def dot_overlay(self,p_dot,color = None):
         if len(p_dot)==3:
