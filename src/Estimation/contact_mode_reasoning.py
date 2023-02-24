@@ -4,6 +4,95 @@ from Estimation import shape_prior_helper
 import Helpers.kinematics_helper as kh
 from Helpers.kinematics_helper import mod2pi, in_theta_range
 
+from collections import deque
+
+class sliding_window_min_max(object):
+    def __init__(self):
+        self.min_val_queue = deque()
+        self.min_time_queue = deque()
+
+        self.max_val_queue = deque()
+        self.max_time_queue = deque()
+
+        self.current_min_index = None
+        self.current_max_index = None
+
+        self.min_val = None
+        self.max_val = None
+        self.diff_val = None
+        self.time_diff_val = None
+
+
+    def insert_val(self,val):
+        if self.current_max_index is None:
+            self.current_min_index = 0
+            self.current_max_index = 0
+
+            self.min_val_queue.append(val)
+            self.min_time_queue.append(self.current_max_index)
+
+            self.max_val_queue.append(val)
+            self.max_time_queue.append(self.current_max_index)
+
+            self.min_val = val
+            self.max_val = val
+            self.diff_val = self.max_val-self.min_val
+
+            self.time_diff_val = self.current_max_index - self.current_min_index
+
+            return None
+        
+        self.current_max_index+=1
+
+        while len(self.min_val_queue)>0 and self.min_val_queue[-1]>=val:
+            self.min_val_queue.pop()
+            self.min_time_queue.pop()
+
+        self.min_val_queue.append(val)
+        self.min_time_queue.append(self.current_max_index)
+        self.min_val = self.min_val_queue[0]
+
+        while len(self.max_val_queue)>0 and self.max_val_queue[-1]<=val:
+            self.max_val_queue.pop()
+            self.max_time_queue.pop()
+
+        self.max_val_queue.append(val)
+        self.max_time_queue.append(self.current_max_index)
+        self.max_val = self.max_val_queue[0]
+
+        self.diff_val = self.max_val-self.min_val
+        self.time_diff_val = self.current_max_index - self.current_min_index
+
+    def increment_min_time(self):
+
+        self.current_min_index+=1
+
+        while len(self.min_time_queue)>0 and self.min_time_queue[0]<self.current_min_index:
+            self.min_val_queue.popleft()
+            self.min_time_queue.popleft()
+
+
+        while len(self.max_time_queue)>0 and self.max_time_queue[0]<self.current_min_index:
+            self.max_val_queue.popleft()
+            self.max_time_queue.popleft()
+
+        if len(self.min_val_queue)>0:
+            self.min_val = self.min_val_queue[0]
+        else:
+            self.min_val = None
+
+        if len(self.max_val_queue)>0:
+            self.max_val = self.max_val_queue[0]
+        else:
+            self.max_val = None
+
+        self.diff_val = self.max_val-self.min_val
+        self.time_diff_val = self.current_max_index - self.current_min_index
+
+
+
+
+
 class contact_mode_reasoning(object):
     def __init__(self,l_contact):
         self.vision_reasoning_error_threshold = .03
@@ -52,6 +141,10 @@ class contact_mode_reasoning(object):
 
         self.COP_ee = None
         self.COP_wm = None
+        self.COP_alpha_left = None
+
+        self.frequency_analysis_dict = None
+        self.object_corner_contact_flag = None
 
         self.is_contact_left = None
         self.is_contact_right = None
@@ -108,6 +201,8 @@ class contact_mode_reasoning(object):
         self.measured_wrench_wm = measured_wrench_wm
         self.measured_wrench_ee = measured_wrench_ee
 
+
+
     def update_torque_cone_boundary_flag(self,torque_cone_boundary_test,torque_cone_boundary_flag):
         self.torque_cone_boundary_test = torque_cone_boundary_test
         self.torque_cone_boundary_flag = torque_cone_boundary_flag
@@ -138,7 +233,132 @@ class contact_mode_reasoning(object):
         self.is_contact_right = self.torque_cone_boundary_flag == 1
         self.contact_interior = self.torque_cone_boundary_flag == -1
         self.not_in_contact = self.measured_wrench_ee[0]<2.0
+        self.COP_alpha_left = alpha_left
         self.in_contact = not self.not_in_contact
+
+    def contact_mode_via_frequency_analysis(self):
+        # contact_time_threshold = 50
+
+        prev_flag = self.object_corner_contact_flag
+        temp_not_in_contact = self.measured_wrench_ee[0]<2.0
+
+        if self.object_corner_contact_flag is None:
+            self.object_corner_contact_flag = -1 #indeterminate
+
+        if self.frequency_analysis_dict is None or temp_not_in_contact:
+            self.frequency_analysis_dict = {}
+            self.frequency_analysis_dict['theta_struct_A'] = sliding_window_min_max()
+            self.frequency_analysis_dict['r0_struct_A'] = sliding_window_min_max()
+            self.frequency_analysis_dict['r1_struct_A'] = sliding_window_min_max()
+            self.frequency_analysis_dict['COP_struct_A'] = sliding_window_min_max()
+
+            self.frequency_analysis_dict['theta_struct_B'] = sliding_window_min_max()
+            self.frequency_analysis_dict['r0_struct_B'] = sliding_window_min_max()
+            self.frequency_analysis_dict['r1_struct_B'] = sliding_window_min_max()
+            self.frequency_analysis_dict['COP_struct_B'] = sliding_window_min_max()
+
+        if not temp_not_in_contact:
+            self.frequency_analysis_dict['theta_struct_A'].insert_val(self.measured_hand_pose[2])
+            self.frequency_analysis_dict['r0_struct_A'].insert_val(self.measured_hand_pose[0])
+            self.frequency_analysis_dict['r1_struct_A'].insert_val(self.measured_hand_pose[1])
+            self.frequency_analysis_dict['COP_struct_A'].insert_val(self.COP_alpha_left)
+
+            while (self.frequency_analysis_dict['theta_struct_A'].diff_val*self.l_contact/2 +
+                   2*(self.frequency_analysis_dict['r0_struct_A'].diff_val+self.frequency_analysis_dict['r1_struct_A'].diff_val)>.01
+                   and self.frequency_analysis_dict['COP_struct_A'].time_diff_val>3):
+
+                self.frequency_analysis_dict['theta_struct_A'].increment_min_time()
+                self.frequency_analysis_dict['r0_struct_A'].increment_min_time()
+                self.frequency_analysis_dict['r1_struct_A'].increment_min_time()
+                self.frequency_analysis_dict['COP_struct_A'].increment_min_time()
+
+            numerator_A = self.frequency_analysis_dict['COP_struct_A'].diff_val
+            denominator_A = (self.frequency_analysis_dict['theta_struct_A'].diff_val*self.l_contact/2 +
+                             2*(self.frequency_analysis_dict['r0_struct_A'].diff_val+self.frequency_analysis_dict['r1_struct_A'].diff_val))
+
+            ratio_A = None
+
+            if denominator_A>.002: #and self.frequency_analysis_dict['COP_struct_A'].time_diff_val>=contact_time_threshold:
+                ratio_A = numerator_A/denominator_A
+            else:
+                ratio_A = 0.0
+
+            self.frequency_analysis_dict['theta_struct_B'].insert_val(self.measured_hand_pose[2])
+            self.frequency_analysis_dict['r0_struct_B'].insert_val(self.measured_hand_pose[0])
+            self.frequency_analysis_dict['r1_struct_B'].insert_val(self.measured_hand_pose[1])
+            self.frequency_analysis_dict['COP_struct_B'].insert_val(self.COP_alpha_left)
+
+
+            while self.frequency_analysis_dict['COP_struct_B'].diff_val*self.l_contact>.01 and self.frequency_analysis_dict['COP_struct_B'].time_diff_val>3:
+
+                self.frequency_analysis_dict['theta_struct_B'].increment_min_time()
+                self.frequency_analysis_dict['r0_struct_B'].increment_min_time()
+                self.frequency_analysis_dict['r1_struct_B'].increment_min_time()
+                self.frequency_analysis_dict['COP_struct_B'].increment_min_time()
+
+            denominator_B = self.frequency_analysis_dict['COP_struct_B'].diff_val
+            numerator_B = (self.frequency_analysis_dict['theta_struct_B'].diff_val*self.l_contact/2 +
+                             2.0*(self.frequency_analysis_dict['r0_struct_B'].diff_val+self.frequency_analysis_dict['r1_struct_B'].diff_val))
+
+            ratio_B = None
+
+            if denominator_B>.003: #and self.frequency_analysis_dict['COP_struct_B'].time_diff_val>=contact_time_threshold:
+                ratio_B = numerator_B/denominator_B
+            else:
+                ratio_B = 0.0
+
+            ratio_A_max_threshold = 20.0
+            ratio_B_max_threshold = .15
+
+            ratio_A_min_threshold = .5
+            ratio_B_min_threshold = .003
+
+            # if (ratio_A>40.0 and ratio_B<.01 and ratio_B>.000001):
+            #     self.object_corner_contact_flag = 0
+            # elif (ratio_A<4.0 and ratio_B>.25 and ratio_A>.000001):
+            #     self.object_corner_contact_flag = 1
+            # else:
+            #     self.object_corner_contact_flag = -1
+
+            if numerator_A>.4:
+                self.object_corner_contact_flag = 0
+            elif numerator_A<.03 and numerator_B>.001:
+                self.object_corner_contact_flag = 1
+            else:
+                self.object_corner_contact_flag = -1
+
+            # if (ratio_A>ratio_A_max_threshold and ratio_B<=ratio_B_max_threshold/2.0) or (ratio_B>.001 and ratio_B<ratio_B_min_threshold):
+            #     self.object_corner_contact_flag = 0
+            # elif (ratio_A<=ratio_A_max_threshold/2.0 and ratio_B>ratio_B_max_threshold) or (ratio_A>.01 and ratio_A<ratio_A_min_threshold):
+            #     self.object_corner_contact_flag = 1
+            # elif ratio_A>ratio_A_max_threshold and ratio_B>ratio_B_max_threshold:
+            #     self.object_corner_contact_flag = -1
+
+            if self.is_contact_left:
+                self.object_corner_contact_flag = 2
+            if self.is_contact_right:
+                self.object_corner_contact_flag = 3
+
+            # if ratio_A!=0 and ratio_B!=0:
+            #     v0 = ratio_A/ratio_B
+            #     v1 = ratio_B/ratio_A
+            #     print(f'{v0:.3f}' ,f'{v1:.3f}')
+            # print(f'{ratio_A:.3f}' ,f'{ratio_B:.3f}')
+            # print(f'{numerator_A:.3f}' ,f'{numerator_B:.3f}')
+        else:
+            self.object_corner_contact_flag = -1
+
+        if self.object_corner_contact_flag != prev_flag:
+            if self.object_corner_contact_flag == -1:
+                print('Indeterminate')
+            if self.object_corner_contact_flag == 0:
+                print('Flush Contact')
+            if self.object_corner_contact_flag == 1:
+                print('Object Corner Contact')
+            if self.object_corner_contact_flag == 2:
+                print('Left Corner Contact')
+            if self.object_corner_contact_flag == 3:
+                print('Right Corner Contact')
 
 
     def COP_reasoning_ground_contact(self):
@@ -147,7 +367,8 @@ class contact_mode_reasoning(object):
     def update_assuming_prev_state_was_hand_line_contact(self):
         output_dict = {}
 
-        self.COP_reasoning_hand_contact
+        # self.COP_reasoning_hand_contact()
+
 
         if self.not_in_contact:
             output_dict['state'] = 'not_in_contact'
@@ -305,8 +526,9 @@ class contact_mode_reasoning(object):
         hypothesis_ground_contact_face = None
 
         
-        if self.measured_wrench_ee[0]>3.0:
-            self.COP_reasoning_hand_contact()
+        
+        if self.measured_wrench_ee[0]>3.0 or self.object_corner_contact_flag == 1:
+            
 
             contact_vertex = None
             dist_from_hand_COP = None
@@ -339,7 +561,7 @@ class contact_mode_reasoning(object):
 
 
 
-        if contact_vertex is not None:
+        if self.object_corner_contact_flag!=0 and contact_vertex is not None:
 
             face0 = contact_vertex
             face1 = (contact_vertex-1)%self.num_vertices
@@ -461,7 +683,8 @@ class contact_mode_reasoning(object):
             
             # is_feasible = (test_GLB or test_LUB) and min(phi_test0,phi_test1)<30.0*np.pi/180.0
             # is_feasible = (test_GLB or test_LUB) and min(phi_test0,phi_test1)<10.0*np.pi/180.0
-            is_feasible = (not hand_flush_contact_possible) and (test_GLB or test_LUB) and min(phi_test0,phi_test1)<15.0*np.pi/180.0
+            is_feasible = (((not hand_flush_contact_possible) and (test_GLB or test_LUB) and min(phi_test0,phi_test1)<15.0*np.pi/180.0) 
+                             or (self.object_corner_contact_flag==1 and (test_GLB or test_LUB)))
 
             hypothesis_contact_vertex = None
 

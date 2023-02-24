@@ -180,6 +180,8 @@ if __name__ == '__main__':
         my_cm_reasoner.update_pose_and_wrench(hand_pose_pivot_estimator,measured_wrench_pivot_estimator,measured_wrench_ee)
         my_cm_reasoner.update_torque_cone_boundary_flag(rm.torque_cone_boundary_test,rm.torque_cone_boundary_flag)
         my_cm_reasoner.COP_reasoning_hand_contact()
+        my_cm_reasoner.contact_mode_via_frequency_analysis()
+        
         line_line_to_no_contact_check = my_cm_reasoner.update_check_on_transition_from_hand_line_object_line_contact_to_no_contact()
 
      
@@ -251,15 +253,16 @@ if __name__ == '__main__':
 
             current_estimator.current_contact_face = current_contact_face
 
-            if not prev_step_was_line_contact:
-                current_estimator.s_current = s_current_cm_reasoner
+            # if not prev_step_was_line_contact:
+            #     current_estimator.s_current = s_current_cm_reasoner
 
             current_estimator.add_hand_pose_measurement(hand_pose_pivot_estimator)
             current_estimator.add_hand_wrench_measurement(measured_wrench_pivot_estimator)
             current_estimator.add_sliding_state(rm.sliding_state)
             current_estimator.update_wall_contact_state(wall_contact_on)
 
-            current_estimator.add_kinematic_constraints_hand_flush_contact()
+            # current_estimator.add_kinematic_constraints_hand_flush_contact()
+            current_estimator.add_kinematic_constraints_hand_flush_contact_floating()
 
 
             kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_hand_line_object_line_contact()
@@ -270,7 +273,9 @@ if __name__ == '__main__':
                 current_estimator.add_vision_estimate(vision_vertex_array)
 
                 if hypothesis_index is not None:
-                    current_estimator.add_vision_constraints_hand_flush_contact(vision_hypothesis_dict['hypothesis_obj_to_vision_map_list'][hypothesis_index])
+                    # current_estimator.add_vision_constraints_hand_flush_contact(vision_hypothesis_dict['hypothesis_obj_to_vision_map_list'][hypothesis_index])
+                    # current_estimator.add_vision_estimate(vision_vertex_array)
+                    current_estimator.add_vision_constraints_no_hand_contact(vision_hypothesis_dict['hypothesis_obj_to_vision_map_list'][hypothesis_index])
                 
             prev_step_was_line_contact = True
 
