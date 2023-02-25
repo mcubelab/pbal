@@ -69,6 +69,8 @@ if __name__ == '__main__':
     ground_data_point_count = 0
     ground_update_number = 100
 
+    max_update_number = max(hand_update_number,ground_update_number)
+
     print("Starting wrench cone estimation")
     while not rospy.is_shutdown():
         rm.tl_reset()
@@ -150,7 +152,7 @@ if __name__ == '__main__':
             update_ground_friction_cone = False
 
 
-        if should_publish_robot_friction_cone and should_publish_ground_friction_cone:
+        if (should_publish_robot_friction_cone or should_publish_ground_friction_cone) and min(hand_data_point_count,ground_data_point_count)>max_update_number:
             rm.pub_friction_parameter(friction_parameter_dict)
             should_publish_robot_friction_cone = False
             should_publish_ground_friction_cone = False

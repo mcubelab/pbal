@@ -50,7 +50,7 @@ def compute_wall_rotation_vector(v0,v1,hand_pose,theta_hand):
     if v1[0]-v0[0]>0.0:
         # print('hi!')
 
-        dx_robot_pivot = hand_pose[0]-(v1[0]+.03) #(v1[0]+.015)
+        dx_robot_pivot = hand_pose[0]-( v1[0]+max(0.0,.03-abs(v1[0]-v0[0])) ) #(v1[0]+.015)
         dy_robot_pivot = hand_pose[1]-v0[1]
 
         ds_robot_pivot = dx_robot_pivot * np.sin(theta_hand) + dy_robot_pivot* -np.cos(theta_hand)
