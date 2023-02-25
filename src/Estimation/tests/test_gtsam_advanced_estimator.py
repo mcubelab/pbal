@@ -126,7 +126,15 @@ if __name__ == '__main__':
     theta_hand = kh.quatlist_to_theta(rm.ee_pose_in_world_manipulation_list[3:])
     hand_pose_pivot_estimator = np.array([rm.ee_pose_in_world_manipulation_list[0],rm.ee_pose_in_world_manipulation_list[1], theta_hand])
 
-    current_estimator = gtsam_advanced_estimator(object_vertex_array,rm.ee_pose_in_world_manipulation_homog,rm.ee_pose_in_world_manipulation_homog, hand_pose_pivot_estimator)
+    object_pose_homog = kh.unit_pose_homog()
+    for i in range(min(len(object_vertex_array),3)):
+        object_pose_homog[i,3] = np.mean(object_vertex_array[i])
+        object_vertex_array[i]-= object_pose_homog[i,3]
+
+    current_estimator = gtsam_advanced_estimator(object_vertex_array,object_pose_homog,rm.ee_pose_in_world_manipulation_homog, hand_pose_pivot_estimator)
+
+
+    # current_estimator = gtsam_advanced_estimator(object_vertex_array,rm.ee_pose_in_world_manipulation_homog,rm.ee_pose_in_world_manipulation_homog, hand_pose_pivot_estimator)
 
     current_estimate_dict = current_estimator.generate_estimate_dict()
     my_cm_reasoner.update_previous_estimate(current_estimate_dict)
@@ -181,7 +189,7 @@ if __name__ == '__main__':
         my_cm_reasoner.update_torque_cone_boundary_flag(rm.torque_cone_boundary_test,rm.torque_cone_boundary_flag)
         my_cm_reasoner.COP_reasoning_hand_contact()
         my_cm_reasoner.contact_mode_via_frequency_analysis()
-        
+
         line_line_to_no_contact_check = my_cm_reasoner.update_check_on_transition_from_hand_line_object_line_contact_to_no_contact()
 
      
@@ -232,7 +240,7 @@ if __name__ == '__main__':
 
             kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_no_object_motion()
 
-            if time_since_last_vision_message<.2:
+            if time_since_last_vision_message<.1:
 
                 hypothesis_index = my_cm_reasoner.choose_vision_hypothesis(vision_hypothesis_dict,kinematic_hypothesis_dict)
 
@@ -268,7 +276,7 @@ if __name__ == '__main__':
             kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_hand_line_object_line_contact()
 
             # if rm.polygon_vision_estimate_has_new and rm.polygon_vision_estimate_dict is not None:
-            if time_since_last_vision_message<.2:
+            if time_since_last_vision_message<.1:
                 hypothesis_index = my_cm_reasoner.choose_vision_hypothesis(vision_hypothesis_dict,kinematic_hypothesis_dict)
                 current_estimator.add_vision_estimate(vision_vertex_array)
 

@@ -167,6 +167,42 @@ def generate_shape_prior_for_advanced_estimator(object_vertex_array,obj_pose_hom
 
     return dict_out
 
+def generate_shape_prior_for_advanced_estimator_floating(test_object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog):
+    num_vertices = len(test_object_vertex_array[0])
+
+    dict_out = {}
+
+    # contact_face = identify_contact_face_from_raw_data(object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog)
+    # test_object_vertex_array, test_object_normal_array = generate_shape_prior(object_vertex_array,obj_pose_homog,ee_pose_in_world_manipulation_homog)
+
+    test_object_normal_array = get_outward_normals(test_object_vertex_array)
+
+    mean_val = np.array([0.0,0.0])
+
+    # for i in range(2):
+    #     mean_val[i] = np.mean(test_object_vertex_array[i])
+    #     test_object_vertex_array[i]-=mean_val[i]
+
+    d_offset_list = np.array([0.0]*num_vertices)
+    # s_offset_list = np.array([0.0]*num_vertices)
+    # s_offset_list[contact_face] = mean_val[1]
+    theta_offset_list = np.array([0.0]*num_vertices)
+
+
+    for i in range(num_vertices):    
+        d_offset_list[i] = np.dot(test_object_vertex_array[:,i],test_object_normal_array[:,i])
+        theta_offset_list[i] = np.arctan2(test_object_normal_array[1,i],-test_object_normal_array[0,i])
+
+    # dict_out['contact_face'] = contact_face
+    dict_out['d_offset_list'] = d_offset_list
+    # dict_out['s_offset_list'] = s_offset_list
+    dict_out['theta_offset_list'] = theta_offset_list
+    dict_out['test_object_vertex_array'] = test_object_vertex_array
+    dict_out['test_object_normal_array'] = test_object_normal_array
+    dict_out['num_vertices'] = num_vertices
+
+    return dict_out
+
 def determine_contact_vertices_floating(theta_obj,test_object_vertex_array,measured_world_manipulation_wrench,threshold_val = .015):
 
     rot_mat = np.array([[np.cos(theta_obj),-np.sin(theta_obj),0.0,0.0],

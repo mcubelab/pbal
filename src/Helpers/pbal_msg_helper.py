@@ -155,7 +155,9 @@ def generate_generalized_positions_stamped(generalized_positions):
 def parse_generalized_positions_stamped(generalized_positions_message):
     return generalized_positions_message.generalized_positions
 
-def generate_polygon_contact_state_stamped(vertex_array,contact_indices,mgl_cos_theta_list=None,mgl_sin_theta_list=None):
+def generate_polygon_contact_state_stamped(vertex_array,contact_indices,mgl_cos_theta_list=None,mgl_sin_theta_list=None,
+                                            hand_contact_indices = None, ground_contact_indices = None, wall_contact_indices =  None,
+                                            wall_flag = None):
     polygon_contact_state_message = PolygonContactStateStamped()
 
     l = len(vertex_array[0])
@@ -173,6 +175,26 @@ def generate_polygon_contact_state_stamped(vertex_array,contact_indices,mgl_cos_
     polygon_contact_state_message.polygon_contact_state.mgl_costheta_list = mgl_cos_theta_list
     polygon_contact_state_message.polygon_contact_state.mgl_sintheta_list = mgl_sin_theta_list
 
+    if hand_contact_indices is None:
+        hand_contact_indices = []
+
+    polygon_contact_state_message.hand_contact_indices = hand_contact_indices
+
+    if ground_contact_indices is None:
+        ground_contact_indices = []
+
+    polygon_contact_state_message.ground_contact_indices = ground_contact_indices
+
+    if wall_contact_indices is None:
+        wall_contact_indices = []
+
+    polygon_contact_state_message.wall_contact_indices = wall_contact_indices
+
+    if wall_flag is None:
+        wall_flag = -1
+
+    polygon_contact_state_message.wall_flag = wall_flag
+
     return polygon_contact_state_message
 
 def parse_polygon_contact_state_stamped(polygon_contact_state_message):
@@ -187,11 +209,21 @@ def parse_polygon_contact_state_stamped(polygon_contact_state_message):
 
     contact_indices = list(polygon_contact_state_message.polygon_contact_state.contact_indices)
 
+    hand_contact_indices = list(polygon_contact_state_message.polygon_contact_state.hand_contact_indices)
+    ground_contact_indices = list(polygon_contact_state_message.polygon_contact_state.ground_contact_indices)
+    wall_contact_indices = list(polygon_contact_state_message.polygon_contact_state.wall_contact_indices)
+
+    wall_flag = polygon_contact_state_message.polygon_contact_state.wall_flag
+
     polygon_contact_state_dict = {}
     polygon_contact_state_dict['vertex_array'] = vertex_array
     polygon_contact_state_dict['contact_indices'] = contact_indices
+    polygon_contact_state_dict['hand_contact_indices'] = hand_contact_indices
+    polygon_contact_state_dict['ground_contact_indices'] = ground_contact_indices
+    polygon_contact_state_dict['wall_contact_indices'] = wall_contact_indices
     polygon_contact_state_dict['mgl_cos_theta_array'] = np.array(mgl_cos_theta_list)
     polygon_contact_state_dict['mgl_sin_theta_array'] = np.array(mgl_sin_theta_list)
+    polygon_contact_state_dict['wall_flag'] = wall_flag
 
     return polygon_contact_state_dict
 
