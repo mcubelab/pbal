@@ -251,6 +251,7 @@ class contact_mode_reasoning(object):
             self.frequency_analysis_dict['r0_struct_A'] = sliding_window_min_max()
             self.frequency_analysis_dict['r1_struct_A'] = sliding_window_min_max()
             self.frequency_analysis_dict['COP_struct_A'] = sliding_window_min_max()
+            self.frequency_analysis_dict['num_data_points'] = 0
 
             # self.frequency_analysis_dict['theta_struct_B'] = sliding_window_min_max()
             # self.frequency_analysis_dict['r0_struct_B'] = sliding_window_min_max()
@@ -258,6 +259,7 @@ class contact_mode_reasoning(object):
             # self.frequency_analysis_dict['COP_struct_B'] = sliding_window_min_max()
 
         if not temp_not_in_contact:
+            self.frequency_analysis_dict['num_data_points']+=1
             self.frequency_analysis_dict['theta_struct_A'].insert_val(self.measured_hand_pose[2])
             self.frequency_analysis_dict['r0_struct_A'].insert_val(self.measured_hand_pose[0])
             self.frequency_analysis_dict['r1_struct_A'].insert_val(self.measured_hand_pose[1])
@@ -290,6 +292,10 @@ class contact_mode_reasoning(object):
                 self.object_corner_contact_flag = 1
             else:
                 self.object_corner_contact_flag = -1
+
+            if self.frequency_analysis_dict['num_data_points']<50:
+                 self.object_corner_contact_flag = -1
+                    
             if self.is_contact_left:
                 self.object_corner_contact_flag = 2
             if self.is_contact_right:

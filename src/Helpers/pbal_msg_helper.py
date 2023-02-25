@@ -178,22 +178,22 @@ def generate_polygon_contact_state_stamped(vertex_array,contact_indices,mgl_cos_
     if hand_contact_indices is None:
         hand_contact_indices = []
 
-    polygon_contact_state_message.hand_contact_indices = hand_contact_indices
+    polygon_contact_state_message.polygon_contact_state.hand_contact_indices = hand_contact_indices
 
     if ground_contact_indices is None:
         ground_contact_indices = []
 
-    polygon_contact_state_message.ground_contact_indices = ground_contact_indices
+    polygon_contact_state_message.polygon_contact_state.ground_contact_indices = ground_contact_indices
 
     if wall_contact_indices is None:
         wall_contact_indices = []
 
-    polygon_contact_state_message.wall_contact_indices = wall_contact_indices
+    polygon_contact_state_message.polygon_contact_state.wall_contact_indices = wall_contact_indices
 
     if wall_flag is None:
         wall_flag = -1
 
-    polygon_contact_state_message.wall_flag = wall_flag
+    polygon_contact_state_message.polygon_contact_state.wall_flag = wall_flag
 
     return polygon_contact_state_message
 

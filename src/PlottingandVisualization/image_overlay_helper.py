@@ -191,14 +191,35 @@ def plot_pivot_dot(cv_image, pivot_location, camera_transformation_matrix,color 
         x_coord, y_coord = get_pix_easier(pivot_location.T, camera_transformation_matrix)
         cv2.circle(cv_image, (x_coord[0], y_coord[0]), 5 , color, -1)
 
-def estimate_ground_COP(obj_vertices_world_manipulation, measured_world_manipulation_wrench_6D, contact_pose_homog, obj_pose_homog = None, height_threshold=.01):
+def estimate_ground_COP(obj_vertices_world_manipulation, measured_world_manipulation_wrench_6D, contact_pose_homog, obj_pose_homog = None, height_threshold=.01, vertices_in = None):
     P0 = None
 
     if measured_world_manipulation_wrench_6D is not None and obj_vertices_world_manipulation is not None:
         height_indices = np.argsort(obj_vertices_world_manipulation[0])
-        if abs(obj_vertices_world_manipulation[0][height_indices[1]] - obj_vertices_world_manipulation[0][height_indices[0]]) < height_threshold:
+        if vertices_in is not None and len(vertices_in)==2:
+            P_a = obj_vertices_world_manipulation[:, vertices_in[0]]
+            P_b = obj_vertices_world_manipulation[:, vertices_in[1]]
+
+            P_e = contact_pose_homog[:, 3]
+
+            Tau_a = np.dot(np.cross(
+                P_a[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), np.array([0.0,0.0,1.0]))
+            Tau_b = np.dot(np.cross(
+                P_b[0:3] - P_e[0:3], measured_world_manipulation_wrench_6D[0:3]), np.array([0.0,0.0,1.0]))
+            Tau_net = np.dot(
+                measured_world_manipulation_wrench_6D[3:6], np.array([0.0,0.0,1.0]))
+
+            epsilon1 = (Tau_net - Tau_b) / (Tau_a - Tau_b)
+            epsilon1 = np.max([np.min([epsilon1, 1]), 0])
+
+            epsilon2 = 1 - epsilon1
+
+            P0 = epsilon1 * P_a + epsilon2 * P_b
+
+        elif abs(obj_vertices_world_manipulation[0][height_indices[1]] - obj_vertices_world_manipulation[0][height_indices[0]]) < height_threshold:
             P_a = obj_vertices_world_manipulation[:, height_indices[0]]
             P_b = obj_vertices_world_manipulation[:, height_indices[1]]
+
             P_e = contact_pose_homog[:, 3]
 
             Tau_a = np.dot(np.cross(

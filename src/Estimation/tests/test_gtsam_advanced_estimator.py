@@ -116,6 +116,8 @@ if __name__ == '__main__':
     # object_vertex_array = get_shape_prior(add_noise = True, noise_diameter = .01)
     object_vertex_array = get_shape_prior(add_noise = False)
 
+    num_vertices = len(object_vertex_array[0])
+
     print('shape prior acquired')
 
     rm.wait_for_necessary_data()
@@ -157,7 +159,10 @@ if __name__ == '__main__':
 
         can_run_estimate = False
 
-
+        hand_contact_indices = []
+        ground_contact_indices = []
+        wall_contact_indices = []
+        wall_flag = -1
         
         if len(rm.friction_parameter_dict['aer'])>0:
             wall_contact_right_bool = any(np.dot(rm.friction_parameter_dict['aer'],rm.measured_world_manipulation_wrench) > rm.friction_parameter_dict['ber'] + wall_contact_force_margin)
@@ -168,6 +173,13 @@ if __name__ == '__main__':
             wall_contact_left_bool = any(np.dot(rm.friction_parameter_dict['ael'],rm.measured_world_manipulation_wrench) > rm.friction_parameter_dict['bel'] + wall_contact_force_margin)
         else:
             wall_contact_left_bool = True
+
+        if wall_contact_right_bool and not wall_contact_left_bool:
+            wall_flag = 0
+        elif not wall_contact_right_bool and wall_contact_left_bool:
+            wall_flag = 1
+        elif wall_contact_right_bool and wall_contact_left_bool:
+            wall_flag = 2
 
         wall_contact_on = wall_contact_right_bool or wall_contact_left_bool
 
@@ -236,6 +248,8 @@ if __name__ == '__main__':
 
             current_estimator.add_kinematic_constraints_object_corner_hand_line_contact(corner_contact_dict)
 
+            hand_contact_indices = [corner_contact_dict['contact_vertex']]
+
             current_estimator.current_contact_face = None
 
             kinematic_hypothesis_dict = my_cm_reasoner.compute_hypothesis_object_poses_assuming_no_object_motion()
@@ -260,6 +274,8 @@ if __name__ == '__main__':
             current_contact_face, s_current_cm_reasoner = my_cm_reasoner.compute_hand_contact_face()
 
             current_estimator.current_contact_face = current_contact_face
+
+            hand_contact_indices = [current_contact_face,(current_contact_face+1)%num_vertices]
 
             # if not prev_step_was_line_contact:
             #     current_estimator.s_current = s_current_cm_reasoner
@@ -388,7 +404,16 @@ if __name__ == '__main__':
       
                 vertex_array_out = np.array([vertex_array_n,vertex_array_t,vertex_array_z])
 
-                rm.pub_polygon_contact_estimate(vertex_array_out,contact_indices,mgl_cos_theta_list,mgl_sin_theta_list)
+                if wall_flag == 0:
+                    wall_contact_indices = [np.argmin(vertex_array_out[1])]
+                elif wall_flag == 1:
+                    wall_contact_indices = [np.argmax(vertex_array_out[1])]
+
+
+                rm.pub_polygon_contact_estimate(vertex_array_out,contact_indices,mgl_cos_theta_list,mgl_sin_theta_list,
+                                                hand_contact_indices = hand_contact_indices,
+                                                wall_contact_indices = wall_contact_indices,
+                                                wall_flag = wall_flag)
 
 
         if rm.load_mode:

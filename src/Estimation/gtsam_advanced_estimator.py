@@ -70,8 +70,8 @@ class gtsam_advanced_estimator(object):
         # self.error_floating_object_hand_touching_model = gtsam.noiseModel.Isotropic.Sigma(1, .5)
         self.error_floating_object_hand_touching_model = gtsam.noiseModel.Isotropic.Sigma(1, .1)
         
-        self.error_COP_corner_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, 6.0)
-        # self.error_COP_corner_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, 4.0)
+        # self.error_COP_corner_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, 6.0)
+        self.error_COP_corner_contact_model = gtsam.noiseModel.Isotropic.Sigma(1, 3.0)
         self.error_hand_sticking_hand_corner_model = gtsam.noiseModel.Isotropic.Sigma(1, .4)
         # self.error_hand_sticking_hand_corner_model = gtsam.noiseModel.Isotropic.Sigma(1, .4)
         self.error_limited_movement_hand_corner_model = gtsam.noiseModel.Isotropic.Sigma(1, 10.)

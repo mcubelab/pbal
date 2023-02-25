@@ -244,7 +244,11 @@ class system_visualizer(object):
 
 
                 if np.abs(self.rm.measured_contact_wrench_6D[0]) > 1.0:
-                    P0 = ioh.estimate_ground_COP(vertex_array_to_display,self.rm.measured_world_manipulation_wrench_6D, self.rm.ee_pose_in_world_manipulation_homog, height_threshold = .03)
+                    vertices_in = None
+                    if len(self.rm.polygon_contact_estimate_dict['wall_contact_indices'])==1 and len(self.rm.polygon_contact_estimate_dict['contact_indices'])==1:
+                        vertices_in = [self.rm.polygon_contact_estimate_dict['wall_contact_indices'][0],self.rm.polygon_contact_estimate_dict['contact_indices'][0]]
+
+                    P0 = ioh.estimate_ground_COP(vertex_array_to_display,self.rm.measured_world_manipulation_wrench_6D, self.rm.ee_pose_in_world_manipulation_homog, height_threshold = .03, vertices_in = vertices_in)
                     
                     if self.rm.friction_parameter_dict['elu'] and self.rm.friction_parameter_dict['eru'] and self.display_friction_cones:
                         ioh.plot_ground_friction_cone(self.cv_image,P0,self.rm.friction_parameter_dict,self.camera_transformation_matrix,self.force_scale)
@@ -253,10 +257,16 @@ class system_visualizer(object):
                         ioh.plot_force_arrow(self.cv_image,P0,-np.array(self.rm.measured_world_manipulation_wrench_6D[0:3]),self.force_scale,self.camera_transformation_matrix)
 
 
+                hand_contact_color = (100,100,255)
+                wall_contact_color = (255,0,0)
                 for i in range(len(vertex_array_to_display[0])):
                     vertex_to_display = vertex_array_to_display[:,i]
                     vertex_to_display = np.transpose(vertex_to_display)
-                    if i in self.rm.polygon_contact_estimate_dict['contact_indices']:
+                    if i in self.rm.polygon_contact_estimate_dict['wall_contact_indices']:
+                        self.dot_overlay(vertex_to_display,color = wall_contact_color)
+                    elif i in self.rm.polygon_contact_estimate_dict['hand_contact_indices']:
+                        self.dot_overlay(vertex_to_display,color = hand_contact_color)
+                    elif i in self.rm.polygon_contact_estimate_dict['contact_indices']:
                         self.dot_overlay(vertex_to_display,color = (255,0,255))
                     else:
                         self.dot_overlay(vertex_to_display)
@@ -267,6 +277,13 @@ class system_visualizer(object):
                     contact_line = np.transpose(np.vstack([endpoint0,endpoint1]))
                     contact_line = np.vstack([contact_line,np.array([1.0,1.0])])
                     ioh.plot_wm_lines(self.cv_image, contact_line, self.camera_transformation_matrix,color = (255,0,255))
+
+                if len(self.rm.polygon_contact_estimate_dict['hand_contact_indices'])==2:
+                    endpoint0 = vertex_array_to_display[:,self.rm.polygon_contact_estimate_dict['hand_contact_indices'][0]]
+                    endpoint1 = vertex_array_to_display[:,self.rm.polygon_contact_estimate_dict['hand_contact_indices'][1]]
+                    contact_line = np.transpose(np.vstack([endpoint0,endpoint1]))
+                    contact_line = np.vstack([contact_line,np.array([1.0,1.0])])
+                    ioh.plot_wm_lines(self.cv_image, contact_line, self.camera_transformation_matrix,color = hand_contact_color)
 
             if self.display_polygon_vision_estimate and self.rm.polygon_vision_estimate_dict is not None:
                 vertex_array_to_display = self.rm.polygon_vision_estimate_dict['vertex_array']
