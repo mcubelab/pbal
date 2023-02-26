@@ -624,6 +624,7 @@ class ModularBarrierController(object):
         lc = self.l_contact * self.pivot_params['l_contact_multiplier']
         if self.torque_bounds is not None:
             aiq = np.array([self.torque_bounds[0], 0., 1.])
+            print(aiq)
         else:
             aiq = np.array([-lc / 2., 0., 1.])
         biq = -self.pivot_params['torque_margin']
@@ -634,6 +635,7 @@ class ModularBarrierController(object):
         lc = self.l_contact * self.pivot_params['l_contact_multiplier']
         if self.torque_bounds is not None:
             aiq = np.array([-self.torque_bounds[1], 0., -1.])
+            print(aiq)
         else:
             aiq = np.array([-lc / 2., 0., -1.])
         biq = -self.pivot_params['torque_margin']
@@ -667,6 +669,12 @@ class ModularBarrierController(object):
         aiq = np.dot(np.array([1., 0., 0.]), self.R2C)
         biq = 0.
         return aiq, biq, self.pivot_params['tr_min_normal_external'], ['nemn']
+
+    # def radial_force_bounded_external_constraint(self):
+
+    #     radial_vector = robot_contact_wm - external_contact_wm
+        
+
 
     def friction_right_external_constraint(self):
         ''' right (i.e., positive) boundary of friction cone '''

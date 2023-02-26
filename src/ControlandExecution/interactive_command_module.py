@@ -41,6 +41,7 @@ delta_rotate_right = {
     'delta_s_hand' : 0.0,
 }
 
+
 delta_rotate_corner_left = {
     'name': 'delta_rotate_left',
     'command_flag' : 1,
@@ -305,6 +306,43 @@ jog_move_normal_down = {
     'delta_tangential': 0.0,
 }
 
+delta_rotate_hand_left_object_corner = {
+    'name': 'delta_rotate_hand_left_object_corner',
+    'command_flag' : 4,
+    'mode' : -1,
+    'delta_theta' : np.pi/50, #np.pi/12, 
+    'delta_s_pivot' : 0.0,
+    'delta_s_hand' : 0.0,
+}
+
+delta_rotate_hand_right_object_corner = {
+    'name': 'delta_rotate_hand_right_object_corner',
+    'command_flag' : 4,
+    'mode' : -1,
+    'delta_theta' : -np.pi/50, #-np.pi/12, 
+    'delta_s_pivot' : 0.0,
+    'delta_s_hand' : 0.0,
+}
+
+delta_rotate_object_left_object_corner = {
+    'name': 'delta_rotate_object_left_object_corner',
+    'command_flag' : 4,
+    'mode' : 0,
+    'delta_theta' : np.pi/50, #np.pi/12, 
+    'delta_s_pivot' : 0.0,
+    'delta_s_hand' : 0.0,
+}
+
+delta_rotate_object_right_object_corner = {
+    'name': 'delta_rotate_object_right_object_corner',
+    'command_flag' : 4,
+    'mode' : 0,
+    'delta_theta' : -np.pi/50, #-np.pi/12, 
+    'delta_s_pivot' : 0.0,
+    'delta_s_hand' : 0.0,
+}
+
+
 
 def on_release(key):
     # try:
@@ -322,18 +360,18 @@ def on_press(key):
 
     global shift_on
     global ctrl_on
-    global alt_on
+    global tab_on
 
     command_msg_dict = None
 
-    not_a_modifier_key = key!=keyboard.Key.shift and key!=keyboard.Key.ctrl and key!=keyboard.Key.alt
+    not_a_modifier_key = key!=keyboard.Key.shift and key!=keyboard.Key.ctrl and key!=keyboard.Key.tab
     # shift_on = keyboard.Key.shift in keys_held_down
     # ctrl_on = keyboard.Key.ctrl in keys_held_down
-    # alt_on = keyboard.Key.alt in keys_held_down
+    # tab_on = keyboard.Key.tab in keys_held_down
 
     if key==keyboard.Key.shift:
         ctrl_on = False
-        alt_on = False
+        tab_on = False
 
         shift_on = not shift_on
 
@@ -344,7 +382,7 @@ def on_press(key):
 
     if key==keyboard.Key.ctrl:
         shift_on = False
-        alt_on = False
+        tab_on = False
 
         ctrl_on = not ctrl_on
 
@@ -353,18 +391,18 @@ def on_press(key):
         else:
             print('ctrl off')
 
-    if key==keyboard.Key.alt:
+    if key==keyboard.Key.tab:
         shift_on = False
         ctrl_on = False
 
-        alt_on = not alt_on
+        tab_on = not tab_on
 
-        if alt_on:
-            print('alt on')
+        if tab_on:
+            print('tab on')
         else:
-            print('alt off')
+            print('tab off')
 
-    modifier_state = shift_on + 2*ctrl_on + 4*alt_on
+    modifier_state = shift_on + 2*ctrl_on + 4*tab_on
 
     # if not_a_modifier_key:
     #     print('modifier_state: ',modifier_state)
@@ -490,6 +528,23 @@ def on_press(key):
             command_msg_dict = jog_move_right
             print('jog_move_right')
 
+    if modifier_state==4:
+        if k == 'left':
+            command_msg_dict = delta_rotate_hand_left_object_corner
+            print('delta_rotate_hand_left_object_corner')
+
+        if k == 'right':
+            command_msg_dict = delta_rotate_hand_right_object_corner
+            print('delta_rotate_hand_right_object_corner')
+
+        if k == 'a':
+            command_msg_dict = delta_rotate_object_left_object_corner
+            print('delta_rotate_object_left_object_corner')
+
+        if k == 'd':
+            command_msg_dict = delta_rotate_object_right_object_corner
+            print('delta_rotate_object_right_object_corner')
+
     if command_msg_dict is not None:
         rm.pub_barrier_func_control_command(command_msg_dict)
 
@@ -533,7 +588,7 @@ if __name__ == '__main__':
 
     shift_on = False
     ctrl_on = False
-    alt_on = False
+    tab_on = False
 
     rm = ros_manager()
     rospy.init_node('barrier_func_commands')

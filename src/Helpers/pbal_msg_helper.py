@@ -332,10 +332,16 @@ def command_stamped_to_command_dict(command_msg):
     command_dict['delta_s_pivot']   = command_msg.control_command.delta_s_pivot
     command_dict['delta_s_hand']    = command_msg.control_command.delta_s_hand
 
+    command_dict['delta_theta_relative']     = command_msg.control_command.delta_theta_relative
+    command_dict['delta_theta_object']       = command_msg.control_command.delta_theta_object
+
     # absolute commands
     command_dict['theta']           = command_msg.control_command.theta
     command_dict['s_pivot']         = command_msg.control_command.s_pivot
     command_dict['s_hand']          = command_msg.control_command.s_hand
+
+    command_dict['theta_relative']     = command_msg.control_command.theta_relative
+    command_dict['theta_object']       = command_msg.control_command.theta_object
 
     #additional commands for jogging
     command_dict['delta_x']     = command_msg.control_command.delta_x
