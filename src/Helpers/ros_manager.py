@@ -949,6 +949,15 @@ class ros_manager(object):
 					TorqueConeBoundaryFlagStamped , 
 					queue_size = 10)
 
+		elif topic == '/torque_bound_message':
+			if self.load_mode:
+				pass
+			else:
+				self.torque_bound_message_pub = rospy.Publisher(
+					topic,
+					TorqueBoundsStamped,
+					queue_size = 10)
+
 		elif topic == '/friction_parameters':
 			if self.load_mode:
 				pass
@@ -1126,6 +1135,18 @@ class ros_manager(object):
 			torque_boundary_flag_message = pmh.generate_torque_cone_boundary_flag_stamped(torque_boundary_flag)
 			torque_boundary_flag_message.header.stamp = rospy.Time.now()
 			self.torque_cone_boundary_flag_pub.publish(torque_boundary_flag_message)
+
+	def pub_torque_bound_message(self,torque_bounds):
+		if '/torque_bound_message' not in self.publisher_topic_dict:
+			return None
+
+		if self.load_mode:
+			pass
+		else:
+			torque_bound_message = pmh.generate_torque_bounds_stamped(torque_bounds)
+			torque_bound_message.header.stamp = rospy.Time.now()
+			self.torque_bound_message_pub.publish(torque_bound_message)
+
 
 	def pub_friction_parameter(self,friction_parameter_dict):
 		if '/friction_parameters' not in self.publisher_topic_dict:

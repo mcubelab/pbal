@@ -99,14 +99,14 @@ if __name__ == '__main__':
                           '/end_effector_sensor_in_end_effector_frame',
                           '/friction_parameters',],True)
 
-    rm.subscribe_to_list(['/barrier_func_control_command','/polygon_vision_estimate',],False)
+    rm.subscribe_to_list(['/barrier_func_control_command','/polygon_vision_estimate'],False)
 
     wall_contact_on = False
 
     my_cm_reasoner = contact_mode_reasoning(l_contact)
 
 
-    rm.spawn_publisher_list(['/pivot_frame_estimated','/polygon_contact_estimate'])
+    rm.spawn_publisher_list(['/pivot_frame_estimated','/polygon_contact_estimate','/torque_bound_message'])
 
     shape_name_list = ['big_triangle','big_square','rectangle','square','triangle','big_rectangle','rectangle_bump_in','rectangle_bump_out']
 
@@ -395,6 +395,38 @@ if __name__ == '__main__':
                     wall_contact_indices = [np.argmin(vertex_array_out[1])]
                 elif wall_flag == 1:
                     wall_contact_indices = [np.argmax(vertex_array_out[1])]
+
+                rot_mat_hand = np.array([[-np.cos(theta_hand), np.sin(theta_hand)], 
+                                      [-np.sin(theta_hand), -np.cos(theta_hand)]])
+
+                hand_normal = rot_mat_hand[:,0]
+                hand_tangent = rot_mat_hand[:,1]
+
+                # if len(hand_contact_indices)==1:
+                #     torque_bound_point = vertex_array_out[0:2,hand_contact_indices[0]]
+                #     torque_bound = np.dot(hand_tangent,torque_bound_point - hand_pose_pivot_estimator[0:2])
+                #     rm.pub_torque_bound_message([torque_bound-.01,torque_bound+.01])
+
+                if len(hand_contact_indices)==2:
+                    torque_bound_point0 = vertex_array_out[0:2,hand_contact_indices[0]]
+                    torque_bound_point1 = vertex_array_out[0:2,hand_contact_indices[1]]
+
+                    torque_bound0 = np.dot(hand_tangent,torque_bound_point0 - hand_pose_pivot_estimator[0:2])
+                    torque_bound1 = np.dot(hand_tangent,torque_bound_point1 - hand_pose_pivot_estimator[0:2])
+
+                    torque_bound_min = min(torque_bound0,torque_bound1)
+                    torque_bound_max = max(torque_bound0,torque_bound1)
+
+                    torque_bound_min = max(torque_bound_min,-l_contact/2)
+                    torque_bound_max = min(torque_bound_max, l_contact/2)
+
+                    rm.pub_torque_bound_message([torque_bound_min,torque_bound_max])
+
+                    # print(f'{torque_bound_min:.3f}',f'{torque_bound_max:.3f}')
+
+                else:
+                    rm.pub_torque_bound_message([-l_contact/2,l_contact/2])
+
 
                 rm.pub_polygon_contact_estimate(vertex_array_out,contact_indices,mgl_cos_theta_list,mgl_sin_theta_list,
                                                 hand_contact_indices = hand_contact_indices,
