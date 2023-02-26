@@ -286,9 +286,9 @@ class contact_mode_reasoning(object):
                 ratio_A = numerator_A
 
 
-            if 1000*ratio_A>60.0:
+            if 1000*ratio_A>100.0:
                 self.object_corner_contact_flag = 0
-            elif 1000*ratio_A<20.0:
+            elif 1000*ratio_A<10.0:
                 self.object_corner_contact_flag = 1
             else:
                 self.object_corner_contact_flag = -1

@@ -184,12 +184,14 @@ def enumerate_vertices_of_constraint_polygon(theta_list, b_list, closed=True):
 
     return np.array(vertex_x_list), np.array(vertex_y_list)
 
-def plot_pivot_dot(cv_image, pivot_location, camera_transformation_matrix,color = None):
+def plot_pivot_dot(cv_image, pivot_location, camera_transformation_matrix,color = None, radius = None):
         if color is None:
             color = (0, 0, 255)
 
+        if radius is None:
+            radius = 5
         x_coord, y_coord = get_pix_easier(pivot_location.T, camera_transformation_matrix)
-        cv2.circle(cv_image, (x_coord[0], y_coord[0]), 5 , color, -1)
+        cv2.circle(cv_image, (x_coord[0], y_coord[0]), radius , color, -1)
 
 def estimate_ground_COP(obj_vertices_world_manipulation, measured_world_manipulation_wrench_6D, contact_pose_homog, obj_pose_homog = None, height_threshold=.01, vertices_in = None):
     P0 = None
@@ -256,7 +258,9 @@ def estimate_hand_COP(measured_contact_wrench_6D, hand_points, contact_pose_homo
 
 
 
-def plot_force_arrow(cv_image, force_origin, force_vector, force_scale, camera_transformation_matrix):
+def plot_force_arrow(cv_image, force_origin, force_vector, force_scale, camera_transformation_matrix, thickness = None):
+    if thickness is None:
+        thickness = 2
     force_origin = np.hstack([force_origin[0:3],np.array([1])])
     if force_origin is not None and force_vector is not None:
         force_tip = np.hstack(
@@ -264,10 +268,12 @@ def plot_force_arrow(cv_image, force_origin, force_vector, force_scale, camera_t
         x_coord, y_coord = get_pix_easier(
             np.vstack([force_origin, force_tip]).T, camera_transformation_matrix)
         cv2.arrowedLine(cv_image, (x_coord[0], y_coord[0]),
-                        (x_coord[1], y_coord[1]), (255, 0, 0), thickness=2)
+                        (x_coord[1], y_coord[1]), (255, 0, 0), thickness=thickness)
 
 
-def plot_hand_friction_cone(cv_image, COP_point_hand_frame, friction_parameter_dict, contact_pose_homog, camera_transformation_matrix, force_scale):
+def plot_hand_friction_cone(cv_image, COP_point_hand_frame, friction_parameter_dict, contact_pose_homog, camera_transformation_matrix, force_scale, thickness = None):
+    if thickness is None:
+        thickness = 2
     if friction_parameter_dict is not None and COP_point_hand_frame is not None and contact_pose_homog is not None:
         P0_L = [
             friction_parameter_dict["acl"][0] * friction_parameter_dict["bcl"],
@@ -295,7 +301,7 @@ def plot_hand_friction_cone(cv_image, COP_point_hand_frame, friction_parameter_d
         x_coord, y_coord = get_pix_easier(
             np.dot(contact_pose_homog, left_boundary_list), camera_transformation_matrix)
         cv2.polylines(cv_image, [np.vstack(
-            [x_coord, y_coord]).T], True, (0, 255, 0), thickness=2)
+            [x_coord, y_coord]).T], True, (0, 255, 0), thickness=thickness)
 
         x_right0 = P0_R[0] - 0 * force_scale * \
             friction_parameter_dict["acr"][1]
@@ -316,20 +322,25 @@ def plot_hand_friction_cone(cv_image, COP_point_hand_frame, friction_parameter_d
         x_coord, y_coord = get_pix_easier(
             np.dot(contact_pose_homog, right_boundary_list), camera_transformation_matrix)
         cv2.polylines(cv_image, [np.vstack(
-            [x_coord, y_coord]).T], True, (0, 255, 0), thickness=2)
+            [x_coord, y_coord]).T], True, (0, 255, 0), thickness=thickness)
 
 
 
-def plot_wm_lines(cv_image, wm_coords, camera_transformation_matrix,color = None):
+def plot_wm_lines(cv_image, wm_coords, camera_transformation_matrix,color = None, thickness = None):
         if color is None:
             color = (0, 0, 255)
 
+        if thickness is None:
+            thickness = 2
+
         x_coord, y_coord = get_pix_easier(wm_coords, camera_transformation_matrix)
-        cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T], False, color, thickness=2)
+        cv2.polylines(cv_image, [np.vstack([x_coord, y_coord]).T], False, color, thickness=thickness)
 
 
 
-def plot_ground_friction_cone(cv_image, COP_ground, friction_parameter_dict, camera_transformation_matrix, force_scale):
+def plot_ground_friction_cone(cv_image, COP_ground, friction_parameter_dict, camera_transformation_matrix, force_scale, thickness = None):
+    if thickness is None:
+        thickness = 2
     if friction_parameter_dict is not None and COP_ground is not None:
         theta_list = []
         for A_vector in friction_parameter_dict["aer"]:
@@ -367,7 +378,7 @@ def plot_ground_friction_cone(cv_image, COP_ground, friction_parameter_dict, cam
             BoundaryPts, camera_transformation_matrix)
 
         cv2.polylines(cv_image, [np.vstack(
-            [x_coord, y_coord]).T], False, (0, 255, 0), thickness=2)
+            [x_coord, y_coord]).T], False, (0, 255, 0), thickness=thickness)
 
 def overlay_qp_ground_constraints(cv_image,COP_ground,friction_parameter_dict,contact_pose_homog,camera_transformation_matrix,force_scale,qp_debug_dict):
     ground_frame_homog = copy.deepcopy(contact_pose_homog)

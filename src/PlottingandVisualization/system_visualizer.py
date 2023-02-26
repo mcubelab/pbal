@@ -30,15 +30,25 @@ class system_visualizer(object):
         else:
             self.display_overlay = options['display_overlay']
 
-        if options is None or 'display_force' not in options:
-            self.display_force = True
+        if options is None or 'display_hand_force' not in options:
+            self.display_hand_force = True
         else:
-            self.display_force = options['display_force']
+            self.display_hand_force = options['display_hand_force']
 
-        if options is None or 'display_friction_cones' not in options:
-            self.display_friction_cones = True
+        if options is None or 'display_ground_force' not in options:
+            self.display_ground_force = True
         else:
-            self.display_friction_cones = options['display_friction_cones']
+            self.display_ground_force = options['display_ground_force']
+
+        if options is None or 'display_hand_friction_cone' not in options:
+            self.display_hand_friction_cone = True
+        else:
+            self.display_hand_friction_cone = options['display_hand_friction_cone']
+
+        if options is None or 'display_ground_friction_cone' not in options:
+            self.display_ground_friction_cone = True
+        else:
+            self.display_ground_friction_cone = options['display_ground_friction_cone']
 
         if options is None or 'display_impedance_target' not in options:
             self.display_impedance_target = False
@@ -50,10 +60,20 @@ class system_visualizer(object):
         else:
             self.write_path = options['write_path']
 
+        if options is None or 'image_write_path' not in options:
+            self.image_write_path = None
+        else:
+            self.image_write_path = options['image_write_path']
+
         if options is None or 'fname_out' not in options:
             self.fname_out = None
         else:
             self.fname_out = options['fname_out']
+
+        if options is None or 'fname_image_out' not in options:
+            self.fname_image_out = None
+        else:
+            self.fname_image_out = options['fname_image_out']
 
         if options is None or 'write_to_file' not in options:
             self.write_to_file = False
@@ -110,6 +130,25 @@ class system_visualizer(object):
         else:
             self.display_control_pivot = options['display_control_pivot']
 
+        if options is None or 'dot_radius' not in options:
+            self.dot_radius = None
+        else:
+            self.dot_radius = options['dot_radius']
+
+        if options is None or 'line_width' not in options:
+            self.line_width = None
+        else:
+            self.line_width = options['line_width']
+
+        if options is None or 'force_width' not in options:
+            self.force_width = None
+        else:
+            self.force_width = options['force_width']
+
+        if options is None or 'force_scale' not in options:
+            self.force_scale = .001
+        else:
+            self.force_scale = options['force_scale']
 
             
         self.img_array = []
@@ -153,7 +192,7 @@ class system_visualizer(object):
 
         self.identity_pose_list = kh.unit_pose_list()
 
-        self.force_scale = .001
+        
 
         sys_params = SystemParams()
         
@@ -192,11 +231,11 @@ class system_visualizer(object):
             if np.abs(self.rm.measured_contact_wrench_6D[0]) > 3.0:
                 hand_COP_hand_frame, hand_COP_world_frame = ioh.estimate_hand_COP(self.rm.measured_contact_wrench_6D,self.hand_points,self.rm.ee_pose_in_world_manipulation_homog,self.l_contact)
 
-                if self.rm.friction_parameter_dict['cu'] and self.display_friction_cones:
-                    ioh.plot_hand_friction_cone(self.cv_image,hand_COP_hand_frame,self.rm.friction_parameter_dict,self.rm.ee_pose_in_world_manipulation_homog,self.camera_transformation_matrix,self.force_scale)
+                if self.rm.friction_parameter_dict['cu'] and self.display_hand_friction_cone:
+                    ioh.plot_hand_friction_cone(self.cv_image,hand_COP_hand_frame,self.rm.friction_parameter_dict,self.rm.ee_pose_in_world_manipulation_homog,self.camera_transformation_matrix,self.force_scale, thickness = self.force_width)
 
-                if self.display_force:
-                    ioh.plot_force_arrow(self.cv_image,hand_COP_world_frame,self.rm.measured_world_manipulation_wrench_6D[0:3],self.force_scale,self.camera_transformation_matrix)
+                if self.display_hand_force:
+                    ioh.plot_force_arrow(self.cv_image,hand_COP_world_frame,self.rm.measured_world_manipulation_wrench_6D[0:3],self.force_scale,self.camera_transformation_matrix, thickness = self.force_width)
 
                 if self.display_hand_slide_arrow:
                     ioh.plot_hand_slide_arrow(self.cv_image,self.rm.qp_debug_dict,self.hand_points,self.rm.ee_pose_in_world_manipulation_homog,self.camera_transformation_matrix)
@@ -218,11 +257,11 @@ class system_visualizer(object):
 
                 P0 = ioh.estimate_ground_COP(current_dot_positions,self.rm.measured_world_manipulation_wrench_6D, self.rm.ee_pose_in_world_manipulation_homog)
                 
-                if self.rm.friction_parameter_dict['elu'] and self.rm.friction_parameter_dict['eru'] and self.display_friction_cones:
-                    ioh.plot_ground_friction_cone(self.cv_image,P0,self.rm.friction_parameter_dict,self.camera_transformation_matrix,self.force_scale)
+                if self.rm.friction_parameter_dict['elu'] and self.rm.friction_parameter_dict['eru'] and self.display_ground_friction_cone:
+                    ioh.plot_ground_friction_cone(self.cv_image,P0,self.rm.friction_parameter_dict,self.camera_transformation_matrix,self.force_scale, thickness = self.force_width)
 
-                if self.display_force:
-                    ioh.plot_force_arrow(self.cv_image,P0,-np.array(self.rm.measured_world_manipulation_wrench_6D[0:3]),self.force_scale,self.camera_transformation_matrix)
+                if self.display_ground_force:
+                    ioh.plot_force_arrow(self.cv_image,P0,-np.array(self.rm.measured_world_manipulation_wrench_6D[0:3]),self.force_scale,self.camera_transformation_matrix, thickness = self.force_width)
 
                 if self.display_pivot_arrow:
                     ioh.plot_pivot_arrow(self.cv_image,self.rm.qp_debug_dict,hand_front_center_world,P0,self.camera_transformation_matrix)
@@ -250,40 +289,55 @@ class system_visualizer(object):
 
                     P0 = ioh.estimate_ground_COP(vertex_array_to_display,self.rm.measured_world_manipulation_wrench_6D, self.rm.ee_pose_in_world_manipulation_homog, height_threshold = .03, vertices_in = vertices_in)
                     
-                    if self.rm.friction_parameter_dict['elu'] and self.rm.friction_parameter_dict['eru'] and self.display_friction_cones:
-                        ioh.plot_ground_friction_cone(self.cv_image,P0,self.rm.friction_parameter_dict,self.camera_transformation_matrix,self.force_scale)
+                    if self.rm.friction_parameter_dict['elu'] and self.rm.friction_parameter_dict['eru'] and self.display_ground_friction_cone:
+                        ioh.plot_ground_friction_cone(self.cv_image,P0,self.rm.friction_parameter_dict,self.camera_transformation_matrix,self.force_scale, thickness = self.force_width)
 
-                    if self.display_force:
-                        ioh.plot_force_arrow(self.cv_image,P0,-np.array(self.rm.measured_world_manipulation_wrench_6D[0:3]),self.force_scale,self.camera_transformation_matrix)
+                    if self.display_ground_force:
+                        ioh.plot_force_arrow(self.cv_image,P0,-np.array(self.rm.measured_world_manipulation_wrench_6D[0:3]),self.force_scale,self.camera_transformation_matrix, thickness = self.force_width)
 
 
-                hand_contact_color = (100,100,255)
-                wall_contact_color = (255,0,0)
-                for i in range(len(vertex_array_to_display[0])):
-                    vertex_to_display = vertex_array_to_display[:,i]
-                    vertex_to_display = np.transpose(vertex_to_display)
-                    if i in self.rm.polygon_contact_estimate_dict['wall_contact_indices']:
-                        self.dot_overlay(vertex_to_display,color = wall_contact_color)
-                    elif i in self.rm.polygon_contact_estimate_dict['hand_contact_indices']:
-                        self.dot_overlay(vertex_to_display,color = hand_contact_color)
-                    elif i in self.rm.polygon_contact_estimate_dict['contact_indices']:
-                        self.dot_overlay(vertex_to_display,color = (255,0,255))
-                    else:
-                        self.dot_overlay(vertex_to_display)
+                hand_contact_color = (210,210,30)
+                wall_contact_color = (0,255,255)
+                
 
                 if len(self.rm.polygon_contact_estimate_dict['contact_indices'])==2:
                     endpoint0 = vertex_array_to_display[:,self.rm.polygon_contact_estimate_dict['contact_indices'][0]]
                     endpoint1 = vertex_array_to_display[:,self.rm.polygon_contact_estimate_dict['contact_indices'][1]]
                     contact_line = np.transpose(np.vstack([endpoint0,endpoint1]))
                     contact_line = np.vstack([contact_line,np.array([1.0,1.0])])
-                    ioh.plot_wm_lines(self.cv_image, contact_line, self.camera_transformation_matrix,color = (255,0,255))
+                    ioh.plot_wm_lines(self.cv_image, contact_line, self.camera_transformation_matrix,color = (255,0,255), thickness = self.line_width)
+
+                if len(self.rm.polygon_contact_estimate_dict['wall_contact_indices'])==1 and len(vertex_array_to_display[0])>=2:
+                    wall_contact_index = self.rm.polygon_contact_estimate_dict['wall_contact_indices'][0]
+                    wall_contact_test = np.abs(vertex_array_to_display[1,:]-vertex_array_to_display[1,wall_contact_index])
+
+                    wall_vertex_candidate = np.argsort(wall_contact_test)[1]
+                    if wall_contact_test[wall_vertex_candidate]<.01:
+                        endpoint0 = vertex_array_to_display[:,wall_contact_index]
+                        endpoint1 = vertex_array_to_display[:,wall_vertex_candidate]
+                        contact_line = np.transpose(np.vstack([endpoint0,endpoint1]))
+                        contact_line = np.vstack([contact_line,np.array([1.0,1.0])])
+                        ioh.plot_wm_lines(self.cv_image, contact_line, self.camera_transformation_matrix,color = wall_contact_color, thickness = self.line_width)
 
                 if len(self.rm.polygon_contact_estimate_dict['hand_contact_indices'])==2:
                     endpoint0 = vertex_array_to_display[:,self.rm.polygon_contact_estimate_dict['hand_contact_indices'][0]]
                     endpoint1 = vertex_array_to_display[:,self.rm.polygon_contact_estimate_dict['hand_contact_indices'][1]]
                     contact_line = np.transpose(np.vstack([endpoint0,endpoint1]))
                     contact_line = np.vstack([contact_line,np.array([1.0,1.0])])
-                    ioh.plot_wm_lines(self.cv_image, contact_line, self.camera_transformation_matrix,color = hand_contact_color)
+                    ioh.plot_wm_lines(self.cv_image, contact_line, self.camera_transformation_matrix,color = hand_contact_color, thickness = self.line_width)
+
+                for i in range(len(vertex_array_to_display[0])):
+                    vertex_to_display = vertex_array_to_display[:,i]
+                    vertex_to_display = np.transpose(vertex_to_display)
+                    if i in self.rm.polygon_contact_estimate_dict['wall_contact_indices']:
+                        self.dot_overlay(vertex_to_display,color = wall_contact_color, radius = self.dot_radius)
+                    elif i in self.rm.polygon_contact_estimate_dict['hand_contact_indices']:
+                        self.dot_overlay(vertex_to_display,color = hand_contact_color, radius = self.dot_radius)
+                    elif i in self.rm.polygon_contact_estimate_dict['contact_indices']:
+                        self.dot_overlay(vertex_to_display,color = (255,0,255), radius = self.dot_radius)
+                    else:
+                        self.dot_overlay(vertex_to_display, radius = self.dot_radius)
+
 
             if self.display_polygon_vision_estimate and self.rm.polygon_vision_estimate_dict is not None:
                 vertex_array_to_display = self.rm.polygon_vision_estimate_dict['vertex_array']
@@ -313,11 +367,11 @@ class system_visualizer(object):
                     self.dot_overlay(control_pivot,color = (0,255,0))
 
 
-    def dot_overlay(self,p_dot,color = None):
+    def dot_overlay(self,p_dot,color = None,radius = None):
         if len(p_dot)==3:
-            ioh.plot_pivot_dot(self.cv_image,np.array([list(p_dot)+[1.0]]),self.camera_transformation_matrix,color)
+            ioh.plot_pivot_dot(self.cv_image,np.array([list(p_dot)+[1.0]]),self.camera_transformation_matrix,color,radius = radius)
         elif len(p_dot)==4:
-            ioh.plot_pivot_dot(self.cv_image,np.array([p_dot]),self.camera_transformation_matrix,color)
+            ioh.plot_pivot_dot(self.cv_image,np.array([p_dot]),self.camera_transformation_matrix,color, radius = radius)
 
     def display_frame(self,wait_time=3):
 
@@ -327,6 +381,10 @@ class system_visualizer(object):
 
         if self.write_to_file:
             self.img_array.append(self.cv_image)
+
+    def store_last_frame(self):
+        cv2.imwrite(self.image_write_path  + self.fname_image_out, self.cv_image)
+        
 
     def store_video(self,frame_rate = 30):
 

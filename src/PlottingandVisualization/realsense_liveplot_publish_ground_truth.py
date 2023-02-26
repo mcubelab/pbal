@@ -16,13 +16,16 @@ import image_overlay_helper as ioh
 
 
 
-def generate_video_name(path,video_name=None):
+def generate_video_name(path,video_name=None,file_type = None):
         if video_name is None:
             video_name = 'pivot_estimator_video'
 
+        if file_type is None:
+            file_type = '.avi'
+
         experiment_nums = []
         for file in os.listdir(path):
-            if file.endswith('.avi'):
+            if file.endswith(file_type):
                 fname = os.path.splitext(file)
                 fname_tokens = fname[0].split('-')
                 if video_name==fname_tokens[0]:
@@ -30,11 +33,8 @@ def generate_video_name(path,video_name=None):
                 else:
                     continue
 
+
            
-
-
-               
-
         # new experiment number
         if not experiment_nums:
             new_experiment_num = 1
@@ -42,7 +42,7 @@ def generate_video_name(path,video_name=None):
             new_experiment_num = np.max(experiment_nums)  + 1
 
         #return experiment name
-        return '/'+video_name+'-'+('{:03d}'.format(new_experiment_num))+'.avi'
+        return '/'+video_name+'-'+('{:03d}'.format(new_experiment_num))+file_type
 
 
 if __name__ == '__main__':
@@ -51,16 +51,20 @@ if __name__ == '__main__':
     frame_rate = None
     cam_choice = 'near'
 
-    read_from_file = False
-    # read_from_file = True
+    # read_from_file = False
+    read_from_file = True
 
 
 
 
+    image_write_path = '/home/thecube/Documents/pbal_experiments/IROS_frames'
+    fname_image_out = generate_video_name(image_write_path,'IROS_figure1','.png')
 
 
+    write_image_to_file = True
+    # write_image_to_file = False
 
-    write_to_file = True and read_from_file
+    write_to_file = False and read_from_file
     display_overlay = False or (not write_to_file) or (not read_from_file)
 
     write_path = None
@@ -74,7 +78,7 @@ if __name__ == '__main__':
         read_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
         write_path = read_path
         # read_path = '/home/taylorott/Documents/experiment_data/gtsam_test_data_fall_2022'
-        fname_in = '/test_data-experiment0069.pickle'
+        fname_in = '/test_data-experiment0076.pickle'
         rm = ros_manager(load_mode = True, path=read_path, fname=fname_in)
         fname_out = generate_video_name(read_path,video_name='pivot_estimator_video')
     else:
@@ -124,8 +128,10 @@ if __name__ == '__main__':
                 'write_to_file':write_to_file,
                 'write_path':write_path,
                 'fname_out':fname_out,
-                'display_friction_cones':True,
-                'display_force':True,
+                'display_hand_friction_cone':True,
+                'display_hand_force':True,
+                'display_ground_friction_cone':False,
+                'display_ground_force':False,
                 'display_impedance_target':False,
                 'display_hand_apriltag_overlay':False,
                 'display_hand_slide_arrow':False,
@@ -136,7 +142,13 @@ if __name__ == '__main__':
                 'display_pivot_estimate':False,
                 'display_shape_overlay':False,
                 'display_polygon_contact_estimate':True,
-                'display_polygon_vision_estimate':False}
+                'display_polygon_vision_estimate':False,
+                'image_write_path':image_write_path,
+                'fname_image_out':fname_image_out,
+                'dot_radius': 7,
+                'line_width': 5,
+                'force_scale':.002,
+                'force_width':3}
     
     my_visualizer = system_visualizer(rm,options)
 
@@ -152,3 +164,7 @@ if __name__ == '__main__':
     if write_to_file:
         print('writing to: '+fname_out)
         my_visualizer.store_video(frame_rate)
+
+    if write_image_to_file:
+        print('writing image to '+fname_image_out)
+        my_visualizer.store_last_frame()
