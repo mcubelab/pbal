@@ -374,6 +374,17 @@ def command_dict_to_command_stamped(command_dict):
     elif 'theta' in command_dict:
         command_msg.control_command.theta = command_dict['theta']
 
+
+    if   'delta_theta_relative' in command_dict:
+        command_msg.control_command.delta_theta_relative = command_dict['delta_theta_relative']
+    elif 'theta_relative' in command_dict:
+        command_msg.control_command.theta_relative = command_dict['theta_relative']
+
+    if   'delta_theta_object' in command_dict:
+        command_msg.control_command.delta_theta_object = command_dict['delta_theta_object']
+    elif 'theta_object' in command_dict:
+        command_msg.control_command.theta_object = command_dict['theta_object']
+
     if   'delta_s_pivot' in command_dict:
         command_msg.control_command.delta_s_pivot = command_dict['delta_s_pivot']
     elif 's_pivot' in command_dict:
@@ -396,6 +407,7 @@ def command_dict_to_command_stamped(command_dict):
 
     if   'delta_tangential' in command_dict:
         command_msg.control_command.delta_tangential = command_dict['delta_tangential']
+
 
     return command_msg
 
