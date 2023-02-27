@@ -308,38 +308,34 @@ jog_move_normal_down = {
 
 delta_rotate_hand_left_object_corner = {
     'name': 'delta_rotate_hand_left_object_corner',
-    'command_flag' : 4,
-    'mode' : -1,
-    'delta_theta' : np.pi/50, #np.pi/12, 
-    'delta_s_pivot' : 0.0,
-    'delta_s_hand' : 0.0,
+    'command_flag' : 1,
+    'mode' : 12,
+    'delta_theta_relative' : np.pi/30, #np.pi/12,
+    'delta_theta_object' : 0.0,
 }
 
 delta_rotate_hand_right_object_corner = {
     'name': 'delta_rotate_hand_right_object_corner',
-    'command_flag' : 4,
-    'mode' : -1,
-    'delta_theta' : -np.pi/50, #-np.pi/12, 
-    'delta_s_pivot' : 0.0,
-    'delta_s_hand' : 0.0,
+    'command_flag' : 1,
+    'mode' : 12,
+    'delta_theta_relative' : -np.pi/30, #-np.pi/12,
+    'delta_theta_object' : 0.0,
 }
 
 delta_rotate_object_left_object_corner = {
     'name': 'delta_rotate_object_left_object_corner',
-    'command_flag' : 4,
-    'mode' : 0,
-    'delta_theta' : np.pi/50, #np.pi/12, 
-    'delta_s_pivot' : 0.0,
-    'delta_s_hand' : 0.0,
+    'command_flag' : 1,
+    'mode' : 12,
+    'delta_theta_relative' : 0.0,
+    'delta_theta_object' : np.pi/30, #np.pi/12, 
 }
 
 delta_rotate_object_right_object_corner = {
     'name': 'delta_rotate_object_right_object_corner',
-    'command_flag' : 4,
-    'mode' : 0,
-    'delta_theta' : -np.pi/50, #-np.pi/12, 
-    'delta_s_pivot' : 0.0,
-    'delta_s_hand' : 0.0,
+    'command_flag' : 1,
+    'mode' : 12,
+    'delta_theta_relative' : 0.0,
+    'delta_theta_object' : -np.pi/30, #-np.pi/12, 
 }
 
 

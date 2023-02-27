@@ -144,7 +144,8 @@ class ModularBarrierController(object):
 
     def update_controller(self, mode, theta_hand, contact_wrench, friction_parameter_dict, 
                                 error_dict, rotation_vector = None, torque_bounds = None,
-                                torque_line_contact_external_A = None, torque_line_contact_external_B = None):
+                                torque_line_contact_external_A = None, torque_line_contact_external_B = None,
+                                hand_rotation_vector = None, ground_rotation_vector = None, radial_unit_vector = None):
 
     	self.error_dict=error_dict
 
@@ -161,6 +162,9 @@ class ModularBarrierController(object):
         self.rotation_vector = rotation_vector
         self.torque_line_contact_external_A = torque_line_contact_external_A
         self.torque_line_contact_external_B = torque_line_contact_external_B
+        self.hand_rotation_vector = hand_rotation_vector
+        self.ground_rotation_vector = ground_rotation_vector
+        self.radial_unit_vector = radial_unit_vector
 
     	# update_mode
         if (mode == 0 or mode == 4) and error_dict['error_s_hand'] > 0:
@@ -431,10 +435,39 @@ class ModularBarrierController(object):
                 self.torque_line_contact_external_constraints,
             ]
 
+        if self.mode == 12:
+            self.mode_cost = [
+                self.wrench_regularization_cost,
+                self.theta_relative_cost,
+                self.theta_object_cost,
+            ]
+            self.mode_constraint = [
+                self.radial_force_bounded_external_constraint,
+                # self.normal_force_max_contact_constraint,
+                # self.friction_right_external_constraint,
+                # self.friction_left_external_constraint,
+            ]
+
     def compute_error_theta(self):
         self.error_theta = self.compute_general_error(
             error_value=self.error_dict['error_theta'],
             scale_value=self.pivot_params['theta_scale'])
+
+    def compute_error_theta_relative(self):
+        if 'error_theta_relative' not in self.error_dict or self.error_dict['error_theta_relative'] is None:
+            self.error_dict['error_theta_relative'] = 0.0
+
+        self.error_theta_relative = self.compute_general_error(
+            error_value=self.error_dict['error_theta_relative'],
+            scale_value=self.pivot_params['theta_relative_scale'])
+
+    def compute_error_theta_object(self):
+        if 'error_theta_object' not in self.error_dict or self.error_dict['error_theta_object'] is None:
+            self.error_dict['error_theta_object'] = 0.0
+
+        self.error_theta_object = self.compute_general_error(
+            error_value=self.error_dict['error_theta_object'],
+            scale_value=self.pivot_params['theta_object_scale'])
 
     def compute_error_N(self):
         self.error_N = self.compute_general_error(
@@ -580,6 +613,36 @@ class ModularBarrierController(object):
             K=self.pivot_params['K_theta'],
             concavity=self.pivot_params['concavity_theta'])
 
+    def theta_relative_cost(self):
+        ''' cost term for rotating about pivot '''
+        self.compute_error_theta_relative()
+        
+        if self.hand_rotation_vector is not None:
+            base_vec = np.array(self.hand_rotation_vector)
+        else:
+            base_vec = np.array([0.0,0.0,0.0])
+
+        return self.general_cost(
+            base_error=self.error_theta_relative,
+            base_vec=base_vec,
+            K=self.pivot_params['K_theta_relative'],
+            concavity=self.pivot_params['concavity_theta_relative'])
+
+    def theta_object_cost(self):
+        ''' cost term for rotating about pivot '''
+        self.compute_error_theta_object()
+        
+        if self.ground_rotation_vector is not None:
+            base_vec = np.array(self.ground_rotation_vector)
+        else:
+            base_vec = np.array([0.0,0.0,0.0])
+
+        return self.general_cost(
+            base_error=self.error_theta_object,
+            base_vec=base_vec,
+            K=self.pivot_params['K_theta_object'],
+            concavity=self.pivot_params['concavity_theta_object'])
+
     def general_cost(self, base_error, base_vec, K, concavity):
         proj_vec = base_vec*concavity
         error = base_error*K
@@ -624,7 +687,6 @@ class ModularBarrierController(object):
         lc = self.l_contact * self.pivot_params['l_contact_multiplier']
         if self.torque_bounds is not None:
             aiq = np.array([self.torque_bounds[0], 0., 1.])
-            print(aiq)
         else:
             aiq = np.array([-lc / 2., 0., 1.])
         biq = -self.pivot_params['torque_margin']
@@ -635,7 +697,6 @@ class ModularBarrierController(object):
         lc = self.l_contact * self.pivot_params['l_contact_multiplier']
         if self.torque_bounds is not None:
             aiq = np.array([-self.torque_bounds[1], 0., -1.])
-            print(aiq)
         else:
             aiq = np.array([-lc / 2., 0., -1.])
         biq = -self.pivot_params['torque_margin']
@@ -670,10 +731,27 @@ class ModularBarrierController(object):
         biq = 0.
         return aiq, biq, self.pivot_params['tr_min_normal_external'], ['nemn']
 
-    # def radial_force_bounded_external_constraint(self):
 
-    #     radial_vector = robot_contact_wm - external_contact_wm
-        
+
+
+    def radial_force_bounded_external_constraint(self):
+        ''' normal force at external contact must be above 0 '''
+
+        if self.radial_unit_vector is None:
+            return None, None, None, None
+
+        aiq0 = np.dot(self.radial_unit_vector, self.R2C)
+        biq0 = -4.
+
+        aiq1 = np.dot(-self.radial_unit_vector, self.R2C)
+        biq1 = 8
+
+        aiq = np.array([aiq0,aiq1])
+        biq = np.array([biq0,biq1])
+
+        return aiq, biq, self.pivot_params['tr_min_normal_external'], ['ocmec']
+
+
 
 
     def friction_right_external_constraint(self):

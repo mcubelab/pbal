@@ -137,6 +137,7 @@ class ImpedanceControlBarrierFunction(object):
         s_pivot_target = None
         target_xyz_theta_robot_frame = None
         theta_start = None
+        vertex_array_wm_ref = None
 
         # unpack current message
         command_flag = self.rm.command_msg['command_flag']
@@ -149,6 +150,9 @@ class ImpedanceControlBarrierFunction(object):
             coord_set = {'theta','s_hand'}
         if mode == 2 or mode == 3 or mode == 10 or mode == 11:
             coord_set = {'theta','s_pivot'}
+        if mode == 12:
+            coord_set = {'theta_relative','theta_object'}
+
 
         if command_flag == 0: # absolute move
             if 'theta' in coord_set:                    
@@ -187,6 +191,25 @@ class ImpedanceControlBarrierFunction(object):
                 else:
                     s_pivot_target = pivot[1] + delta_s_pivot
 
+            if 'theta_object' in coord_set:
+                delta_theta_object = self.rm.command_msg['delta_theta_object']
+                if self.rm.polygon_contact_estimate_dict is not None:
+                    rot_mat_theta_object = np.array([[np.cos(delta_theta_object),-np.sin(delta_theta_object)],
+                                                     [np.sin(delta_theta_object), np.cos(delta_theta_object)]])
+                    vertex_array_wm_ref  = self.rm.polygon_contact_estimate_dict['vertex_array'][0:2,:]
+                    vertex_array_wm_ref = np.dot(rot_mat_theta_object,vertex_array_wm_ref)
+                    
+
+
+            if 'theta_relative' in coord_set:
+                delta_theta_relative = self.rm.command_msg['delta_theta_relative']
+
+                theta_target =  target_xyz_theta_robot_frame[3] +  delta_theta_relative
+                
+                if 'theta_object' in coord_set:
+                    theta_target +=  self.rm.command_msg['delta_theta_object']
+
+
 
         output_dict = {
             'command_flag': command_flag,
@@ -197,6 +220,7 @@ class ImpedanceControlBarrierFunction(object):
             's_pivot_target': s_pivot_target,
             'target_xyz_theta_robot_frame': target_xyz_theta_robot_frame,
             'theta_start': theta_start,
+            'vertex_array_wm_ref': vertex_array_wm_ref
         }
 
         return output_dict
@@ -231,8 +255,11 @@ class ImpedanceControlBarrierFunction(object):
         s_pivot_target = command_dict['s_pivot_target']
         target_xyz_theta_robot_frame = command_dict['target_xyz_theta_robot_frame']
         theta_start = command_dict['theta_start']
+        vertex_array_wm_ref = command_dict['vertex_array_wm_ref']
 
-
+        hand_rotation_vector = None
+        ground_rotation_vector = None
+        radial_unit_vector = None
 
         # snapshot of current generalized position estimate
         if self.rm.state_not_exists_bool:
@@ -252,12 +279,8 @@ class ImpedanceControlBarrierFunction(object):
         error_dict = dict()
 
         if 'theta' in coord_set:
-            error_dict['error_theta'] =  current_xyz_theta_robot_frame[3] - theta_target
+            error_dict['error_theta'] =  kh.mod2pi(current_xyz_theta_robot_frame[3] - theta_target)
 
-            while error_dict['error_theta']> np.pi:
-                error_dict['error_theta']-= 2*np.pi
-            while error_dict['error_theta']< -np.pi:
-                error_dict['error_theta']+= 2*np.pi
 
         if 's_hand' in coord_set:
             if self.rm.state_not_exists_bool and command_flag == 1:
@@ -278,6 +301,102 @@ class ImpedanceControlBarrierFunction(object):
 
             if not self.rm.state_not_exists_bool:
                 error_dict['error_s_pivot'] = pivot[1] - s_pivot_target
+
+        if ('theta_object' in coord_set and 'theta_relative' in coord_set 
+            and vertex_array_wm_ref is not None and self.rm.polygon_contact_estimate_dict is not None):
+
+            dummy, theta_object_error  = kh.regress_2D_transform(vertex_array_wm_ref,
+                                                                self.rm.polygon_contact_estimate_dict['vertex_array'][0:2,:])
+
+            error_dict['error_theta_object'] = kh.mod2pi(theta_object_error)
+            error_dict['error_theta_relative'] = kh.mod2pi(current_xyz_theta_robot_frame[3] - theta_target - theta_object_error)
+
+            hand_pivot_vertex = None
+            ground_pivot_vertex = None
+
+            if self.rm.measured_contact_wrench[0]>2.0:
+                COP_dist = self.rm.measured_contact_wrench[2]/self.rm.measured_contact_wrench[0]
+
+                tangent_vector = np.array([np.sin(theta_hand),-np.cos(theta_hand)])
+                normal_vector = np.array([-np.cos(theta_hand),-np.sin(theta_hand)])
+                hand_pivot_vertex = current_xyz_theta_robot_frame[0:2]-COP_dist*tangent_vector
+
+                h_ground = np.min(self.rm.polygon_contact_estimate_dict['vertex_array'][0,:])
+
+                ground_pivot_vertex = min((h_ground-hand_pivot_vertex[0])/normal_vector[0],.3)*normal_vector+hand_pivot_vertex
+                ground_rotation_vector = compute_rotation_vector(ground_pivot_vertex,current_xyz_theta_robot_frame,theta_hand)
+
+                hand_rotation_vector = compute_rotation_vector(hand_pivot_vertex,current_xyz_theta_robot_frame,theta_hand)
+
+                # error_dict['error_theta_relative'] = -kh.mod2pi(np.arctan2(self.rm.measured_contact_wrench[1],self.rm.measured_contact_wrench[0]))
+                # print(temp_theta_error)
+            else:
+
+                if len(self.rm.polygon_contact_estimate_dict['hand_contact_indices'])==1:
+                    hand_pivot_vertex_index = self.rm.polygon_contact_estimate_dict['hand_contact_indices'][0]
+
+                    hand_pivot_vertex = None
+                    
+                        
+                    hand_pivot_vertex = self.rm.polygon_contact_estimate_dict['vertex_array'][0:2,hand_pivot_vertex_index]
+
+                    hand_rotation_vector = compute_rotation_vector(hand_pivot_vertex,current_xyz_theta_robot_frame,theta_hand)
+
+                elif len(self.rm.polygon_contact_estimate_dict['hand_contact_indices'])==2:
+                    hand_pivot_vertex_index0 = self.rm.polygon_contact_estimate_dict['hand_contact_indices'][0]
+                    hand_pivot_vertex_index1 = self.rm.polygon_contact_estimate_dict['hand_contact_indices'][1]
+                    hand_pivot_vertex0 = self.rm.polygon_contact_estimate_dict['vertex_array'][0:2,hand_pivot_vertex_index0]
+                    hand_pivot_vertex1 = self.rm.polygon_contact_estimate_dict['vertex_array'][0:2,hand_pivot_vertex_index1]
+
+                    hand_rotation_vector0 = compute_rotation_vector(hand_pivot_vertex0,current_xyz_theta_robot_frame,theta_hand)
+                    hand_rotation_vector1 = compute_rotation_vector(hand_pivot_vertex1,current_xyz_theta_robot_frame,theta_hand)
+
+                    if abs(hand_rotation_vector0[0])<abs(hand_rotation_vector0[1]):
+                        hand_rotation_vector = hand_rotation_vector0
+                        hand_pivot_vertex = hand_pivot_vertex0
+                    else:
+                        hand_rotation_vector = hand_rotation_vector1
+                        hand_pivot_vertex = hand_pivot_vertex1
+
+
+                if len(self.rm.polygon_contact_estimate_dict['contact_indices'])==1:
+                    ground_pivot_vertex_index = self.rm.polygon_contact_estimate_dict['contact_indices'][0]
+                    ground_pivot_vertex = self.rm.polygon_contact_estimate_dict['vertex_array'][0:2,ground_pivot_vertex_index]
+                    ground_rotation_vector = compute_rotation_vector(ground_pivot_vertex,current_xyz_theta_robot_frame,theta_hand)
+
+                if len(self.rm.polygon_contact_estimate_dict['contact_indices'])==2:
+                    ground_pivot_vertex_index0 = self.rm.polygon_contact_estimate_dict['contact_indices'][0]
+                    ground_pivot_vertex0 = self.rm.polygon_contact_estimate_dict['vertex_array'][0:2,ground_pivot_vertex_index0]
+                    ground_rotation_vector0 = compute_rotation_vector(ground_pivot_vertex0,current_xyz_theta_robot_frame,theta_hand)
+                    d0 = np.sqrt(ground_rotation_vector0[0]**2+ground_rotation_vector0[1]**2)
+
+                    ground_pivot_vertex_index1 = self.rm.polygon_contact_estimate_dict['contact_indices'][1]
+                    ground_pivot_vertex1 = self.rm.polygon_contact_estimate_dict['vertex_array'][0:2,ground_pivot_vertex_index1]
+                    ground_rotation_vector1 = compute_rotation_vector(ground_pivot_vertex1,current_xyz_theta_robot_frame,theta_hand)
+                    d1 = np.sqrt(ground_rotation_vector1[0]**2+ground_rotation_vector1[1]**2)
+
+                    if d0>d1:
+                        ground_rotation_vector = ground_rotation_vector0
+                        ground_pivot_vertex = ground_pivot_vertex0
+                    else:
+                        ground_rotation_vector = ground_rotation_vector1
+                        ground_pivot_vertex = ground_pivot_vertex1
+
+                if hand_rotation_vector is not None and abs(hand_rotation_vector[0])>.042:
+                    hand_rotation_vector = None
+                    hand_pivot_vertex = None
+
+            
+            
+
+            
+
+            if hand_pivot_vertex is not None and ground_pivot_vertex is not None:
+                radial_unit_vector = np.array([0.0,0.0,0.0])
+                radial_unit_vector[0] = hand_pivot_vertex[0]-ground_pivot_vertex[0]
+                radial_unit_vector[1] = hand_pivot_vertex[1]-ground_pivot_vertex[1]
+                radial_unit_vector/=np.linalg.norm(radial_unit_vector)
+
 
         rotation_vector = None
         if s_hand is not None and l_hand is not None:
@@ -379,7 +498,7 @@ class ImpedanceControlBarrierFunction(object):
                     if temp is not None:
                         rotation_vector = temp
 
-
+        
         # rotation_vector = None
             # print(rotation_vector)
 
@@ -395,10 +514,16 @@ class ImpedanceControlBarrierFunction(object):
             rotation_vector = rotation_vector,
             torque_bounds = self.rm.torque_bounds,
             torque_line_contact_external_A = torque_line_contact_external_A,
-            torque_line_contact_external_B = torque_line_contact_external_B)
+            torque_line_contact_external_B = torque_line_contact_external_B,
+            hand_rotation_vector = hand_rotation_vector,
+            ground_rotation_vector = ground_rotation_vector,
+            radial_unit_vector = radial_unit_vector)
 
         # compute wrench increment
         wrench_increment_contact, debug_dict = self.pbc.solve_for_delta_wrench()
+
+        if mode == 12 and (hand_rotation_vector is None or ground_rotation_vector is None or radial_unit_vector is None):
+            wrench_increment_contact = np.array([0.0,0.0,0.0])
 
         return wrench_increment_contact, debug_dict
 
@@ -446,7 +571,6 @@ class ImpedanceControlBarrierFunction(object):
 
             if current_command_mode == 0 or current_command_mode == 1:
                 wrench_increment_contact, debug_dict = self.run_modular_barrier_controller(command_dict)           
-
           
                 debug_dict['snewrb'] = self.rm.state_not_exists_bool
                 if 'name' in self.rm.command_msg:

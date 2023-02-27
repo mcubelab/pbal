@@ -54,7 +54,15 @@ class SystemParams(object):
             'theta_scale': 0.3,
             'concavity_theta': 60,
             'pure_agnostic_rotation': False,
+
+            'K_theta_relative': 50., #150.,                                         # objective function parameters: theta, line/line plus point/line
+            'theta_relative_scale': 0.3,
+            'concavity_theta_relative': 60,
             
+            'K_theta_object': 100., #150.,                                         # objective function parameters: theta, line/line plus point/line
+            'theta_object_scale': 0.3,
+            'concavity_theta_object': 60,
+
             'K_s_hand': 1.0, #6.0, #.3,  #1.                                              # objective function parameters: s, line/line plus point/line
             's_hand_scale': 0.0005,
             'concavity_s_hand': 0.3,
