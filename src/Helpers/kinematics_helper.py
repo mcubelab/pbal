@@ -183,3 +183,27 @@ def invert_transform_homog(homog_in):
     homog_inv = np.vstack([np.hstack([R_new,T_new]),bottom_row])
 
     return homog_inv
+
+def regress_2D_transform(v_in,v_out):
+    v_stack = []
+    y_stack = []
+
+    for i in range(len(v_in[0])):
+        v_stack.append([ v_in[0,i],-v_in[1,i],1.0,0.0])
+        v_stack.append([ v_in[1,i], v_in[0,i],0.0,1.0])
+
+        y_stack.append(v_out[0,i])
+        y_stack.append(v_out[1,i])
+
+    A = np.array(v_stack)
+    B = np.array(y_stack)
+
+    vec_out = np.linalg.solve(np.dot(A.T,A).T,np.dot(A.T,B))
+    theta_out = np.arctan2(vec_out[1],vec_out[0])
+
+    return vec_out[2:3],theta_out
+
+
+
+
+
