@@ -13,6 +13,81 @@ import Estimation.image_segmentation as img_seg
 import time
 
 
+class polygon_vision_operator(object):
+    def __init__(self, rm):
+        self.rm = rm
+
+
+        self.ctm = camera_transform_manager(self.rm,'near')
+        self.ctm.setup_frames()
+        self.camera_transformation_matrix = self.ctm.generate_camera_transformation_matrix()
+
+        self.rm.wait_for_necessary_data()
+        print('starting loop')
+
+
+        self.visited_array = None
+
+        self.seed_point_location = None
+
+        self.can_publish = False
+
+        self.vertex_array_to_publish = None
+
+    def unpack_all(self):
+        self.rm.unpack_all()
+
+    def update_estimator(self):
+        self.can_publish = False
+
+        
+
+        cv_image = self.rm.near_cam_image_raw
+
+        if self.visited_array is None:
+            self.visited_array = np.zeros([len(cv_image),len(cv_image[0])])
+
+        measured_wrench_ee = np.array(self.rm.measured_contact_wrench)
+
+        if measured_wrench_ee[0]>2.0:
+            self.seed_point_location = None
+
+        vertex_list = img_seg.fast_polygon_estimate(cv_image,self.rm.ee_pose_in_world_manipulation_homog,self.camera_transformation_matrix,self.visited_array,
+                                                    is_fine = False, seed_point = self.seed_point_location, color_dist=28)
+
+
+        if len(vertex_list)>2:
+            vertex_array_out = np.array(vertex_list).transpose()
+
+
+            self.seed_point_location = np.array([0.0]*4)
+            self.seed_point_location[3]=1.0
+
+            for i in range(3):
+                self.seed_point_location[i]=np.mean(vertex_array_out[i])
+
+            self.can_publish = True
+
+            self.vertex_array_to_publish = vertex_array_out
+            
+
+        if self.rm.polygon_contact_estimate_has_new and self.rm.polygon_contact_estimate_dict is not None:
+            
+
+            self.seed_point_location = np.array([0.0]*4)
+            self.seed_point_location[3]=1.0
+
+            for i in range(3):
+                self.seed_point_location[i]=np.mean(self.rm.polygon_contact_estimate_dict['vertex_array'][i])
+
+
+        self.visited_array*=0
+
+    def publish_values(self):
+        if self.can_publish:
+            self.rm.pub_polygon_vision_estimate(self.vertex_array_to_publish)
+
+
 if __name__ == '__main__':
     
     RATE = 60
@@ -37,60 +112,13 @@ if __name__ == '__main__':
 
     rm.spawn_publisher_list(['/polygon_vision_estimate'])
 
-    ctm = camera_transform_manager(rm,'near')
-    ctm.setup_frames()
-    camera_transformation_matrix = ctm.generate_camera_transformation_matrix()
+    my_operator = polygon_vision_operator(rm)
 
-    rm.wait_for_necessary_data()
-    print('starting loop')
-
-
-    visited_array = None
-
-    seed_point_location = None
 
     while not rospy.is_shutdown():
-        rm.unpack_all()
-
-        cv_image = rm.near_cam_image_raw
-
-        if visited_array is None:
-            visited_array = np.zeros([len(cv_image),len(cv_image[0])])
-
-        measured_wrench_ee = np.array(rm.measured_contact_wrench)
-
-        if measured_wrench_ee[0]>2.0:
-            seed_point_location = None
-
-        vertex_list = img_seg.fast_polygon_estimate(cv_image,rm.ee_pose_in_world_manipulation_homog,camera_transformation_matrix,visited_array,
-                                                    is_fine = False, seed_point = seed_point_location, color_dist=28)
-
-
-        if len(vertex_list)>2:
-            vertex_array_out = np.array(vertex_list).transpose()
-
-
-            seed_point_location = np.array([0.0]*4)
-            seed_point_location[3]=1.0
-
-            for i in range(3):
-                seed_point_location[i]=np.mean(vertex_array_out[i])
-
-            rm.pub_polygon_vision_estimate(vertex_array_out)
-
-        if rm.polygon_contact_estimate_has_new and rm.polygon_contact_estimate_dict is not None:
-            
-
-            seed_point_location = np.array([0.0]*4)
-            seed_point_location[3]=1.0
-
-            for i in range(3):
-                seed_point_location[i]=np.mean(rm.polygon_contact_estimate_dict['vertex_array'][i])
-
-
-        visited_array*=0
-
-        
+        my_operator.unpack_all()
+        my_operator.update_estimator()
+        my_operator.publish_values()
 
 
     rm.unregister_all()

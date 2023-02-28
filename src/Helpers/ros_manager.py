@@ -125,6 +125,7 @@ class ros_manager(object):
 
 		with open(self.path+self.fname_load+'.pickle', 'rb') as handle:
 			self.read_dict = pickle.load(handle)
+		handle.close()
 
 		if ('/near_cam/color/image_raw' in self.read_dict and 'time_list' in self.read_dict['/near_cam/color/image_raw'] and
 			len(self.read_dict['/near_cam/color/image_raw']['time_list'])>0):

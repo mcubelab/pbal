@@ -816,10 +816,7 @@ class contact_mode_reasoning(object):
         hypothesis_theta_list = []
 
         if len(self.normals_array_wm_vision[0])==self.num_vertices:
-
-            
-
-
+    
             theta_list_wm_vision = [0.0]*self.num_vertices
             theta_list_obj_frame = [0.0]*self.num_vertices
 
@@ -876,7 +873,7 @@ class contact_mode_reasoning(object):
                     vision_to_obj_map = {}
 
 
-                    for j in range(4):
+                    for j in range(self.num_vertices):
                         obj_to_vision_map[j]=(j+i)%self.num_vertices
                         vision_to_obj_map[(j+i)%self.num_vertices] = j
                     
