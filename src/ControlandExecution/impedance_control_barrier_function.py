@@ -83,12 +83,11 @@ class ImpedanceControlBarrierFunction(object):
                               '/ee_pose_in_world_manipulation_from_franka_publisher',
                               '/barrier_func_control_command'])
 
-        self.rm.subscribe_to_list(['/pivot_frame_realsense',
-                              '/pivot_frame_estimated',
-                              '/generalized_positions',
-                              '/friction_parameters',
-                              '/torque_bound_message',
-                              '/polygon_contact_estimate',],False)
+        self.rm.subscribe_to_list(['/pivot_frame_estimated',
+                                '/generalized_positions',
+                                '/friction_parameters',
+                                '/torque_bound_message',
+                                '/polygon_contact_estimate',],False)
 
         self.rm.spawn_publisher_list(['/pivot_sliding_commanded_flag',
                                  '/qp_debug_message',
