@@ -75,7 +75,8 @@ class gtsam_operator(object):
 
 
     def publish_values(self):
-        if self.can_publish:
+        if self.polygon_contact_dict is not None:
+        # if self.can_publish:
 
             self.rm.pub_pivot_frame_estimated(self.pivot_frame_out )
 
@@ -395,6 +396,17 @@ class gtsam_operator(object):
                 #                                 hand_contact_indices = hand_contact_indices,
                 #                                 wall_contact_indices = wall_contact_indices,
                 #                                 wall_flag = wall_flag)
+
+        elif self.polygon_contact_dict is not None and self.polygon_contact_dict['vertex_array_out'] is not None:
+            
+            if wall_flag == 0:
+                wall_contact_indices = [np.argmin(self.polygon_contact_dict['vertex_array_out'][1])]
+                self.polygon_contact_dict['wall_contact_indices'] = wall_contact_indices
+            elif wall_flag == 1:
+                wall_contact_indices = [np.argmax(self.polygon_contact_dict['vertex_array_out'][1])]
+                self.polygon_contact_dict['wall_contact_indices'] = wall_contact_indices
+
+
 
 
 

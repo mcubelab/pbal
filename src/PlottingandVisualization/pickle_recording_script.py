@@ -8,7 +8,8 @@ from Helpers.ros_manager import ros_manager
 
 if __name__ == '__main__':
     experiment_label = 'test_data'
-    path = '/home/thecube/Documents/pbal_experiments/IROS_ablation_data'
+    # path = '/home/thecube/Documents/pbal_experiments/IROS_ablation_data'
+    path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
 
     rospy.init_node('rospy_recording_node')
     rate = rospy.Rate(200)

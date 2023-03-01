@@ -296,8 +296,14 @@ class system_visualizer(object):
                         ioh.plot_force_arrow(self.cv_image,P0,-np.array(self.rm.measured_world_manipulation_wrench_6D[0:3]),self.force_scale,self.camera_transformation_matrix, thickness = self.force_width)
 
 
-                hand_contact_color = (210,210,30)
-                wall_contact_color = (0,255,255)
+                # hand_contact_color = (210,210,30)
+                # wall_contact_color = (0,255,255)
+                # contact_color = (255,0,255)
+
+                hand_contact_color = (0, 0, 255)
+                wall_contact_color = (0, 0, 255)
+
+                contact_color =  (0, 0, 255)
                 
 
                 if len(self.rm.polygon_contact_estimate_dict['contact_indices'])==2:
@@ -305,7 +311,7 @@ class system_visualizer(object):
                     endpoint1 = vertex_array_to_display[:,self.rm.polygon_contact_estimate_dict['contact_indices'][1]]
                     contact_line = np.transpose(np.vstack([endpoint0,endpoint1]))
                     contact_line = np.vstack([contact_line,np.array([1.0,1.0])])
-                    ioh.plot_wm_lines(self.cv_image, contact_line, self.camera_transformation_matrix,color = (255,0,255), thickness = self.line_width)
+                    ioh.plot_wm_lines(self.cv_image, contact_line, self.camera_transformation_matrix,color = contact_color, thickness = self.line_width)
 
                 if len(self.rm.polygon_contact_estimate_dict['wall_contact_indices'])==1 and len(vertex_array_to_display[0])>=2:
                     wall_contact_index = self.rm.polygon_contact_estimate_dict['wall_contact_indices'][0]
@@ -334,9 +340,9 @@ class system_visualizer(object):
                     elif i in self.rm.polygon_contact_estimate_dict['hand_contact_indices']:
                         self.dot_overlay(vertex_to_display,color = hand_contact_color, radius = self.dot_radius)
                     elif i in self.rm.polygon_contact_estimate_dict['contact_indices']:
-                        self.dot_overlay(vertex_to_display,color = (255,0,255), radius = self.dot_radius)
-                    else:
-                        self.dot_overlay(vertex_to_display, radius = self.dot_radius)
+                        self.dot_overlay(vertex_to_display,color = contact_color, radius = self.dot_radius)
+                    # else:
+                    #     self.dot_overlay(vertex_to_display, radius = self.dot_radius)
 
 
             if self.display_polygon_vision_estimate and self.rm.polygon_vision_estimate_dict is not None:
