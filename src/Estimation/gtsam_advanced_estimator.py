@@ -440,9 +440,9 @@ class gtsam_advanced_estimator(object):
 
         sliding_state_dict = self.sliding_state_list[-1]
 
-        # # if object is in point contact with the ground, the torque balance constraint applies
-        # if len(self.contact_vertices)==1 and not self.wall_contact_on and use_torque_balance:
-        #     self.add_basic_torque_balance_constraint(self.contact_vertices[0], hand_contact_face_index)
+        # if object is in point contact with the ground, the torque balance constraint applies
+        if len(self.contact_vertices)==1 and not self.wall_contact_on:
+            self.add_floating_torque_balance_constraint(self.contact_vertices[0])
 
         self.add_floating_object_hand_touching_constraint(self.single_vertex_touching_hand,self.error_floating_object_hand_touching_model)
 
@@ -958,6 +958,41 @@ class gtsam_advanced_estimator(object):
 
         error_model = self.error_torque_model
         error_func = partial(eval_error_torque_balance, measurement, set_val_dict, index_dict)
+
+        my_factor = gtsam.CustomFactor(error_model, symbol_list, error_func)
+
+        self.my_graph.add(my_factor)
+
+    def add_floating_torque_balance_constraint(self, ground_contact_vertex_index):
+
+        set_val_dict = {
+        }
+
+        index_dict = {
+            'r0_point_in_obj_frame': 0, 
+            'r1_point_in_obj_frame': 1, 
+            'r0_obj_in_wm_frame': 2,
+            'r1_obj_in_wm_frame': 3,
+            'theta_obj_in_wm': 4,
+            'mglcostheta': 5, 
+            'mglsintheta': 6, 
+        }
+
+        symbol_list = [
+            self.symbol_dict['r0_point_in_obj_frame'][ground_contact_vertex_index], 
+            self.symbol_dict['r1_point_in_obj_frame'][ground_contact_vertex_index],
+            self.symbol_dict['r0_obj_in_wm'][self.current_time_step], 
+            self.symbol_dict['r1_obj_in_wm'][self.current_time_step],
+            self.symbol_dict['theta_obj_in_wm'][self.current_time_step],
+            self.symbol_dict['mglcostheta'][ground_contact_vertex_index], 
+            self.symbol_dict['mglsintheta'][ground_contact_vertex_index], 
+        ]
+
+        measurement = np.hstack([self.measured_pose_list[self.current_time_step], self.measured_wrench_list[self.current_time_step]])
+
+
+        error_model = self.error_torque_model
+        error_func = partial(eval_error_torque_balance_floating, measurement, set_val_dict, index_dict)
 
         my_factor = gtsam.CustomFactor(error_model, symbol_list, error_func)
 
@@ -1696,6 +1731,113 @@ def eval_error_kinematic_through_hand_const_wm(measurement_t0, measurement_t1, s
     return [error_val]
 
 
+# dictionary keys:
+# 'r0_point_in_obj_frame'
+# 'r1_point_in_obj_frame'
+# 'r0_obj_in_wm_frame'
+# 'r1_obj_in_wm_frame'
+# 'theta_obj_in_wm'
+# 'mglcostheta'
+# 'mglsintheta'
+
+def eval_error_torque_balance_floating(measurement, set_val_dict, index_dict, this, values, jacobians = None):
+
+    estimate_vec = []
+    for i in range(len(this.keys())):
+        estimate_vec.append(values.atVector(this.keys()[i])[0])
+
+
+    index_r0_point_in_obj_frame = None
+    val_r0_point_in_obj_frame = None
+
+    if 'r0_point_in_obj_frame' in set_val_dict:
+        val_r0_point_in_obj_frame = set_val_dict['r0_point_in_obj_frame']
+    else:
+        index_r0_point_in_obj_frame = index_dict['r0_point_in_obj_frame']
+        val_r0_point_in_obj_frame = estimate_vec[index_r0_point_in_obj_frame]
+
+    index_r1_point_in_obj_frame = None
+    val_r1_point_in_obj_frame = None
+
+    if 'r1_point_in_obj_frame' in set_val_dict:
+        val_r1_point_in_obj_frame = set_val_dict['r1_point_in_obj_frame']
+    else:
+        index_r1_point_in_obj_frame = index_dict['r1_point_in_obj_frame']
+        val_r1_point_in_obj_frame = estimate_vec[index_r1_point_in_obj_frame]
+
+    val_r_point_in_obj_frame = np.array([val_r0_point_in_obj_frame, val_r1_point_in_obj_frame])
+
+
+
+    index_r0_obj_in_wm_frame = None
+    val_r0_obj_in_wm_frame = None
+
+    if 'r0_obj_in_wm_frame' in set_val_dict:
+        val_r0_obj_in_wm_frame = set_val_dict['r0_obj_in_wm_frame']
+    else:
+        index_r0_obj_in_wm_frame = index_dict['r0_obj_in_wm_frame']
+        val_r0_obj_in_wm_frame = estimate_vec[index_r0_obj_in_wm_frame]
+
+    index_r1_obj_in_wm_frame = None
+    val_r1_obj_in_wm_frame = None
+
+    if 'r1_obj_in_wm_frame' in set_val_dict:
+        val_r1_obj_in_wm_frame = set_val_dict['r1_obj_in_wm_frame']
+    else:
+        index_r1_obj_in_wm_frame = index_dict['r1_obj_in_wm_frame']
+        val_r1_obj_in_wm_frame = estimate_vec[index_r1_obj_in_wm_frame]
+
+    val_r_obj_in_wm_frame = np.array([val_r0_obj_in_wm_frame, val_r1_obj_in_wm_frame])
+
+
+    index_theta_obj_in_wm = None
+    val_theta_obj_in_wm = None
+
+    if 'theta_obj_in_wm' in set_val_dict:
+        val_theta_obj_in_wm = set_val_dict['theta_obj_in_wm']
+    else:
+        index_theta_obj_in_wm = index_dict['theta_obj_in_wm']
+        val_theta_obj_in_wm = estimate_vec[index_theta_obj_in_wm]
+
+    index_mglcostheta = None
+    val_mglcostheta = None
+
+    if 'mglcostheta' in set_val_dict:
+        val_mglcostheta = set_val_dict['mglcostheta']
+    else:
+        index_mglcostheta = index_dict['mglcostheta']
+        val_mglcostheta = estimate_vec[index_mglcostheta]
+
+    index_mglsintheta = None
+    val_mglsintheta = None
+
+    if 'mglsintheta' in set_val_dict:
+        val_mglsintheta = set_val_dict['mglsintheta']
+    else:
+        index_mglsintheta = index_dict['mglsintheta']
+        val_mglsintheta = estimate_vec[index_mglsintheta]
+
+
+    val_r_ee_in_wm = np.array([measurement[0], measurement[1]])
+    val_theta_hand = measurement[2]
+    val_hand_wrench = measurement[3:6]
+
+
+    net_torque, pnet_torque_pr_point_in_obj_frame, pnet_torque_pr_obj_in_wm_frame, pnet_torque_ptheta_obj_in_wm, pnet_torque_pmglcostheta, pnet_torque_pmglsintheta = \
+    error_torque_balance_floating(val_r_point_in_obj_frame, val_r_obj_in_wm_frame, val_theta_obj_in_wm, val_r_ee_in_wm, val_theta_hand, val_mglcostheta, val_mglsintheta, val_hand_wrench)
+
+    if jacobians is not None:
+        if index_r0_point_in_obj_frame is not None: jacobians[index_r0_point_in_obj_frame] = np.array([pnet_torque_pr_point_in_obj_frame[0]])
+        if index_r1_point_in_obj_frame is not None: jacobians[index_r1_point_in_obj_frame] = np.array([pnet_torque_pr_point_in_obj_frame[1]])
+        if index_r0_obj_in_wm_frame is not None: jacobians[index_r0_obj_in_wm_frame] = np.array([pnet_torque_pr_obj_in_wm_frame[0]])
+        if index_r1_obj_in_wm_frame is not None: jacobians[index_r1_obj_in_wm_frame] = np.array([pnet_torque_pr_obj_in_wm_frame[1]])
+        if index_theta_obj_in_wm is not None: jacobians[index_theta_obj_in_wm] = np.array([pnet_torque_ptheta_obj_in_wm])
+        if index_mglcostheta is not None: jacobians[index_mglcostheta] = np.array([pnet_torque_pmglcostheta])
+        if index_mglsintheta is not None: jacobians[index_mglsintheta] = np.array([pnet_torque_pmglsintheta])
+
+    return [net_torque]
+
+
 
 def error_torque_balance(r_point_in_obj_frame, r_obj_in_ee_frame, theta_obj_in_ee, r_ee_in_wm, theta_hand, mglcostheta, mglsintheta, hand_wrench):
     r_pivot, pr_pivot_pr_point_in_obj_frame, pr_pivot_pr_obj_in_ee_frame, pr_pivot_ptheta_obj_in_ee = \
@@ -2119,3 +2261,34 @@ def eval_error_kinematic_floating_obj_hand_touching(measurement, set_val_dict, i
 
 
     return [error_val]
+
+
+def error_torque_balance_floating(r_point_in_obj_frame, r_obj_in_wm_frame, theta_obj_in_wm, r_ee_in_wm, theta_hand, mglcostheta, mglsintheta, hand_wrench):
+    r_pivot, pr_pivot_pr_point_in_obj_frame, pr_pivot_pr_obj_in_wm_frame, pr_pivot_ptheta_obj_in_wm = \
+    transform_pts_obj_to_wm(r_point_in_obj_frame, r_obj_in_wm_frame, theta_obj_in_wm, np.array([0.0,0.0]), -np.pi)
+
+
+    fn_wm  = hand_wrench[0]
+    ft_wm  = hand_wrench[1]
+    tau_wm = hand_wrench[2]
+
+    moment_arm = r_ee_in_wm-r_pivot
+
+    hand_torque = ft_wm*moment_arm[0]-fn_wm*moment_arm[1]+tau_wm
+
+    pnet_torque_pr_point_in_obj_frame = -ft_wm*pr_pivot_pr_point_in_obj_frame[0, :]  +fn_wm*pr_pivot_pr_point_in_obj_frame[1, :]
+    pnet_torque_pr_obj_in_wm_frame = -ft_wm*pr_pivot_pr_obj_in_wm_frame[0, :]  +fn_wm*pr_pivot_pr_obj_in_wm_frame[1, :]
+    phand_torque_ptheta_obj_in_wm = -ft_wm*pr_pivot_ptheta_obj_in_wm[0]  +fn_wm*pr_pivot_ptheta_obj_in_wm[1]
+
+    gravity_torque = mglcostheta*np.cos(theta_obj_in_wm-np.pi)+mglsintheta*np.sin(theta_obj_in_wm-np.pi)
+
+    net_torque = hand_torque+gravity_torque
+
+    pnet_torque_pmglcostheta = np.cos(theta_obj_in_wm-np.pi)
+    pnet_torque_pmglsintheta = np.sin(theta_obj_in_wm-np.pi)
+    pgravity_torque_ptheta_obj_in_wm =-mglcostheta*np.sin(theta_obj_in_wm-np.pi)+mglsintheta*np.cos(theta_obj_in_wm-np.pi)
+
+
+    pnet_torque_ptheta_obj_in_wm = phand_torque_ptheta_obj_in_wm + pgravity_torque_ptheta_obj_in_wm
+
+    return net_torque, pnet_torque_pr_point_in_obj_frame, pnet_torque_pr_obj_in_wm_frame, pnet_torque_ptheta_obj_in_wm, pnet_torque_pmglcostheta, pnet_torque_pmglsintheta

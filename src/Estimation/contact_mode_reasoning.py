@@ -658,7 +658,11 @@ class contact_mode_reasoning(object):
 
             if test_GLB:
                 phi_test1 = abs(theta_touch_ground_GLB-self.object_angle_wm_estimated)
+
+            # print(self.object_angle_wm_estimated)
+            # print(f'{phi_test0:.3f}',f'{phi_test1:.3f}',f'{self.h_ground:.4f}')
             
+
             # is_feasible = (test_GLB or test_LUB) and min(phi_test0,phi_test1)<30.0*np.pi/180.0
             # is_feasible = (test_GLB or test_LUB) and min(phi_test0,phi_test1)<10.0*np.pi/180.0
             is_feasible = (((not hand_flush_contact_possible) and (test_GLB or test_LUB) and min(phi_test0,phi_test1)<15.0*np.pi/180.0) 

@@ -51,8 +51,8 @@ if __name__ == '__main__':
     frame_rate = None
     cam_choice = 'near'
 
-    # read_from_file = False
-    read_from_file = True
+    read_from_file = False
+    # read_from_file = True
 
 
 
@@ -61,8 +61,8 @@ if __name__ == '__main__':
     fname_image_out = generate_video_name(image_write_path,'IROS_figure1','.png')
 
 
-    write_image_to_file = True
-    # write_image_to_file = False
+    # write_image_to_file = True
+    write_image_to_file = False
 
     write_to_file = False and read_from_file
     display_overlay = False or (not write_to_file) or (not read_from_file)
@@ -130,11 +130,11 @@ if __name__ == '__main__':
                 'fname_out':fname_out,
                 'display_hand_friction_cone':True,
                 'display_hand_force':True,
-                # 'display_ground_friction_cone':True,
-                'display_ground_friction_cone':False,
+                'display_ground_friction_cone':True,
+                # 'display_ground_friction_cone':False,
 
-                # 'display_ground_force':True,
-                'display_ground_force':False,
+                'display_ground_force':True,
+                # 'display_ground_force':False,
 
                 'display_impedance_target':False,
                 'display_hand_apriltag_overlay':False,
@@ -146,17 +146,17 @@ if __name__ == '__main__':
                 'display_pivot_estimate':False,
                 'display_shape_overlay':True,
                 'display_polygon_contact_estimate':True,
-                'display_polygon_vision_estimate':True,
+                'display_polygon_vision_estimate':False,
                 'image_write_path':image_write_path,
                 'fname_image_out':fname_image_out,
-                # 'dot_radius': None, #7,
-                # 'line_width': None, #5,
-                # 'force_scale':.001, #.002,
-                # 'force_width':None, #3,
-                'dot_radius': 7,
-                'line_width': 5,
-                'force_scale':.002,
-                'force_width':3,
+                'dot_radius': None, #7,
+                'line_width': None, #5,
+                'force_scale':.001, #.002,
+                'force_width':None, #3,
+                # 'dot_radius': 7,
+                # 'line_width': 5,
+                # 'force_scale':.002,
+                # 'force_width':3,
                 }
     
     my_visualizer = system_visualizer(rm,options)

@@ -304,6 +304,8 @@ class system_visualizer(object):
                 wall_contact_color = (0, 0, 255)
 
                 contact_color =  (0, 0, 255)
+
+                default_vertex_color = (150,150,150)
                 
 
                 if len(self.rm.polygon_contact_estimate_dict['contact_indices'])==2:
@@ -318,7 +320,7 @@ class system_visualizer(object):
                     wall_contact_test = np.abs(vertex_array_to_display[1,:]-vertex_array_to_display[1,wall_contact_index])
 
                     wall_vertex_candidate = np.argsort(wall_contact_test)[1]
-                    if wall_contact_test[wall_vertex_candidate]<.01:
+                    if wall_contact_test[wall_vertex_candidate]<.02:
                         endpoint0 = vertex_array_to_display[:,wall_contact_index]
                         endpoint1 = vertex_array_to_display[:,wall_vertex_candidate]
                         contact_line = np.transpose(np.vstack([endpoint0,endpoint1]))
@@ -341,8 +343,8 @@ class system_visualizer(object):
                         self.dot_overlay(vertex_to_display,color = hand_contact_color, radius = self.dot_radius)
                     elif i in self.rm.polygon_contact_estimate_dict['contact_indices']:
                         self.dot_overlay(vertex_to_display,color = contact_color, radius = self.dot_radius)
-                    # else:
-                    #     self.dot_overlay(vertex_to_display, radius = self.dot_radius)
+                    else:
+                        self.dot_overlay(vertex_to_display,color = default_vertex_color, radius = self.dot_radius)
 
 
             if self.display_polygon_vision_estimate and self.rm.polygon_vision_estimate_dict is not None:
