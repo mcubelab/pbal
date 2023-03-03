@@ -145,7 +145,7 @@ class ImpedanceControlBarrierFunction(object):
 
         if mode == -1 or mode == 6:
             coord_set = {'theta'}
-        if mode == 0 or mode == 1 or mode == 4 or mode == 5 or mode == 7 or mode == 8 or mode == 9:
+        if mode == 0 or mode == 1 or mode == 4 or mode == 5 or mode == 7 or mode == 8 or mode == 9 or mode == 13 or mode == 14:
             coord_set = {'theta','s_hand'}
         if mode == 2 or mode == 3 or mode == 10 or mode == 11:
             coord_set = {'theta','s_pivot'}
@@ -327,7 +327,7 @@ class ImpedanceControlBarrierFunction(object):
 
                 hand_rotation_vector = compute_rotation_vector(hand_pivot_vertex,current_xyz_theta_robot_frame,theta_hand)
 
-                # error_dict['error_theta_relative'] = -kh.mod2pi(np.arctan2(self.rm.measured_contact_wrench[1],self.rm.measured_contact_wrench[0]))
+                error_dict['error_theta_relative'] = -kh.mod2pi(np.arctan2(self.rm.measured_contact_wrench[1],self.rm.measured_contact_wrench[0]))
                 # print(temp_theta_error)
             else:
 
@@ -456,7 +456,7 @@ class ImpedanceControlBarrierFunction(object):
                 #     torque_line_contact_external_B*= 0.0
                     
 
-                if mode == 7 or mode == 8 or mode == 9 or mode == 10 or mode == 11:
+                if mode == 7 or mode == 8 or mode == 9 or mode == 10 or mode == 11 or mode == 13 or mode == 14:
                     torque_errors = np.dot(torque_line_contact_external_A,self.rm.measured_contact_wrench)-torque_line_contact_external_B
 
                     if torque_errors[0]>0.0 and torque_errors[1]<=0.0:
@@ -490,7 +490,7 @@ class ImpedanceControlBarrierFunction(object):
 
 
                     
-                if mode == 6:
+                if mode == 6 or mode == 13 or mode == 14:
                     temp = compute_wall_rotation_vector(v0,v1,current_xyz_theta_robot_frame,theta_hand)
 
                     torque_line_contact_external_B = np.array([.3,.3])

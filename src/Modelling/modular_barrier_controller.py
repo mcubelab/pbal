@@ -448,6 +448,45 @@ class ModularBarrierController(object):
                 # self.friction_left_external_constraint,
             ]
 
+
+        if self.mode == 13:  # enforce line contact at both hand and ground, while sliding right at hand interface
+
+            self.mode_cost = [
+                self.wrench_regularization_cost,
+                self.normal_force_cost,
+                # self.slide_right_robot_cost,
+                self.slide_right_robot_flush_external_cost,
+            ]
+
+            self.mode_constraint = [
+                self.friction_left_contact_constraint,
+                self.torque_right_contact_constraint,
+                self.torque_left_contact_constraint,
+                self.normal_force_max_contact_constraint,
+                # self.friction_right_external_constraint,
+                # self.friction_left_external_constraint,
+                self.torque_line_contact_external_constraints,
+            ]
+
+        if self.mode == 14:  # enforce line contact at both hand and ground, while sliding left at hand interface
+
+            self.mode_cost = [
+                self.wrench_regularization_cost,
+                self.normal_force_cost,
+                # self.slide_left_robot_cost,
+                self.slide_left_robot_flush_external_cost,
+            ]
+
+            self.mode_constraint = [
+                self.friction_right_contact_constraint,
+                self.torque_right_contact_constraint,
+                self.torque_left_contact_constraint,
+                self.normal_force_max_contact_constraint,
+                # self.friction_right_external_constraint,
+                # self.friction_left_external_constraint,
+                self.torque_line_contact_external_constraints,
+            ]
+
     def compute_error_theta(self):
         self.error_theta = self.compute_general_error(
             error_value=self.error_dict['error_theta'],
@@ -741,10 +780,10 @@ class ModularBarrierController(object):
             return None, None, None, None
 
         aiq0 = np.dot(self.radial_unit_vector, self.R2C)
-        biq0 = -4.
+        biq0 = -8.
 
         aiq1 = np.dot(-self.radial_unit_vector, self.R2C)
-        biq1 = 8
+        biq1 = 15
 
         aiq = np.array([aiq0,aiq1])
         biq = np.array([biq0,biq1])
