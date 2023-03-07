@@ -65,7 +65,7 @@ if __name__ == '__main__':
     write_image_to_file = False
 
     write_to_file = False and read_from_file
-    display_overlay = False or (not write_to_file) or (not read_from_file)
+    display_overlay = True or (not write_to_file) or (not read_from_file)
 
     write_path = None
     fname_out = None
@@ -78,7 +78,7 @@ if __name__ == '__main__':
         read_path = '/home/thecube/Documents/pbal_experiments/gtsam_test_data_fall_2022'
         write_path = read_path
         # read_path = '/home/taylorott/Docume6nts/experiment_data/gtsam_test_data_fall_2022'
-        fname_in = '/test_data-experiment0117.pickle'
+        fname_in = '/test_data-experiment0162.pickle'
         rm = ros_manager(load_mode = True, path=read_path, fname=fname_in)
         fname_out = generate_video_name(read_path,video_name='pivot_estimator_video')
     else:
@@ -128,13 +128,17 @@ if __name__ == '__main__':
                 'write_to_file':write_to_file,
                 'write_path':write_path,
                 'fname_out':fname_out,
-                'display_hand_friction_cone':True,
-                'display_hand_force':True,
-                'display_ground_friction_cone':True,
-                # 'display_ground_friction_cone':False,
+                # 'display_hand_friction_cone':True,
+                'display_hand_friction_cone':False,
 
-                'display_ground_force':True,
-                # 'display_ground_force':False,
+                'display_hand_force':True,
+                # 'display_hand_force':False,
+
+                # 'display_ground_friction_cone':True,
+                'display_ground_friction_cone':False,
+
+                # 'display_ground_force':True,
+                'display_ground_force':False,
 
                 'display_impedance_target':False,
                 'display_hand_apriltag_overlay':False,
@@ -145,18 +149,32 @@ if __name__ == '__main__':
                 'display_pivot_apriltag':False,
                 'display_pivot_estimate':False,
                 'display_shape_overlay':True,
-                'display_polygon_contact_estimate':True,
+                'display_polygon_contact_estimate':False,
                 'display_polygon_vision_estimate':False,
                 'image_write_path':image_write_path,
                 'fname_image_out':fname_image_out,
-                'dot_radius': None, #7,
-                'line_width': None, #5,
-                'force_scale':.001, #.002,
-                'force_width':None, #3,
-                # 'dot_radius': 7,
-                # 'line_width': 5,
-                # 'force_scale':.002,
-                # 'force_width':3,
+                # 'dot_radius': None, #7,
+                # 'line_width': None, #5,
+                # 'force_scale':.001, #.002,
+                # 'force_width':None, #3,
+                'dot_radius': 7,
+                'line_width': 5,
+                'force_scale':.0015,
+                'force_width':3,
+                # 'display_hand_contact_geometry': False,
+                # 'display_ground_contact_geometry': False,
+                # 'display_wall_contact_geometry': False,
+                # 'display_estimated_object_vertices': False,
+
+                'invert_hand_friction_cone': True,
+                'invert_hand_force': True,
+                # 'center_hand_force_origin': True,
+                'hand_friction_theta_fixed': .34,
+                'hand_force_color': (50,0,100),
+                # 'hand_friction_cone_color': (0,255,0),
+
+                'display_hand_COP': True,
+                'hand_COP_color': (0,0,255)
                 }
     
     my_visualizer = system_visualizer(rm,options)

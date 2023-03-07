@@ -258,20 +258,31 @@ def estimate_hand_COP(measured_contact_wrench_6D, hand_points, contact_pose_homo
 
 
 
-def plot_force_arrow(cv_image, force_origin, force_vector, force_scale, camera_transformation_matrix, thickness = None):
+def plot_force_arrow(cv_image, force_origin, force_vector, force_scale, camera_transformation_matrix, thickness = None, invert = False, color = None):
+    if color is None:
+        color = (255, 0, 0)
+
+    sign_multiplier = 1.0
+
+    if invert:
+        sign_multiplier = -1.0
+
     if thickness is None:
         thickness = 2
     force_origin = np.hstack([force_origin[0:3],np.array([1])])
     if force_origin is not None and force_vector is not None:
         force_tip = np.hstack(
-            [force_origin[0:3] + force_scale * force_vector, np.array([1])])
+            [force_origin[0:3] + sign_multiplier*force_scale * force_vector, np.array([1])])
         x_coord, y_coord = get_pix_easier(
             np.vstack([force_origin, force_tip]).T, camera_transformation_matrix)
         cv2.arrowedLine(cv_image, (x_coord[0], y_coord[0]),
-                        (x_coord[1], y_coord[1]), (255, 0, 0), thickness=thickness)
+                        (x_coord[1], y_coord[1]), color, thickness=thickness)
 
 
-def plot_hand_friction_cone(cv_image, COP_point_hand_frame, friction_parameter_dict, contact_pose_homog, camera_transformation_matrix, force_scale, thickness = None):
+def plot_hand_friction_cone(cv_image, COP_point_hand_frame, friction_parameter_dict, contact_pose_homog, camera_transformation_matrix, force_scale, thickness = None, invert = False, friction_theta_fixed = None, color = None):
+    if color is None:
+        color = (0, 255, 0)
+
     if thickness is None:
         thickness = 2
     if friction_parameter_dict is not None and COP_point_hand_frame is not None and contact_pose_homog is not None:
@@ -284,12 +295,29 @@ def plot_hand_friction_cone(cv_image, COP_point_hand_frame, friction_parameter_d
             friction_parameter_dict["acr"][1] * friction_parameter_dict["bcr"]
         ]
 
-        x_left0 = P0_L[0] - 40 * force_scale * \
-            friction_parameter_dict["acl"][1]
-        x_left1 = P0_L[0] + 0 * force_scale * friction_parameter_dict["acl"][1]
-        y_left0 = P0_L[1] + 40 * force_scale * \
-            friction_parameter_dict["acl"][0]
-        y_left1 = P0_L[1] - 0 * force_scale * friction_parameter_dict["acl"][0]
+
+        cl1 = friction_parameter_dict["acl"][1]
+        cl0 = friction_parameter_dict["acl"][0]
+        cr1 = friction_parameter_dict["acr"][1]
+        cr0 = friction_parameter_dict["acr"][0]
+
+        if friction_theta_fixed is not None:
+            cl1 = -np.cos(friction_theta_fixed)
+            cl0 = -np.sin(friction_theta_fixed)
+            cr1 = np.cos(friction_theta_fixed)
+            cr0 =-np.sin(friction_theta_fixed)
+
+
+        x_left0 = P0_L[0] - 40 * force_scale * cl1
+        x_left1 = P0_L[0] + 0 * force_scale * cl1
+        y_left0 = P0_L[1] + 40 * force_scale * cl0
+        y_left1 = P0_L[1] - 0 * force_scale * cl0
+
+        if invert:
+            x_left0*=-1
+            x_left1*=-1
+            y_left0*=-1
+            y_left1*=-1
 
         left_bound0 = COP_point_hand_frame + \
             np.array([x_left0, y_left0, 0.0, 0.0])
@@ -301,16 +329,20 @@ def plot_hand_friction_cone(cv_image, COP_point_hand_frame, friction_parameter_d
         x_coord, y_coord = get_pix_easier(
             np.dot(contact_pose_homog, left_boundary_list), camera_transformation_matrix)
         cv2.polylines(cv_image, [np.vstack(
-            [x_coord, y_coord]).T], True, (0, 255, 0), thickness=thickness)
+            [x_coord, y_coord]).T], True, color, thickness=thickness)
 
-        x_right0 = P0_R[0] - 0 * force_scale * \
-            friction_parameter_dict["acr"][1]
-        x_right1 = P0_R[0] + 40 * force_scale * \
-            friction_parameter_dict["acr"][1]
-        y_right0 = P0_R[1] + 0 * force_scale * \
-            friction_parameter_dict["acr"][0]
-        y_right1 = P0_R[1] - 40 * force_scale * \
-            friction_parameter_dict["acr"][0]
+
+
+        x_right0 = P0_R[0] - 0 * force_scale * cr1
+        x_right1 = P0_R[0] + 40 * force_scale * cr1
+        y_right0 = P0_R[1] + 0 * force_scale * cr0
+        y_right1 = P0_R[1] - 40 * force_scale * cr0
+
+        if invert:
+            x_right0*=-1
+            x_right1*=-1
+            y_right0*=-1
+            y_right1*=-1
 
         right_bound0 = COP_point_hand_frame + \
             np.array([x_right0, y_right0, 0.0, 0.0])
@@ -322,7 +354,7 @@ def plot_hand_friction_cone(cv_image, COP_point_hand_frame, friction_parameter_d
         x_coord, y_coord = get_pix_easier(
             np.dot(contact_pose_homog, right_boundary_list), camera_transformation_matrix)
         cv2.polylines(cv_image, [np.vstack(
-            [x_coord, y_coord]).T], True, (0, 255, 0), thickness=thickness)
+            [x_coord, y_coord]).T], True, color, thickness=thickness)
 
 
 
