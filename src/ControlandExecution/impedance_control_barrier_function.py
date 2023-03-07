@@ -327,7 +327,7 @@ class ImpedanceControlBarrierFunction(object):
 
                 hand_rotation_vector = compute_rotation_vector(hand_pivot_vertex,current_xyz_theta_robot_frame,theta_hand)
 
-                error_dict['error_theta_relative'] = -kh.mod2pi(np.arctan2(self.rm.measured_contact_wrench[1],self.rm.measured_contact_wrench[0]))
+                # error_dict['error_theta_relative'] = -kh.mod2pi(np.arctan2(self.rm.measured_contact_wrench[1],self.rm.measured_contact_wrench[0]))
                 # print(temp_theta_error)
             else:
 

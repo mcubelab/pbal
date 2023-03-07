@@ -153,7 +153,7 @@ class ModularBarrierController(object):
 
         if torque_bounds is not None:
             torque_bound_delta = torque_bounds[1]-torque_bounds[0]
-            self.torque_bounds = [torque_bounds[0]+.025*torque_bound_delta,torque_bounds[1]-.025*torque_bound_delta]
+            self.torque_bounds = [torque_bounds[0]+.025*torque_bound_delta,torque_bounds[1]-.05*torque_bound_delta]
 
         else:
             self.torque_bounds = torque_bounds
