@@ -310,7 +310,7 @@ delta_rotate_hand_left_object_corner = {
     'name': 'delta_rotate_hand_left_object_corner',
     'command_flag' : 1,
     'mode' : 12,
-    'delta_theta_relative' : np.pi/30, #np.pi/12,
+    'delta_theta_relative' : np.pi/10, #np.pi/12,
     'delta_theta_object' : 0.0,
 }
 
@@ -318,7 +318,7 @@ delta_rotate_hand_right_object_corner = {
     'name': 'delta_rotate_hand_right_object_corner',
     'command_flag' : 1,
     'mode' : 12,
-    'delta_theta_relative' : -np.pi/30, #-np.pi/12,
+    'delta_theta_relative' : -np.pi/10, #-np.pi/12,
     'delta_theta_object' : 0.0,
 }
 
@@ -338,6 +338,24 @@ delta_rotate_object_right_object_corner = {
     'delta_theta_object' : -np.pi/30, #-np.pi/12, 
 }
 
+
+delta_slide_robot_left_corner_contact = {
+    'name': 'delta_slide_robot_left_corner_contact',
+    'command_flag' : 1,
+    'mode' : 14,
+    'delta_theta' : 0.0,
+    'delta_s_pivot' : 0.00,
+    'delta_s_hand' : -0.015,
+}
+
+delta_slide_robot_right_corner_contact = {
+    'name': 'delta_slide_robot_right_corner_contact',
+    'command_flag' : 1,
+    'mode' : 13,
+    'delta_theta' : 0.0,
+    'delta_s_pivot' : 0.00,
+    'delta_s_hand' : 0.015,
+}
 
 
 def on_release(key):
@@ -482,6 +500,14 @@ def on_press(key):
         elif k == 'e': # delta_slide_object_left_external_line_contact
             command_msg_dict = delta_slide_object_right_external_line_contact
             print('delta_slide_object_right_external_line_contact')
+
+        elif k == '1':
+            command_msg_dict = delta_slide_robot_left_corner_contact
+            print('delta_slide_robot_left_corner_contact')
+
+        elif k == '3':
+            command_msg_dict = delta_slide_robot_right_corner_contact
+            print('delta_slide_robot_right_corner_contact')
 
     if modifier_state==2:
         if k == 'left': # jog_rotate_left
